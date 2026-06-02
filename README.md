@@ -52,13 +52,25 @@ npm run build      # 타입체크 + 프로덕션 빌드 (dist/)
 ```
 
 `VITE_API_BASE` 가 비어 있으면 **목(mock) 클라이언트**가 동작해 인증키 없이도
-UI/정렬/저장 흐름을 확인할 수 있습니다. 실제 식약처 데이터를 쓰려면 아래 Worker를
+UI/정렬/저장 흐름을 확인할 수 있습니다(샘플 약품 8종 내장). 실제 식약처 데이터를 쓰려면 아래 Worker를
 배포하고 `.env`(또는 GitHub Pages용 repo Variable)에 Worker URL을 넣으세요.
 
 ```bash
 cp .env.example .env
 # VITE_API_BASE=https://ward-pillcheck-proxy.<your-subdomain>.workers.dev
 ```
+
+## 테스트
+
+```bash
+npm test           # Vitest: 도메인/리듀서/목 클라이언트 + App 통합(jsdom) 42케이스
+npm run e2e        # Playwright(실제 브라우저): 검색→추가→드래그 정렬→자동정렬 흐름
+```
+
+- **단위/통합**(`src/**/*.test.ts(x)`): 정렬·포맷 로직, 스토어 리듀서, 목 클라이언트,
+  그리고 `StoreProvider`로 감싼 `App` 전체를 렌더해 검색→추가→편집→삭제→정렬 흐름 검증.
+- **E2E**(`e2e/`): 데모 모드로 실제 브라우저에서 **터치 포인터 드래그 정렬**까지 검증
+  (jsdom 으로 불가능한 dnd-kit 드래그 포함). 최초 1회 `npx playwright install chromium` 필요.
 
 ## 1. data.go.kr 인증키 발급
 

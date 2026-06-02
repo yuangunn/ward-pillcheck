@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { isMockMode } from './api';
 import { useStore } from './state/store';
 import { PatientBar } from './components/patient/PatientBar';
@@ -6,12 +5,8 @@ import { SearchSection } from './components/search/SearchSection';
 import { MedList } from './components/meds/MedList';
 
 export default function App() {
-  const { state, dispatch, activePatient } = useStore();
-
-  // 최초 진입 시 환자가 없으면 "환자1" 자동 생성 → 단계 최소화
-  useEffect(() => {
-    if (state.patients.length === 0) dispatch({ type: 'ADD_PATIENT' });
-  }, [state.patients.length, dispatch]);
+  const { activePatient } = useStore();
+  // 환자 시드는 store 초기화 단계에서 보장됨(seedState).
 
   return (
     <div className="app-shell">

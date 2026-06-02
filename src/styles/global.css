@@ -403,6 +403,13 @@ h3 {
   padding: 8px 12px;
   align-items: center;
 }
+.sort-status {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex: none;
+}
 .sort-btn {
   flex: 1;
   min-height: 42px;

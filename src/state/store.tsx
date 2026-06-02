@@ -42,6 +42,15 @@ function nextPatientLabel(patients: Patient[]): string {
   return `환자${n}`;
 }
 
+function createPatient(existing: Patient[]): Patient {
+  return {
+    id: uid(),
+    label: nextPatientLabel(existing),
+    meds: [],
+    sortMode: 'manual',
+  };
+}
+
 function mapPatient(
   state: AppState,
   patientId: string,
@@ -53,15 +62,20 @@ function mapPatient(
   };
 }
 
+/**
+ * 초기 상태 보정: 환자가 하나도 없으면 기본 환자 1명을 시드.
+ * useReducer 초기화 단계에서 실행되므로 StrictMode 의 effect 중복 호출과 무관하다.
+ */
+function seedState(state: AppState): AppState {
+  if (state.patients.length > 0) return state;
+  const patient = createPatient([]);
+  return { ...state, patients: [patient], activePatientId: patient.id };
+}
+
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'ADD_PATIENT': {
-      const patient: Patient = {
-        id: uid(),
-        label: nextPatientLabel(state.patients),
-        meds: [],
-        sortMode: 'manual',
-      };
+      const patient = createPatient(state.patients);
       return {
         ...state,
         patients: [...state.patients, patient],
@@ -125,7 +139,9 @@ interface StoreValue {
 const StoreContext = createContext<StoreValue | null>(null);
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, initialState, loadState);
+  const [state, dispatch] = useReducer(reducer, initialState, () =>
+    seedState(loadState()),
+  );
 
   // 상태 변경 시 localStorage 동기화
   useEffect(() => {
@@ -151,4 +167,6 @@ export function useStore(): StoreValue {
   return ctx;
 }
 
-export { uid };
+// 테스트에서 순수 함수 단위로 검증할 수 있도록 export
+export { uid, reducer, seedState, createPatient };
+export type { Action };

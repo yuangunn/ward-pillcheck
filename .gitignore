@@ -11,3 +11,9 @@ worker/.dev.vars
 *.log
 
 *.tsbuildinfo
+
+# playwright
+test-results/
+playwright-report/
+blob-report/
+.playwright/

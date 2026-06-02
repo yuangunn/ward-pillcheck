@@ -31,12 +31,8 @@ export function MedRow({ med, draggable, onEdit }: Props) {
       className={`card med-item${isDragging ? ' med-dragging' : ''}`}
     >
       {draggable && (
-        <span
-          className="med-handle"
-          aria-label="순서 변경 핸들"
-          {...attributes}
-          {...listeners}
-        >
+        // dnd-kit attributes 가 role="button"/tabIndex 등 a11y 속성을 주입한다.
+        <span className="med-handle" aria-label="순서 변경 핸들" {...attributes} {...listeners}>
           ⠿
         </span>
       )}
