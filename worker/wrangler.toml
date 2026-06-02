@@ -1,0 +1,13 @@
+name = "ward-pillcheck-proxy"
+main = "src/index.ts"
+compatibility_date = "2024-09-01"
+
+# 인증키는 secret 으로 주입 (아래 README 참고):
+#   npx wrangler secret put SERVICE_KEY
+#
+# 공공데이터 엔드포인트 버전 suffix 가 바뀌면 vars 로 덮어쓰기:
+[vars]
+# PILL_ENDPOINT = "https://apis.data.go.kr/1471000/MdcinGrnIdntfcInfoService03/getMdcinGrnIdntfcInfoList03"
+# DETAIL_ENDPOINT = "https://apis.data.go.kr/1471000/DrbEasyDrugInfoService/getDrbEasyDrugList"
+# 운영 시 GitHub Pages 도메인으로 제한 권장 (기본 '*')
+# ALLOW_ORIGIN = "https://<github-username>.github.io"
