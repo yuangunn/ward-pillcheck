@@ -1,0 +1,19 @@
+node_modules
+dist
+dist-ssr
+*.local
+.env
+.env.local
+.DS_Store
+.wrangler
+worker/node_modules
+worker/.dev.vars
+*.log
+
+*.tsbuildinfo
+
+# playwright
+test-results/
+playwright-report/
+blob-report/
+.playwright/
