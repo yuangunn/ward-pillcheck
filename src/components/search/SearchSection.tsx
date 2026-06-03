@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   drugApi,
   DrugApiError,
@@ -29,19 +29,28 @@ export function SearchSection() {
   const [results, setResults] = useState<ResultsState>({ status: 'idle' });
   const [lastQuery, setLastQuery] = useState<PillSearchQuery | null>(null);
   const [adding, setAdding] = useState<PillResult | null>(null);
+  // 빠른 연속 검색 시 늦게 도착한 이전 응답이 최신 결과를 덮어쓰지 않도록 요청 토큰 부여
+  const reqIdRef = useRef(0);
 
   const runSearch = async (query: PillSearchQuery) => {
+    const reqId = ++reqIdRef.current;
     setLastQuery(query);
     setResults({ status: 'loading' });
     try {
       const res = await drugApi.searchPills(query);
+      if (reqId !== reqIdRef.current) return; // 최신 요청이 아니면 무시
       setResults({ status: 'loaded', results: res });
     } catch (e) {
+      if (reqId !== reqIdRef.current) return;
       const message =
         e instanceof DrugApiError ? e.message : '검색 중 오류가 발생했습니다.';
       setResults({ status: 'error', message });
     }
   };
+
+  const activePatient = state.patients.find((p) => p.id === state.activePatientId) ?? null;
+  // 추가하려는 약이 이미 현재 환자 리스트에 있는지(같은 품목기준코드)
+  const isDuplicate = !!adding && !!activePatient?.meds.some((m) => m.itemSeq === adding.itemSeq);
 
   const handleAdd = (med: MedItem) => {
     if (state.activePatientId) {
@@ -96,7 +105,12 @@ export function SearchSection() {
           ))}
       </div>
 
-      <AddMedSheet pill={adding} onClose={() => setAdding(null)} onAdd={handleAdd} />
+      <AddMedSheet
+        pill={adding}
+        duplicate={isDuplicate}
+        onClose={() => setAdding(null)}
+        onAdd={handleAdd}
+      />
     </section>
   );
 }

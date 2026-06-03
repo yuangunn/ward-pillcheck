@@ -16,6 +16,14 @@ export function formatMedLine(med: MedItem): string {
   return appearance ? `${head} ${appearance}` : head;
 }
 
+/**
+ * 환자 복약 리스트를 인계용 텍스트로 직렬화.
+ * 첫 줄은 [환자라벨], 이후 각 약물을 한 줄 포맷으로. (전달받은 순서 그대로)
+ */
+export function buildListText(label: string, meds: MedItem[]): string {
+  return [`[${label}]`, ...meds.map(formatMedLine)].join('\n');
+}
+
 /** (색/모양/각인) 괄호 묶음. 값이 하나도 없으면 빈 문자열. */
 export function formatAppearance(med: Pick<MedItem, 'color' | 'shape' | 'marking'>): string {
   const parts = [med.color, med.shape, med.marking].filter(

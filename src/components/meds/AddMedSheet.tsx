@@ -6,12 +6,13 @@ import { MedForm, type MedFormValue } from './MedForm';
 
 interface Props {
   pill: PillResult | null; // null이면 닫힘
+  duplicate?: boolean; // 이미 현재 환자 리스트에 있는 약이면 경고 표시
   onClose: () => void;
   onAdd: (med: MedItem) => void;
 }
 
 /** 검색 결과 → 환자 리스트 추가 바텀시트. API 값 자동 채움. */
-export function AddMedSheet({ pill, onClose, onAdd }: Props) {
+export function AddMedSheet({ pill, duplicate, onClose, onAdd }: Props) {
   if (!pill) return null;
 
   const initial: MedFormValue = {
@@ -44,6 +45,11 @@ export function AddMedSheet({ pill, onClose, onAdd }: Props) {
 
   return (
     <BottomSheet open title="환자 리스트에 추가" onClose={onClose}>
+      {duplicate && (
+        <div className="banner banner-warn" role="alert">
+          이미 이 환자 리스트에 같은 약이 있습니다. 그래도 추가할 수 있습니다.
+        </div>
+      )}
       <MedForm initial={initial} submitLabel="추가" onSubmit={handleSubmit} />
     </BottomSheet>
   );

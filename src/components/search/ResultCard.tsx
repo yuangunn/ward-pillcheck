@@ -17,6 +17,7 @@ type DetailState =
 export function ResultCard({ pill, onAdd }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [detail, setDetail] = useState<DetailState>({ status: 'idle' });
+  const [imgError, setImgError] = useState(false); // 낱알이미지 로드 실패 시 폴백
 
   const loadDetail = async () => {
     setDetail({ status: 'loading' });
@@ -41,8 +42,14 @@ export function ResultCard({ pill, onAdd }: Props) {
   return (
     <div className="card result-card">
       <button type="button" className="result-main" onClick={toggle} aria-expanded={expanded}>
-        {pill.itemImage ? (
-          <img className="result-img" src={pill.itemImage} alt="" loading="lazy" />
+        {pill.itemImage && !imgError ? (
+          <img
+            className="result-img"
+            src={pill.itemImage}
+            alt=""
+            loading="lazy"
+            onError={() => setImgError(true)}
+          />
         ) : (
           <div className="result-img-placeholder">이미지 없음</div>
         )}

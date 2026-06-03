@@ -9,15 +9,20 @@ interface BottomSheetProps {
 
 /** 모바일 친화 바텀시트(모달). 추가/편집 입력에 사용. */
 export function BottomSheet({ open, title, onClose, children }: BottomSheetProps) {
-  // 열려 있을 때 배경 스크롤 잠금
+  // 열려 있을 때 배경 스크롤 잠금 + Esc 로 닫기
   useEffect(() => {
     if (!open) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onKey);
     return () => {
       document.body.style.overflow = prev;
+      document.removeEventListener('keydown', onKey);
     };
-  }, [open]);
+  }, [open, onClose]);
 
   if (!open) return null;
 
