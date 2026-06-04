@@ -29,9 +29,11 @@ describe('filterRecords', () => {
   it('이름 부분일치', () => {
     expect(filterRecords(DATA, { itemName: '노바스크' }).map((x) => x.itemSeq)).toEqual(['3']);
   });
-  it('각인 텍스트가 없어도 마크 분석 텍스트(markFA)로 검색됨', () => {
-    const r = filterRecords(DATA, { printFront: '25' });
-    expect(r.map((x) => x.itemSeq)).toEqual(['5']);
+  it('각인 검색은 마크 분석 텍스트(markFA)를 포함하지 않음 — 마크는 별도 기능', () => {
+    // 녹더나(seq 5)는 인쇄 각인이 없고 마크 분석필드에만 "25"가 있음 → 각인 검색엔 안 잡힘
+    expect(filterRecords(DATA, { printFront: '25' })).toEqual([]);
+    // "Bayer" 도 마크가 아닌 실제 각인(seq 1 front=BAYER)만 매칭
+    expect(filterRecords(DATA, { printFront: 'Bayer' }).map((x) => x.itemSeq)).toEqual(['1']);
   });
 
   it('마크 코드로 필터(markCode)', () => {

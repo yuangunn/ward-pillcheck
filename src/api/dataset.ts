@@ -58,7 +58,7 @@ function idb(): Promise<IDBDatabase> {
     req.onerror = () => rej(req.error);
   });
 }
-async function idbGet<T>(key: string): Promise<T | undefined> {
+export async function idbGet<T>(key: string): Promise<T | undefined> {
   const db = await idb();
   return new Promise((res, rej) => {
     const r = db.transaction(STORE).objectStore(STORE).get(key);
@@ -66,7 +66,7 @@ async function idbGet<T>(key: string): Promise<T | undefined> {
     r.onerror = () => rej(r.error);
   });
 }
-async function idbSet(key: string, val: unknown): Promise<void> {
+export async function idbSet(key: string, val: unknown): Promise<void> {
   const db = await idb();
   return new Promise((res, rej) => {
     const tx = db.transaction(STORE, 'readwrite');
@@ -191,9 +191,10 @@ export function filterRecords(
     if (shape && r.shape !== shape) continue;
     if (color && !(r.color ?? '').includes(color) && !(r.color2 ?? '').includes(color)) continue;
     if (print) {
-      // 각인 텍스트(앞/뒤) + 마크 분석 텍스트(앞/뒤)까지 검색 대상에 포함
-      // → 마크 이미지 속 글자/숫자(예: "25")가 분석필드에 있으면 검색됨
-      const hay = [r.front, r.back, r.markFA, r.markBA]
+      // 각인은 실제 인쇄된 각인(앞/뒤)만 검색한다.
+      // 마크(그림) 속 글자/로고는 별도의 "마크로 찾기/그려서 찾기"가 담당하므로
+      // 여기서는 markFA/markBA 를 제외한다(예: "Bayer" 입력 시 Bayer 마크가 끼지 않음).
+      const hay = [r.front, r.back]
         .map((v) => (v ?? '').toUpperCase())
         .join(' ');
       if (!hay.includes(print)) continue;

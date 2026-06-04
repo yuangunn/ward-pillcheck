@@ -20,3 +20,12 @@ export const usesDataset = !!apiBase;
 
 export { getMarkOptions, proxiedImg, type MarkOption } from './dataset';
 export { searchInjections, type PermitDrug } from './permit';
+export {
+  ensureMarkFeatures,
+  featureFromCanvas,
+  rankFeatures,
+  extractFeature,
+  cosineSim,
+  type RankedMark,
+  type MarkFeature,
+} from './marksim';

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Icon, PillGlyph, MarkGlyph, type MarkOpt } from './Icon';
 import { Btn, Chip, BottomSheet, FieldLabel, TextField, Stepper } from './ui';
 import { COLOR_OPTIONS, SHAPE_OPTIONS } from '../constants/appearance';
@@ -7,6 +7,7 @@ import { TIMING_PRESETS, timingOrder } from '../constants/timing';
 import { buildListText } from '../domain/format';
 import type { MedItem, Patient } from '../domain/models';
 import { drugApi, getMarkOptions, type DrugDetail, type MarkOption, type PillResult } from '../api';
+import { ensureMarkFeatures, featureFromCanvas, rankFeatures, type RankedMark } from '../api';
 import { analyzeInteractions, fetchDurMap, type InteractionResult } from '../api/dur';
 
 const TIMING_DEFAULTS: Record<number, string[]> = {
@@ -586,6 +587,169 @@ export function MarkGallerySheet({ open, onClose, onPick }: { open: boolean; onC
               <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-weak)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{o.code}</span>
             </button>
           ))}
+        </div>
+      )}
+    </BottomSheet>
+  );
+}
+
+// ── 그려서 마크 찾기 (온디바이스 형상 유사도) ──────────────────
+// 캔버스에 그린 그림을 번들 마크 이미지와 비교해 닮은 순으로 후보를 낸다.
+// 마크가 있는 약만 대상(고른 마크코드로 검색).
+const CANVAS_SIZE = 300;
+
+export function DrawMarkSheet({ open, onPick, onClose }: { open: boolean; onPick: (m: MarkOption) => void; onClose: () => void }) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const drawing = useRef(false);
+  const last = useRef<{ x: number; y: number } | null>(null);
+  const [hasInk, setHasInk] = useState(false);
+  const [ready, setReady] = useState(false); // 마크 특징 DB 준비됨
+  const [progress, setProgress] = useState(0);
+  const [results, setResults] = useState<RankedMark[] | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  // 흰 배경으로 캔버스 초기화
+  const clearCanvas = () => {
+    const c = canvasRef.current;
+    if (!c) return;
+    const ctx = c.getContext('2d');
+    if (!ctx) return;
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, c.width, c.height);
+    setHasInk(false);
+    setResults(null);
+  };
+
+  // 열릴 때: 캔버스 초기화 + 마크 특징 DB 준비(최초 1회 디코딩, 이후 캐시)
+  useEffect(() => {
+    if (!open) return;
+    setReady(false);
+    setProgress(0);
+    setResults(null);
+    requestAnimationFrame(clearCanvas);
+    let alive = true;
+    ensureMarkFeatures((d, t) => alive && setProgress(t ? Math.round((d / t) * 100) : 0)).then(() => {
+      if (alive) setReady(true);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [open]);
+
+  const pos = (e: React.PointerEvent) => {
+    const c = canvasRef.current!;
+    const rect = c.getBoundingClientRect();
+    return { x: ((e.clientX - rect.left) / rect.width) * c.width, y: ((e.clientY - rect.top) / rect.height) * c.height };
+  };
+  const start = (e: React.PointerEvent) => {
+    e.preventDefault();
+    const c = canvasRef.current;
+    if (!c) return;
+    c.setPointerCapture(e.pointerId);
+    drawing.current = true;
+    last.current = pos(e);
+    setHasInk(true);
+  };
+  const move = (e: React.PointerEvent) => {
+    if (!drawing.current) return;
+    const c = canvasRef.current;
+    const ctx = c?.getContext('2d');
+    if (!c || !ctx || !last.current) return;
+    const p = pos(e);
+    ctx.strokeStyle = '#16181d';
+    ctx.lineWidth = 14;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(last.current.x, last.current.y);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+    last.current = p;
+  };
+  const end = () => {
+    drawing.current = false;
+    last.current = null;
+  };
+
+  const runSearch = async () => {
+    const c = canvasRef.current;
+    if (!c) return;
+    const q = featureFromCanvas(c);
+    if (!q) {
+      setResults([]);
+      return;
+    }
+    setBusy(true);
+    const feats = await ensureMarkFeatures();
+    setResults(rankFeatures(q, feats, 12));
+    setBusy(false);
+  };
+
+  return (
+    <BottomSheet open={open} onClose={onClose} title="그려서 마크 찾기" maxH="92%">
+      <p style={{ margin: '0 0 14px', fontSize: 14, color: 'var(--text-weak)', fontWeight: 600, letterSpacing: -0.3, lineHeight: 1.45 }}>
+        약에 새겨진 <b style={{ color: 'var(--text-strong)' }}>그림(마크)</b>을 그려보세요. 닮은 마크를 찾아드려요.
+        <br />
+        <span style={{ fontSize: 12.5, color: 'var(--text-weaker)' }}>마크가 있는 약만 검색돼요 · 결과는 “닮은 후보”예요.</span>
+      </p>
+
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
+        <canvas
+          ref={canvasRef}
+          width={CANVAS_SIZE}
+          height={CANVAS_SIZE}
+          onPointerDown={start}
+          onPointerMove={move}
+          onPointerUp={end}
+          onPointerCancel={end}
+          aria-label="마크 그리기 캔버스"
+          style={{
+            width: 'min(78vw, 300px)',
+            height: 'min(78vw, 300px)',
+            borderRadius: 20,
+            border: '1.5px solid var(--border)',
+            background: '#fff',
+            touchAction: 'none',
+            cursor: 'crosshair',
+            boxShadow: 'var(--shadow-sm)',
+          }}
+        />
+      </div>
+
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        <Btn variant="ghost" full icon="trash" onClick={clearCanvas} disabled={!hasInk} style={{ height: 48 }}>
+          지우기
+        </Btn>
+        <Btn variant="primary" full icon="search" onClick={runSearch} disabled={!hasInk || !ready || busy} style={{ height: 48 }}>
+          {ready ? '닮은 마크 찾기' : `준비 중 ${progress}%`}
+        </Btn>
+      </div>
+
+      {results && (
+        <div style={{ paddingBottom: 8 }}>
+          <FieldLabel>닮은 마크 {results.length}개</FieldLabel>
+          {results.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-weak)', fontSize: 14, fontWeight: 600 }}>
+              닮은 마크를 못 찾았어요. 다시 그려보세요.
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+              {results.map((o) => (
+                <button
+                  key={o.code}
+                  type="button"
+                  onClick={() => {
+                    onPick({ code: o.code, img: o.img, count: 0 });
+                    onClose();
+                  }}
+                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '12px 4px', borderRadius: 'var(--r-card)', background: 'var(--card)', border: '1px solid var(--border)', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                >
+                  <MarkGlyph option={o as MarkOpt} size={48} />
+                  <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-weak)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{o.code}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </BottomSheet>

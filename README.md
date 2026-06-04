@@ -35,8 +35,9 @@
 
 | 기능 | 설명 |
 |---|---|
-| 실물 검색 | 색 스와치 + 모양 칩 + 앞면 각인으로 거꾸로 찾기(기본 탭) |
-| 마크로 찾기 | 약에 새겨진 **그림(마크)을 이미지 갤러리에서 골라** 검색(번들 마크 이미지 431종) |
+| 실물 검색 | 색 스와치 + 모양 칩 + 앞면 각인으로 거꾸로 찾기(기본 탭). 각인은 **실제 인쇄 각인**만(마크는 별도) |
+| 마크로 찾기(골라서) | 약에 새겨진 **그림(마크)을 이미지 갤러리에서 골라** 검색(번들 마크 이미지 431종) |
+| 마크로 찾기(그려서) | 캔버스에 **마크를 그리면** 번들 마크와 **온디바이스 형상 유사도**로 닮은 후보 제시(서버·API 0) |
 | 이름 검색 | 품목명으로 검색 |
 | 주사제 검색 | 인슐린 등 주사제를 **이름**으로 검색(허가정보 번들). 색·모양 없는 약 대응 |
 | 직접 입력 | 목록에 없는 약·주사제를 **수기**로(이름 + 용량 단위 T/U/mL/회분/포 + 용법·시점) |
@@ -68,6 +69,7 @@ Vite + React + TypeScript · `vite-plugin-pwa` · `@dnd-kit` · 상태는 Contex
 src/
   api/        types · workerClient · bundledClient · mockClient · index(팩토리)
               dataset(번들 낱알/마크 IndexedDB) · dur(금기점검) · permit(주사제·허가)
+              marksim(그려서 마크 찾기 — 온디바이스 형상 유사도)
   domain/     models · format(한 줄 포맷) · sort(정렬)
   constants/  frequency(용법·시점칸) · timing · appearance(색/모양)
   state/      store(Context+reducer) · persist(localStorage) · useDataset
