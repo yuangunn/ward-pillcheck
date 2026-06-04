@@ -8,7 +8,7 @@
 // - SERVICE_KEY 미설정 시: 경고만 내고 빈 데이터셋 생성(로컬/데모 빌드).
 // - GitHub Actions(배포/매일 cron)에서 Secret 으로 주입.
 
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
@@ -122,6 +122,36 @@ async function fetchItems(endpoint, pageNo) {
   return extractItems(await fetchPayload(endpoint, pageNo));
 }
 
+/** [진단] 허가사항 문서(효능/용법/주의)가 어느 엔드포인트/파라미터로 오는지 1회 탐색 로그 */
+async function probeDocSource(sampleSeq) {
+  const cands = [
+    ['Dtl06@07', 'https://apis.data.go.kr/1471000/DrugPrdtPrmsnInfoService07/getDrugPrdtPrmsnDtlInq06'],
+    ['Dtl05@06', 'https://apis.data.go.kr/1471000/DrugPrdtPrmsnInfoService06/getDrugPrdtPrmsnDtlInq05'],
+    ['Dtl04@05', 'https://apis.data.go.kr/1471000/DrugPrdtPrmsnInfoService05/getDrugPrdtPrmsnDtlInq04'],
+  ];
+  const hasDoc = (it) => !!(it.EE_DOC_DATA || it.UD_DOC_DATA || it.NB_DOC_DATA || it.EE_DOC_ID || it.eeDocData);
+  for (const [name, ep] of cands) {
+    // (a) 무필터 1건 — 대량 페이징으로 doc 받을 수 있는지
+    try {
+      const p = new URLSearchParams({ serviceKey: KEY, type: 'json', pageNo: '1', numOfRows: '1' });
+      const j = await (await fetch(`${ep}?${p}`, { signal: AbortSignal.timeout(REQ_TIMEOUT) })).json();
+      const it = extractItems(j)[0] ?? {};
+      console.log(`  [프로브] ${name} 무필터: total=${totalCountOf(j)} hasDoc=${hasDoc(it)} keys=[${Object.keys(it).join(',')}]`);
+    } catch (e) {
+      console.log(`  [프로브] ${name} 무필터 실패: ${e.message}`);
+    }
+    // (b) item_seq 필터 1건
+    try {
+      const p = new URLSearchParams({ serviceKey: KEY, type: 'json', pageNo: '1', numOfRows: '1', item_seq: sampleSeq });
+      const j = await (await fetch(`${ep}?${p}`, { signal: AbortSignal.timeout(REQ_TIMEOUT) })).json();
+      const it = extractItems(j)[0] ?? {};
+      console.log(`  [프로브] ${name} item_seq=${sampleSeq}: total=${totalCountOf(j)} hasDoc=${hasDoc(it)}`);
+    } catch (e) {
+      console.log(`  [프로브] ${name} item_seq 실패: ${e.message}`);
+    }
+  }
+}
+
 /**
  * 허가정보 목록을 totalCount 기준으로 끝까지 페이징(조기 종료 버그 제거)하며 동시 수집:
  *  - injections: 주사·외용약 메타(전수)
@@ -165,6 +195,11 @@ async function collectPermit() {
   const total = totalCountOf(first);
   const pages = total ? Math.ceil(total / NUM) : 1;
   console.log(`  [허가] 총 ${total}건 / ${pages}페이지`);
+  const sample = extractItems(first)[0];
+  if (sample) {
+    console.log(`  [허가] 목록 필드: [${Object.keys(sample).join(',')}]`);
+    await probeDocSource(sample.ITEM_SEQ ?? '');
+  }
   for (const row of extractItems(first)) handle(row);
 
   for (let start = 2; start <= pages; start += CONCURRENCY) {
@@ -201,6 +236,7 @@ function addDur(map, cat, row) {
 }
 async function collectDur() {
   const map = {};
+  const DUR_MAX_PAGES = 2000; // 안전 상한(잘못된 totalCount로 무한 페이징 방지)
   for (const [cat, op] of Object.entries(DUR_OPS)) {
     const ep = `${DUR_BASE}/${op}`;
     let total = 0;
@@ -208,13 +244,13 @@ async function collectDur() {
     try {
       const first = await fetchPayload(ep, 1);
       total = totalCountOf(first);
-      pages = total ? Math.ceil(total / NUM) : 1;
+      pages = Math.min(total ? Math.ceil(total / NUM) : 1, DUR_MAX_PAGES);
       extractItems(first).forEach((row) => addDur(map, cat, row));
     } catch (e) {
       console.warn(`  [DUR:${cat}] page1 실패: ${e.message}`);
       continue;
     }
-    console.log(`  [DUR:${cat}] 총 ${total} / ${pages}페이지`);
+    console.log(`  [DUR:${cat}] 총 ${total} / ${pages}페이지${total / NUM > DUR_MAX_PAGES ? ' (상한 적용)' : ''}`);
     for (let start = 2; start <= pages; start += CONCURRENCY) {
       const batch = [];
       for (let p = start; p < start + CONCURRENCY && p <= pages; p++) batch.push(p);
@@ -300,27 +336,40 @@ async function buildMarks(pills) {
 
   const downloaded = new Set();
   const out = [];
-  // 동시성 다운로드(배치 8)
-  for (let i = 0; i < entries.length; i += 8) {
+  const MARK_TIMEOUT = 8000; // 짧은 타임아웃(차단 시 빌드 무한지연 방지)
+  let attempts = 0;
+  let aborted = false;
+  // 동시성 다운로드(배치 8). 이미 받은(레포 커밋 포함) 파일은 재사용.
+  for (let i = 0; i < entries.length && !aborted; i += 8) {
     const batch = entries.slice(i, i + 8);
     await Promise.allSettled(
       batch.map(async ([code, v]) => {
         const id = nedrugId(v.img);
         if (!id) return;
         const file = `${id}.gif`;
-        if (!downloaded.has(id)) {
-          try {
-            const res = await fetch(v.img, { headers: IMG_HEADERS, signal: AbortSignal.timeout(REQ_TIMEOUT) });
-            if (!res.ok) return;
-            writeFileSync(resolve(marksDir, file), Buffer.from(await res.arrayBuffer()));
-            downloaded.add(id);
-          } catch {
-            return;
-          }
+        const path = resolve(marksDir, file);
+        if (downloaded.has(id) || existsSync(path)) {
+          downloaded.add(id);
+          out.push({ code, file, count: v.count });
+          return;
         }
-        out.push({ code, file, count: v.count });
+        attempts++;
+        try {
+          const res = await fetch(v.img, { headers: IMG_HEADERS, signal: AbortSignal.timeout(MARK_TIMEOUT) });
+          if (!res.ok) throw new Error(`mark ${res.status}`);
+          writeFileSync(path, Buffer.from(await res.arrayBuffer()));
+          downloaded.add(id);
+          out.push({ code, file, count: v.count });
+        } catch {
+          /* 실패 — 아래 조기중단 판정 */
+        }
       }),
     );
+    // 초반에 시도분이 전부 실패하면 nedrug 차단으로 보고 마크 번들을 생략(빌드 지연 방지)
+    if (out.length === 0 && attempts >= 16) {
+      aborted = true;
+      console.warn('  [마크] 다운로드가 전부 실패 — nedrug 차단 추정. 마크 번들 생략(재배포 또는 레포 커밋으로 해결).');
+    }
     console.log(`  [마크] ...${out.length}/${entries.length}`);
   }
   out.sort((a, b) => b.count - a.count);
