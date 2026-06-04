@@ -236,6 +236,7 @@ function addDur(map, cat, row) {
 }
 async function collectDur() {
   const map = {};
+  const DUR_MAX_PAGES = 2000; // 안전 상한(잘못된 totalCount로 무한 페이징 방지)
   for (const [cat, op] of Object.entries(DUR_OPS)) {
     const ep = `${DUR_BASE}/${op}`;
     let total = 0;
@@ -243,13 +244,13 @@ async function collectDur() {
     try {
       const first = await fetchPayload(ep, 1);
       total = totalCountOf(first);
-      pages = total ? Math.ceil(total / NUM) : 1;
+      pages = Math.min(total ? Math.ceil(total / NUM) : 1, DUR_MAX_PAGES);
       extractItems(first).forEach((row) => addDur(map, cat, row));
     } catch (e) {
       console.warn(`  [DUR:${cat}] page1 실패: ${e.message}`);
       continue;
     }
-    console.log(`  [DUR:${cat}] 총 ${total} / ${pages}페이지`);
+    console.log(`  [DUR:${cat}] 총 ${total} / ${pages}페이지${total / NUM > DUR_MAX_PAGES ? ' (상한 적용)' : ''}`);
     for (let start = 2; start <= pages; start += CONCURRENCY) {
       const batch = [];
       for (let p = start; p < start + CONCURRENCY && p <= pages; p++) batch.push(p);
@@ -335,8 +336,11 @@ async function buildMarks(pills) {
 
   const downloaded = new Set();
   const out = [];
-  // 동시성 다운로드(배치 8)
-  for (let i = 0; i < entries.length; i += 8) {
+  const MARK_TIMEOUT = 8000; // 짧은 타임아웃(차단 시 빌드 무한지연 방지)
+  let attempts = 0;
+  let aborted = false;
+  // 동시성 다운로드(배치 8). 이미 받은(레포 커밋 포함) 파일은 재사용.
+  for (let i = 0; i < entries.length && !aborted; i += 8) {
     const batch = entries.slice(i, i + 8);
     await Promise.allSettled(
       batch.map(async ([code, v]) => {
@@ -344,27 +348,28 @@ async function buildMarks(pills) {
         if (!id) return;
         const file = `${id}.gif`;
         const path = resolve(marksDir, file);
-        // 이미 받아둔(또는 레포에 커밋된) 파일은 재다운로드 생략
         if (downloaded.has(id) || existsSync(path)) {
           downloaded.add(id);
           out.push({ code, file, count: v.count });
           return;
         }
-        // nedrug 간헐 차단 대비 재시도
-        for (let attempt = 0; attempt < 3; attempt++) {
-          try {
-            const res = await fetch(v.img, { headers: IMG_HEADERS, signal: AbortSignal.timeout(REQ_TIMEOUT) });
-            if (!res.ok) throw new Error(`mark ${res.status}`);
-            writeFileSync(path, Buffer.from(await res.arrayBuffer()));
-            downloaded.add(id);
-            out.push({ code, file, count: v.count });
-            return;
-          } catch {
-            await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
-          }
+        attempts++;
+        try {
+          const res = await fetch(v.img, { headers: IMG_HEADERS, signal: AbortSignal.timeout(MARK_TIMEOUT) });
+          if (!res.ok) throw new Error(`mark ${res.status}`);
+          writeFileSync(path, Buffer.from(await res.arrayBuffer()));
+          downloaded.add(id);
+          out.push({ code, file, count: v.count });
+        } catch {
+          /* 실패 — 아래 조기중단 판정 */
         }
       }),
     );
+    // 초반에 시도분이 전부 실패하면 nedrug 차단으로 보고 마크 번들을 생략(빌드 지연 방지)
+    if (out.length === 0 && attempts >= 16) {
+      aborted = true;
+      console.warn('  [마크] 다운로드가 전부 실패 — nedrug 차단 추정. 마크 번들 생략(재배포 또는 레포 커밋으로 해결).');
+    }
     console.log(`  [마크] ...${out.length}/${entries.length}`);
   }
   out.sort((a, b) => b.count - a.count);
