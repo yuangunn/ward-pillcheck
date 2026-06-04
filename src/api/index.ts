@@ -19,7 +19,7 @@ export const isMockMode = !apiBase;
 export const usesDataset = !!apiBase;
 
 export { getMarkOptions, proxiedImg, type MarkOption } from './dataset';
-export { searchInjections, type PermitDrug } from './permit';
+export { searchInjections, isInjectionName, type PermitDrug } from './permit';
 export {
   ensureMarkFeatures,
   featureFromCanvas,

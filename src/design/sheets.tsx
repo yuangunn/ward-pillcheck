@@ -58,23 +58,28 @@ function frontBack(front?: string, back?: string): string {
   return [fieldVal(front) && `앞 ${fieldVal(front)}`, fieldVal(back) && `뒤 ${fieldVal(back)}`].filter(Boolean).join(' / ');
 }
 
-function DetailAccordion({ seq, pill }: { seq: string; pill: PillResult }) {
-  const [open, setOpen] = useState(false);
+/** 상세 정보 본문(펼침 상태에서만 마운트 → 마운트 시 1회 로드). 토글 버튼은 상위 고정 헤더에. */
+function DetailPanel({ seq, pill, onZoom }: { seq: string; pill: PillResult; onZoom?: () => void }) {
   const [detail, setDetail] = useState<DrugDetail | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [imgFail, setImgFail] = useState(false);
   useEffect(() => {
-    if (!open || loaded) return;
+    let alive = true;
     drugApi
       .getDetail(seq, pill.itemName)
       .then((d) => {
+        if (!alive) return;
         setDetail(d);
         setLoaded(true);
       })
-      .catch(() => setLoaded(true));
-  }, [open, loaded, seq, pill.itemName]);
+      .catch(() => alive && setLoaded(true));
+    return () => {
+      alive = false;
+    };
+  }, [seq, pill.itemName]);
 
   const photo = proxiedImg(pill.itemImage);
+  const ingredient = pill.ingredient || detail?.ingredient; // 번들 성분 우선, 없으면 라이브
   // 외형/분류 기본 정보(상세가 없어도 항상 제공)
   const basics = ([
     ['분류', pill.className],
@@ -100,31 +105,27 @@ function DetailAccordion({ seq, pill }: { seq: string; pill: PillResult }) {
     : [];
 
   return (
-    <div style={{ marginBottom: 4 }}>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '14px 16px', borderRadius: 'var(--r-card)', background: 'var(--fill)', border: 'none', cursor: 'pointer' }}
-      >
-        <span style={{ fontSize: 14.5, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.4 }}>약 상세 정보</span>
-        <Icon name={open ? 'chevDown' : 'chevron'} size={18} style={{ color: 'var(--text-weak)' }} />
-      </button>
-      {open && (
-        <div style={{ padding: '14px 4px 4px' }}>
-          {/* 실물 사진 + 외형/분류 요약 (항상 표시) */}
-          <div style={{ display: 'flex', gap: 14, marginBottom: 16 }}>
-            <div
+    <div style={{ padding: '14px 4px 4px' }}>
+      {/* 실물 사진 + 외형/분류 요약 (항상 표시) */}
+      <div style={{ display: 'flex', gap: 14, marginBottom: 16 }}>
+            <button
+              type="button"
+              onClick={onZoom}
+              aria-label={onZoom ? '사진 크게 보기' : undefined}
               style={{
                 width: 84,
                 height: 84,
                 flexShrink: 0,
                 borderRadius: 16,
+                padding: 0,
                 background: '#fff',
                 border: '1px solid var(--border)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 overflow: 'hidden',
+                cursor: onZoom ? 'zoom-in' : 'default',
+                WebkitTapHighlightColor: 'transparent',
               }}
             >
               {photo && !imgFail ? (
@@ -132,12 +133,12 @@ function DetailAccordion({ seq, pill }: { seq: string; pill: PillResult }) {
               ) : (
                 <PillGlyph color={pill.colorClass1} shape={pill.drugShape} marking={pill.printFront} size={72} />
               )}
-            </div>
+            </button>
             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {detail?.ingredient && (
+              {ingredient && (
                 <div style={{ display: 'flex', gap: 8, fontSize: 13, lineHeight: 1.4 }}>
                   <span style={{ flexShrink: 0, width: 38, color: 'var(--text-weaker)', fontWeight: 700 }}>성분</span>
-                  <span style={{ color: 'var(--text)', fontWeight: 700, letterSpacing: -0.3 }}>{detail.ingredient}</span>
+                  <span style={{ color: 'var(--text)', fontWeight: 700, letterSpacing: -0.3 }}>{ingredient}</span>
                 </div>
               )}
               {basics.map(([k, v]) => (
@@ -161,14 +162,14 @@ function DetailAccordion({ seq, pill }: { seq: string; pill: PillResult }) {
             </div>
           </div>
 
-          {pill.itemImage && (
+          {photo && (
             <a
-              href={pill.itemImage}
+              href={photo}
               target="_blank"
               rel="noreferrer"
               style={{ display: 'inline-block', marginBottom: 14, fontSize: 12.5, fontWeight: 700, color: 'var(--primary-ink)', textDecoration: 'none' }}
             >
-              실물 사진 원본 열기 ↗
+              {onZoom ? '사진 크게 보기 (또는 사진 탭) ↗' : '실물 사진 새 탭에서 보기 ↗'}
             </a>
           )}
 
@@ -199,8 +200,36 @@ function DetailAccordion({ seq, pill }: { seq: string; pill: PillResult }) {
             </div>
           )}
         </div>
+  );
+}
+
+/** 읽기 전용 약 상세 보기 시트 (의약품 검색 결과·환자 약 그림 탭). 사진 탭 시 onZoom 으로 확대. */
+export function DrugDetailSheet({
+  open,
+  pill,
+  onClose,
+  onZoom,
+}: {
+  open: boolean;
+  pill: PillResult | null;
+  onClose: () => void;
+  onZoom: (p: PillResult) => void;
+}) {
+  return (
+    <BottomSheet open={open} onClose={onClose} title="약 상세 정보" maxH="92%">
+      {pill && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '2px 0 8px' }}>
+            <PillGlyph color={pill.colorClass1} shape={pill.drugShape} marking={pill.printFront} size={52} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.4 }}>{pill.itemName}</div>
+              {pill.entpName && <div style={{ fontSize: 13.5, color: 'var(--text-weak)', fontWeight: 600, marginTop: 2 }}>{pill.entpName}</div>}
+            </div>
+          </div>
+          <DetailPanel seq={pill.itemSeq} pill={pill} onZoom={() => onZoom(pill)} />
+        </>
       )}
-    </div>
+    </BottomSheet>
   );
 }
 
@@ -234,6 +263,7 @@ export function AddMedSheet({
   const [showAppear, setShowAppear] = useState(false);
   const [customInput, setCustomInput] = useState('');
   const [showCustom, setShowCustom] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
 
   useEffect(() => {
     if (!open || !source) return;
@@ -269,6 +299,7 @@ export function AddMedSheet({
     setShowAppear(false);
     setShowCustom(false);
     setCustomInput('');
+    setDetailOpen(false);
   }, [open, source]);
 
   if (!source) return null;
@@ -308,35 +339,59 @@ export function AddMedSheet({
 
   return (
     <BottomSheet open={open} onClose={onClose} title={isManual ? '직접 입력' : isEdit ? '약 수정' : '리스트에 추가'}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '8px 0 16px' }}>
-        <PillGlyph color={color} shape={shape} marking={marking} size={56} />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          {isManual ? (
-            <input
-              value={nameInput}
-              onChange={(e) => setNameInput(e.target.value)}
-              placeholder="약 이름 (예: 란투스주, 휴마로그퀵펜)"
-              aria-label="약 이름"
-              autoFocus
-              style={{ width: '100%', boxSizing: 'border-box', height: 44, padding: '0 12px', borderRadius: 'var(--r-btn)', border: '1.5px solid var(--border)', background: 'var(--fill)', color: 'var(--text)', fontSize: 16, fontFamily: 'inherit', fontWeight: 700, letterSpacing: -0.3, outline: 'none' }}
-            />
-          ) : (
-            <>
-              <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.4 }}>{name}</div>
-              {entp && <div style={{ fontSize: 13.5, color: 'var(--text-weak)', fontWeight: 600, marginTop: 2 }}>{entp}</div>}
-            </>
-          )}
+      {/* 약명·제약사·상세버튼은 상단 고정 — 상세를 펼쳐 길어져도 무슨 약인지 유지 */}
+      <div
+        style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 5,
+          background: 'var(--bg)',
+          margin: '0 -20px',
+          padding: '2px 20px 12px',
+          borderBottom: '1px solid var(--border)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: !isEdit && source.__kind === 'pill' ? '6px 0 12px' : '6px 0 2px' }}>
+          <PillGlyph color={color} shape={shape} marking={marking} size={56} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {isManual ? (
+              <input
+                value={nameInput}
+                onChange={(e) => setNameInput(e.target.value)}
+                placeholder="약 이름 (예: 란투스주, 휴마로그퀵펜)"
+                aria-label="약 이름"
+                autoFocus
+                style={{ width: '100%', boxSizing: 'border-box', height: 44, padding: '0 12px', borderRadius: 'var(--r-btn)', border: '1.5px solid var(--border)', background: 'var(--fill)', color: 'var(--text)', fontSize: 16, fontFamily: 'inherit', fontWeight: 700, letterSpacing: -0.3, outline: 'none' }}
+              />
+            ) : (
+              <>
+                <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+                {entp && <div style={{ fontSize: 13.5, color: 'var(--text-weak)', fontWeight: 600, marginTop: 2 }}>{entp}</div>}
+              </>
+            )}
+          </div>
         </div>
+        {!isEdit && source.__kind === 'pill' && (
+          <button
+            type="button"
+            onClick={() => setDetailOpen((v) => !v)}
+            aria-expanded={detailOpen}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '12px 16px', borderRadius: 'var(--r-card)', background: 'var(--fill)', border: 'none', cursor: 'pointer' }}
+          >
+            <span style={{ fontSize: 14.5, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.4 }}>약 상세 정보</span>
+            <Icon name={detailOpen ? 'chevDown' : 'chevron'} size={18} style={{ color: 'var(--text-weak)' }} />
+          </button>
+        )}
       </div>
 
       {duplicate && !isEdit && (
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '12px 14px', borderRadius: 14, background: 'var(--warn-weak)', marginBottom: 16 }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '12px 14px', borderRadius: 14, background: 'var(--warn-weak)', margin: '16px 0' }}>
           <Icon name="warn" size={18} style={{ color: 'var(--warn)', flexShrink: 0 }} />
           <span style={{ fontSize: 13.5, color: 'var(--warn-ink)', fontWeight: 700, letterSpacing: -0.3 }}>이미 리스트에 있는 약이에요. 추가하면 중복돼요.</span>
         </div>
       )}
 
-      {!isEdit && source.__kind === 'pill' && <DetailAccordion seq={seq} pill={source} />}
+      {!isEdit && source.__kind === 'pill' && detailOpen && <DetailPanel seq={seq} pill={source} />}
 
       <Section label="용량">
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14, justifyContent: 'center' }}>
@@ -752,7 +807,7 @@ export function DrawMarkSheet({ open, onPick, onClose }: { open: boolean; onPick
     if (!c || !ctx || !last.current) return;
     const p = pos(e);
     ctx.strokeStyle = '#16181d';
-    ctx.lineWidth = 14;
+    ctx.lineWidth = 6;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.beginPath();
@@ -776,14 +831,14 @@ export function DrawMarkSheet({ open, onPick, onClose }: { open: boolean; onPick
     }
     setBusy(true);
     const feats = await ensureMarkFeatures();
-    setResults(rankFeatures(q, feats, 12));
+    setResults(rankFeatures(q, feats, 16));
     setBusy(false);
   };
 
   return (
     <BottomSheet open={open} onClose={onClose} title="그려서 마크 찾기" maxH="92%">
       <p style={{ margin: '0 0 14px', fontSize: 14, color: 'var(--text-weak)', fontWeight: 600, letterSpacing: -0.3, lineHeight: 1.45 }}>
-        약에 새겨진 <b style={{ color: 'var(--text-strong)' }}>그림(마크)</b>을 그려보세요. 닮은 마크를 찾아드려요.
+        약에 새겨진 <b style={{ color: 'var(--text-strong)' }}>그림(마크)</b>을 <b style={{ color: 'var(--text-strong)' }}>화면 가득 크게</b> 그려보세요. 닮은 마크를 찾아드려요.
         <br />
         <span style={{ fontSize: 12.5, color: 'var(--text-weaker)' }}>마크가 있는 약만 검색돼요 · 결과는 “닮은 후보”예요.</span>
       </p>

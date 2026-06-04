@@ -348,7 +348,8 @@ export default {
         }))
         .filter((x: { itemSeq: string }) => x.itemSeq);
       if (inj) {
-        const re = /(주사|주입|펜|카트리지|바이알|키트|프리필드|주사액|주사제|인슐린|플렉스|퀵펜|주\)|주$)/;
+        // 외용약·주사제(낱알 모양 없는 비경구 약) 위주 필터
+        const re = /(주사|주입|펜|카트리지|바이알|키트|프리필드|주사액|주사제|인슐린|플렉스|퀵펜|주\)|주$|흡입|에보할러|할러|디스커스|레스피맷|터부할러|네뷸|점안|점이|점비|좌제|좌약|질정|질좌|연고|크림|로션|겔|젤|패치|첩부|스프레이|분무|에어로|도포|외용|카타리)/;
         const filtered = items.filter((x: { itemName: string }) => re.test(x.itemName));
         if (filtered.length) items = filtered;
       }

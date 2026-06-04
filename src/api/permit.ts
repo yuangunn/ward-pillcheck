@@ -1,4 +1,4 @@
-// 주사제 등 낱알식별에 없는 약 검색.
+// 외용약·주사제 등 낱알식별에 없는(모양 없는) 약 검색.
 // 1) 번들 injections.json(빌드 때 허가정보에서 추림) — 오프라인·즉시
 // 2) 없으면 Worker /api/drugsearch(라이브)
 // 3) 둘 다 없으면(목 모드) 데모 목록
@@ -21,10 +21,19 @@ const MOCK_INJECTIONS: PermitDrug[] = [
   { itemSeq: 'inj-novorapid', itemName: '노보래피드플렉스펜주', entpName: '노보노디스크', ingredient: '인슐린아스파트', etcOtcName: '전문의약품' },
   { itemSeq: 'inj-tresiba', itemName: '트레시바플렉스터치주', entpName: '노보노디스크', ingredient: '인슐린데글루덱', etcOtcName: '전문의약품' },
   { itemSeq: 'inj-cefazolin', itemName: '세파졸린나트륨주', entpName: '종근당', ingredient: '세파졸린나트륨', etcOtcName: '전문의약품' },
+  { itemSeq: 'ext-ventolin', itemName: '벤토린에보할러', entpName: '글락소스미스클라인', ingredient: '살부타몰황산염', etcOtcName: '전문의약품' },
+  { itemSeq: 'ext-dulcolax', itemName: '둘코락스좌약', entpName: '한국베링거인겔하임', ingredient: '비사코딜', etcOtcName: '일반의약품' },
+  { itemSeq: 'ext-otrivin', itemName: '오트리빈점비액', entpName: '글락소스미스클라인', ingredient: '자일로메타졸린염산염', etcOtcName: '일반의약품' },
 ];
 
 function includesCI(h: string, n: string) {
   return h.toLowerCase().includes(n.toLowerCase());
+}
+
+// 주사제(비경구 주입) 판별 — 나머지(흡입/좌약/연고/점안 등)는 외용약으로 분류
+const INJECTION_RE = /(주사|주입|주사액|주사제|펜|카트리지|바이알|키트|프리필드|플렉스|퀵펜|인슐린|주\)|주$)/;
+export function isInjectionName(name: string): boolean {
+  return INJECTION_RE.test(name || '');
 }
 
 // 번들 주사제 데이터(컴팩트 → PermitDrug) 1회 로드 캐시

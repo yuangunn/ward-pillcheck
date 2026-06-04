@@ -17,8 +17,21 @@ const medList = () => document.querySelector('ul.med-list') as HTMLElement | nul
 describe('App 리디자인 통합 (목 모드)', () => {
   it('홈: 제목 + 기본 환자(환자1) 카드 표시', () => {
     renderApp();
-    expect(screen.getByRole('heading', { name: '지참약 식별' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '지참약 식별' })).toBeInTheDocument();
     expect(screen.getByText('환자1')).toBeInTheDocument();
+  });
+
+  it('의약품 검색 탭: 경구약 이름검색 → 약 누르면 상세 보기', async () => {
+    const user = userEvent.setup();
+    renderApp();
+    await user.click(screen.getByRole('tab', { name: '의약품 검색' }));
+    // 경구약 기본 → 이름검색
+    await user.type(screen.getByLabelText('의약품 이름 검색'), '타이레놀');
+    const hit = await screen.findByText('타이레놀정500mg');
+    await user.click(hit);
+    // 읽기전용 상세 시트(제목 '약 상세 정보') — 안에 약명 표시
+    const sheet = await screen.findByRole('dialog', { name: '약 상세 정보' });
+    expect(within(sheet).getByText('타이레놀정500mg')).toBeInTheDocument();
   });
 
   it('환자 열기 → 빈 상태 → 검색 → 추가 → 리스트 표시', async () => {
@@ -59,13 +72,13 @@ describe('App 리디자인 통합 (목 모드)', () => {
     expect(screen.getByLabelText('품목명')).toBeInTheDocument();
   });
 
-  it('주사제 탭: 이름검색 → 추가(이름 자동 채움)', async () => {
+  it('외용·주사제 탭: 이름검색 → 추가(이름 자동 채움)', async () => {
     const user = userEvent.setup();
     renderApp();
     await user.click(screen.getByText('환자1'));
     await user.click(screen.getByRole('button', { name: '약 검색해서 추가' }));
-    await user.click(screen.getByRole('tab', { name: '주사제' }));
-    await user.type(screen.getByLabelText('주사제 이름'), '란투스');
+    await user.click(screen.getByRole('tab', { name: '외용·주사제' }));
+    await user.type(screen.getByLabelText('외용·주사제 이름'), '란투스');
 
     const result = await screen.findByText('란투스주솔로스타펜');
     await user.click(result);
@@ -78,6 +91,16 @@ describe('App 리디자인 통합 (목 모드)', () => {
       const line = medList()?.querySelector('.med-name') as HTMLElement;
       expect(line?.textContent).toContain('란투스주솔로스타펜');
     });
+  });
+
+  it('외용·주사제 탭: 외용약(흡입제) 검색', async () => {
+    const user = userEvent.setup();
+    renderApp();
+    await user.click(screen.getByText('환자1'));
+    await user.click(screen.getByRole('button', { name: '약 검색해서 추가' }));
+    await user.click(screen.getByRole('tab', { name: '외용·주사제' }));
+    await user.type(screen.getByLabelText('외용·주사제 이름'), '벤토린');
+    expect(await screen.findByText('벤토린에보할러')).toBeInTheDocument();
   });
 
   it('직접 입력으로 주사약(인슐린) 추가', async () => {

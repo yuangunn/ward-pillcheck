@@ -4,7 +4,7 @@ import { test, expect } from '@playwright/test';
 
 test('홈: 제목 + 기본 환자 카드', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: '지참약 식별' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: '지참약 식별' })).toBeVisible();
   await expect(page.getByText('환자1')).toBeVisible();
 });
 
@@ -47,12 +47,12 @@ test('새 환자 추가 → 환자2 화면', async ({ page }) => {
   await expect(page.getByRole('button', { name: '이름 수정' })).toContainText('환자2');
 });
 
-test('주사제 탭: 이름검색 → 추가', async ({ page }) => {
+test('외용·주사제 탭: 이름검색 → 추가', async ({ page }) => {
   await page.goto('/');
   await page.getByText('환자1').click();
   await page.getByRole('button', { name: '약 검색해서 추가' }).click();
-  await page.getByRole('tab', { name: '주사제' }).click();
-  await page.getByLabel('주사제 이름').fill('란투스');
+  await page.getByRole('tab', { name: '외용·주사제' }).click();
+  await page.getByLabel('외용·주사제 이름').fill('란투스');
   await page.getByText('란투스주솔로스타펜').click();
   const sheet = page.getByRole('dialog', { name: '직접 입력' });
   await expect(sheet.getByLabel('약 이름')).toHaveValue('란투스주솔로스타펜');
@@ -81,6 +81,27 @@ test('그려서 마크 찾기 시트 열림', async ({ page }) => {
   const sheet = page.getByRole('dialog', { name: '그려서 마크 찾기' });
   await expect(sheet.getByLabel('마크 그리기 캔버스')).toBeVisible();
   await expect(sheet.getByRole('button', { name: '지우기' })).toBeVisible();
+});
+
+test('의약품 검색 탭: 경구약 검색 → 상세 보기', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('tab', { name: '의약품 검색' }).click();
+  await page.getByLabel('의약품 이름 검색').fill('타이레놀');
+  await page.getByText('타이레놀정500mg').click();
+  const sheet = page.getByRole('dialog', { name: '약 상세 정보' });
+  await expect(sheet.getByText('타이레놀정500mg')).toBeVisible();
+});
+
+test('환자 약 그림 탭 → 상세 보기', async ({ page }) => {
+  await page.goto('/');
+  await page.getByText('환자1').click();
+  await page.getByRole('button', { name: '약 검색해서 추가' }).click();
+  await page.getByLabel('각인').fill('Bayer');
+  await page.getByText('아스피린장용정100mg').click();
+  await page.getByRole('dialog', { name: '리스트에 추가' }).getByRole('button', { name: '환자 리스트에 추가' }).click();
+  // 리스트의 약 그림 탭 → 상세 시트
+  await page.locator('ul.med-list button[aria-label="약 상세 정보"]').first().click();
+  await expect(page.getByRole('dialog', { name: '약 상세 정보' })).toBeVisible();
 });
 
 test('다크 모드 토글', async ({ page }) => {
