@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Icon, PillGlyph, MarkGlyph } from './Icon';
 import { Btn, Chip, ColorChip, SegTabs, FieldLabel, TextField, Tag, PageHeader, IconBtn, STATUS_TOP } from './ui';
-import { COLOR_OPTIONS, SHAPE_OPTIONS } from '../constants/appearance';
+import { COLOR_OPTIONS, SHAPE_OPTIONS, FORM_OPTIONS } from '../constants/appearance';
 import { freqMeta } from '../constants/frequency';
 import { sortMeds } from '../domain/sort';
 import type { MedItem, Patient, SortMode } from '../domain/models';
@@ -564,8 +564,9 @@ export function SearchScreen({
   onPickInjection: (d: PermitDrug) => void;
 }) {
   const [mode, setMode] = useState<'visual' | 'name' | 'injection'>('visual');
-  const [color, setColor] = useState('');
+  const [colors, setColors] = useState<string[]>([]);
   const [shape, setShape] = useState('');
+  const [forms, setForms] = useState<string[]>([]);
   const [marking, setMarking] = useState('');
   const [name, setName] = useState('');
   const [results, setResults] = useState<PillResult[]>([]);
@@ -573,10 +574,19 @@ export function SearchScreen({
   const [injResults, setInjResults] = useState<PermitDrug[]>([]);
   const [injLoading, setInjLoading] = useState(false);
 
-  const active = mode === 'visual' ? !!(color || shape || marking || pickedMark) : !!name.trim();
+  const toggleColor = (c: string) => setColors((cs) => (cs.includes(c) ? cs.filter((x) => x !== c) : [...cs, c]));
+  const toggleForm = (f: string) => setForms((fs) => (fs.includes(f) ? fs.filter((x) => x !== f) : [...fs, f]));
+
+  const active = mode === 'visual' ? !!(colors.length || shape || forms.length || marking || pickedMark) : !!name.trim();
   const query: PillSearchQuery =
     mode === 'visual'
-      ? { colorClass1: color || undefined, drugShape: shape || undefined, printFront: marking || undefined, markCode: pickedMark?.code }
+      ? {
+          colors: colors.length ? colors : undefined,
+          drugShape: shape || undefined,
+          forms: forms.length ? forms : undefined,
+          printFront: marking || undefined,
+          markCode: pickedMark?.code,
+        }
       : { itemName: name.trim() || undefined };
 
   const reqId = useRef(0);
@@ -624,8 +634,9 @@ export function SearchScreen({
   }, [mode, name]);
 
   const reset = () => {
-    setColor('');
+    setColors([]);
     setShape('');
+    setForms([]);
     setMarking('');
     onClearMark();
   };
@@ -677,10 +688,10 @@ export function SearchScreen({
         </div>
       ) : mode === 'visual' ? (
         <div style={{ padding: '20px 20px 8px' }}>
-          <FieldLabel>색상</FieldLabel>
+          <FieldLabel>색상 <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-weaker)' }}>(여러 개 선택 가능)</span></FieldLabel>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 22 }}>
             {COLOR_OPTIONS.map((o) => (
-              <ColorChip key={o.label} option={o} selected={color === o.label} onClick={() => setColor(color === o.label ? '' : o.label)} />
+              <ColorChip key={o.label} option={o} selected={colors.includes(o.label)} onClick={() => toggleColor(o.label)} />
             ))}
           </div>
           <FieldLabel>모양</FieldLabel>
@@ -688,6 +699,14 @@ export function SearchScreen({
             {SHAPE_OPTIONS.map((s) => (
               <Chip key={s} selected={shape === s} onClick={() => setShape(shape === s ? '' : s)}>
                 {s}
+              </Chip>
+            ))}
+          </div>
+          <FieldLabel>제형</FieldLabel>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 22 }}>
+            {FORM_OPTIONS.map((o) => (
+              <Chip key={o.match} selected={forms.includes(o.match)} onClick={() => toggleForm(o.match)}>
+                {o.label}
               </Chip>
             ))}
           </div>

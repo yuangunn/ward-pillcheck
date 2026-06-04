@@ -29,7 +29,7 @@ function Row({ label, value, ok }: { label: string; value: string; ok?: boolean 
   );
 }
 
-export function SettingsSheet({ open, onClose, onFlash }: { open: boolean; onClose: () => void; onFlash?: (m: string) => void }) {
+export function SettingsSheet({ open, onClose, onFlash, onShowGuide }: { open: boolean; onClose: () => void; onFlash?: (m: string) => void; onShowGuide?: () => void }) {
   const ds = useDataset();
   const [det, setDet] = useState<Stat | null>(null);
   const [usage, setUsage] = useState('');
@@ -148,6 +148,16 @@ export function SettingsSheet({ open, onClose, onFlash }: { open: boolean; onClo
       <div style={{ marginTop: 18, padding: '12px 14px', borderRadius: 'var(--r-card)', background: 'var(--primary-weak)', fontSize: 12.5, color: 'var(--primary-ink)', fontWeight: 600, lineHeight: 1.55 }}>
         💡 병동 인트라넷에서 쓰려면: 인터넷이 되는 곳에서 위 버튼으로 한 번 받아두면, 이후 폐쇄망/오프라인에서도 그대로 동작해요.
       </div>
+
+      {onShowGuide && (
+        <button
+          type="button"
+          onClick={onShowGuide}
+          style={{ display: 'block', width: '100%', marginTop: 16, padding: '12px 0', background: 'none', border: 'none', color: 'var(--text-weak)', fontSize: 14, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+        >
+          사용 가이드 다시 보기
+        </button>
+      )}
     </BottomSheet>
   );
 }

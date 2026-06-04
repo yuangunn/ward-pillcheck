@@ -17,6 +17,23 @@ const TIMING_DEFAULTS: Record<number, string[]> = {
   4: ['아침식후', '점심식후', '저녁식후', '자기전'],
 };
 
+// 용량 단위(개수/부피). 한 줄 포맷에 붙는 접미사 = value.
+const DOSE_UNITS: { value: string; label: string }[] = [
+  { value: 'T', label: '정 (T)' },
+  { value: 'C', label: '캡슐 (C)' },
+  { value: 'mL', label: '시럽·내용액 (mL)' },
+  { value: 'U', label: '단위 (U)' },
+  { value: '시린지', label: '시린지 (프리필드)' },
+  { value: '앰플', label: '앰플' },
+  { value: '바이알', label: '바이알' },
+  { value: '펜', label: '펜' },
+  { value: '포', label: '포 (산제·과립)' },
+  { value: '패치', label: '패치' },
+  { value: '방울', label: '방울 (점안·점이)' },
+  { value: '회분', label: '회분' },
+];
+const HALF_STEP_UNITS = new Set(['T', 'mL']); // 0.5 단위 허용(정·내용액)
+
 export interface MedFormData {
   itemSeq: string;
   name: string;
@@ -287,7 +304,7 @@ export function AddMedSheet({
       setMarking('');
     } else {
       setCount(1);
-      setDoseUnit('T');
+      setDoseUnit(source.formCodeName?.includes('캡슐') ? 'C' : 'T');
       setNameInput(source.itemName);
       setFreq('QD');
       setTimings(['아침식후']);
@@ -307,6 +324,17 @@ export function AddMedSheet({
   const name = source.__kind === 'med' ? source.name : source.__kind === 'manual' ? nameInput : source.itemName;
   const entp = source.__kind === 'med' || source.__kind === 'manual' ? undefined : source.entpName;
   const slots = freqMeta(freq).slots;
+
+  // 약 상세 정보: 추가(편집X)이고 실제 itemSeq 가 있으면 표시 — 낱알뿐 아니라 주사·외용약도.
+  const detailPill: PillResult | null =
+    isEdit || !seq
+      ? null
+      : source.__kind === 'pill'
+        ? source
+        : source.__kind === 'manual'
+          ? { itemSeq: seq, itemName: source.itemName, entpName: '', itemImage: source.imageUrl }
+          : null;
+  const showDetail = !!detailPill;
 
   const changeFreq = (code: string) => {
     setFreq(code);
@@ -351,7 +379,7 @@ export function AddMedSheet({
           borderBottom: '1px solid var(--border)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: !isEdit && source.__kind === 'pill' ? '6px 0 12px' : '6px 0 2px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: showDetail ? '6px 0 12px' : '6px 0 2px' }}>
           <PillGlyph color={color} shape={shape} marking={marking} size={56} />
           <div style={{ flex: 1, minWidth: 0 }}>
             {isManual ? (
@@ -371,7 +399,7 @@ export function AddMedSheet({
             )}
           </div>
         </div>
-        {!isEdit && source.__kind === 'pill' && (
+        {showDetail && (
           <button
             type="button"
             onClick={() => setDetailOpen((v) => !v)}
@@ -391,32 +419,57 @@ export function AddMedSheet({
         </div>
       )}
 
-      {!isEdit && source.__kind === 'pill' && detailOpen && <DetailPanel seq={seq} pill={source} />}
+      {showDetail && detailOpen && detailPill && <DetailPanel seq={detailPill.itemSeq} pill={detailPill} />}
 
       <Section label="용량">
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14, justifyContent: 'center' }}>
-          {['T', 'U', 'mL', '회분', '포'].map((u) => (
-            <Chip
-              key={u}
-              selected={doseUnit === u}
-              onClick={() => {
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
+          <div style={{ position: 'relative', width: '100%', maxWidth: 280 }}>
+            <select
+              value={doseUnit}
+              onChange={(e) => {
+                const u = e.target.value;
                 setDoseUnit(u);
-                if (u !== 'T' && !Number.isInteger(count)) setCount(Math.round(count));
+                if (!HALF_STEP_UNITS.has(u) && !Number.isInteger(count)) setCount(Math.round(count));
               }}
-              style={{ padding: '8px 14px', fontSize: 14 }}
+              aria-label="용량 단위"
+              style={{
+                width: '100%',
+                boxSizing: 'border-box',
+                height: 48,
+                padding: '0 38px 0 14px',
+                borderRadius: 'var(--r-btn)',
+                border: '1.5px solid var(--border)',
+                background: 'var(--fill)',
+                color: 'var(--text)',
+                fontSize: 15,
+                fontFamily: 'inherit',
+                fontWeight: 700,
+                letterSpacing: -0.3,
+                outline: 'none',
+                appearance: 'none',
+                WebkitAppearance: 'none',
+                cursor: 'pointer',
+              }}
             >
-              {u === 'T' ? '정 T' : u === 'U' ? '단위 U' : u}
-            </Chip>
-          ))}
+              {DOSE_UNITS.map((u) => (
+                <option key={u.value} value={u.value}>
+                  {u.label}
+                </option>
+              ))}
+            </select>
+            <span style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-weaker)', display: 'flex' }}>
+              <Icon name="chevDown" size={18} />
+            </span>
+          </div>
         </div>
         <div style={{ display: 'flex', justifyContent: 'center', padding: '4px 0' }}>
           <Stepper
             value={count}
             onChange={setCount}
             unit={doseUnit}
-            step={doseUnit === 'T' ? 0.5 : 1}
-            min={doseUnit === 'T' ? 0.5 : 1}
-            max={doseUnit === 'T' ? 20 : 200}
+            step={HALF_STEP_UNITS.has(doseUnit) ? 0.5 : 1}
+            min={HALF_STEP_UNITS.has(doseUnit) ? 0.5 : 1}
+            max={doseUnit === 'mL' ? 1000 : doseUnit === 'T' ? 20 : 200}
           />
         </div>
       </Section>

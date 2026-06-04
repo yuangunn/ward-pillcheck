@@ -18,6 +18,21 @@ describe('filterRecords', () => {
   it('뒷면 각인도 매칭', () => {
     expect(filterRecords(DATA, { printFront: '500' }).map((x) => x.itemSeq)).toEqual(['2']);
   });
+  it('색 다중선택(colors) — 하나라도 일치', () => {
+    const r = filterRecords(DATA, { colors: ['노랑', '초록'] });
+    expect(r.map((x) => x.itemSeq).sort()).toEqual(['4']); // 노랑(자나팜)만 존재
+    expect(filterRecords(DATA, { colors: ['하양'] }).length).toBe(4);
+  });
+  it('제형(forms) 부분일치 — 정/캡슐 구분', () => {
+    const data = [
+      ...DATA,
+      { seq: '7', name: '오메가캡슐', entp: 'X', shape: '장방형', color: '노랑', form: '연질캡슐제' },
+      { seq: '8', name: '어떤정', entp: 'Y', shape: '원형', color: '하양', form: '필름코팅정' },
+    ];
+    expect(filterRecords(data, { forms: ['연질'] }).map((x) => x.itemSeq)).toEqual(['7']);
+    expect(filterRecords(data, { forms: ['정'] }).map((x) => x.itemSeq)).toEqual(['8']);
+  });
+
   it('색+모양 조합', () => {
     const r = filterRecords(DATA, { colorClass1: '하양', drugShape: '팔각형' });
     expect(r.map((x) => x.itemSeq)).toEqual(['3']);

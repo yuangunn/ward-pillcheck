@@ -2,6 +2,19 @@ import { test, expect } from '@playwright/test';
 
 // 데모(목) 모드로 동작 — 인증키 없이 실제 브라우저에서 리디자인 핵심 흐름 검증.
 
+// 기본은 온보딩을 끈 상태로(첫 실행 오버레이가 클릭을 가리지 않도록). 온보딩은 전용 케이스에서.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('ward-pillcheck:onboarded', '1'));
+});
+
+test('첫 실행: 온보딩 가이드 → 건너뛰기', async ({ page }) => {
+  await page.addInitScript(() => localStorage.removeItem('ward-pillcheck:onboarded'));
+  await page.goto('/');
+  await expect(page.getByRole('dialog', { name: '사용 가이드' })).toBeVisible();
+  await page.getByRole('button', { name: '건너뛰기' }).click();
+  await expect(page.getByText('환자1')).toBeVisible();
+});
+
 test('홈: 제목 + 기본 환자 카드', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('tab', { name: '지참약 식별' })).toBeVisible();
@@ -56,6 +69,8 @@ test('외용·주사제 탭: 이름검색 → 추가', async ({ page }) => {
   await page.getByText('란투스주솔로스타펜').click();
   const sheet = page.getByRole('dialog', { name: '직접 입력' });
   await expect(sheet.getByLabel('약 이름')).toHaveValue('란투스주솔로스타펜');
+  // 주사·외용약도 약 상세 정보 버튼 노출(itemSeq 보유)
+  await expect(sheet.getByRole('button', { name: '약 상세 정보' })).toBeVisible();
   await sheet.getByRole('button', { name: '환자 리스트에 추가' }).click();
   await expect(page.locator('ul.med-list .med-name')).toContainText('란투스주솔로스타펜');
 });
@@ -67,7 +82,7 @@ test('직접 입력으로 주사약 추가', async ({ page }) => {
   await page.getByRole('button', { name: /직접 입력/ }).click();
   const sheet = page.getByRole('dialog', { name: '직접 입력' });
   await sheet.getByLabel('약 이름').fill('란투스주');
-  await sheet.getByRole('button', { name: '단위 U' }).click();
+  await sheet.getByLabel('용량 단위').selectOption('U');
   await sheet.getByRole('button', { name: '환자 리스트에 추가' }).click();
   await expect(page.locator('ul.med-list .med-name')).toContainText('란투스주');
 });

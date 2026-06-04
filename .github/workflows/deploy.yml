@@ -27,12 +27,30 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - name: Build dataset (낱알식별 전체)
+
+      # 데이터셋 재사용: push 배포는 캐시된 데이터셋을 그대로 써서 전수 재수집(수분)을 생략.
+      # cron(매일)·수동 실행만 새로 수집해 최신화하고 캐시를 갱신한다.
+      - name: Restore dataset cache
+        id: dataset
+        uses: actions/cache/restore@v4
+        with:
+          path: public/data
+          key: dataset-${{ github.run_id }}
+          restore-keys: |
+            dataset-
+      - name: Build dataset (cron·수동, 또는 캐시 없음)
         # data.go.kr 디코딩 키를 Secret(SERVICE_KEY)로 주입해 전체 데이터 생성.
-        # 미설정 시 빈 데이터셋으로 진행(검색 결과 없음).
+        if: ${{ github.event_name != 'push' || steps.dataset.outputs.cache-matched-key == '' }}
         env:
           SERVICE_KEY: ${{ secrets.SERVICE_KEY }}
         run: node scripts/build-dataset.mjs
+      - name: Save dataset cache
+        if: ${{ github.event_name != 'push' || steps.dataset.outputs.cache-matched-key == '' }}
+        uses: actions/cache/save@v4
+        with:
+          path: public/data
+          key: dataset-${{ github.run_id }}
+
       - name: Build
         # 프론트가 호출할 Worker 엔드포인트를 repo Variables(VITE_API_BASE)로 주입.
         # 미설정 시 데모(목) 모드로 빌드됨.

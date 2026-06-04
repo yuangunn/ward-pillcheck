@@ -1,10 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore, uid } from './state/store';
 import { buildTokens, useTheme } from './design/theme';
 import { HomeScreen, MedListScreen, SearchScreen, type PickedMark } from './design/screens';
 import { AddMedSheet, CopySheet, DurSheet, PatientManageSheet, MarkGallerySheet, DrawMarkSheet, DrugDetailSheet, type MedFormData } from './design/sheets';
 import { SettingsSheet } from './design/SettingsSheet';
+import { Onboarding } from './design/Onboarding';
+
+const ONBOARDED_KEY = 'ward-pillcheck:onboarded';
 import { Toast, Lightbox, type ZoomPill } from './design/ui';
+import { Icon } from './design/Icon';
 import { sortMeds } from './domain/sort';
 import type { MedItem, Patient, SortMode } from './domain/models';
 import type { MarkOption, PillResult } from './api';
@@ -41,6 +45,23 @@ export default function App() {
   const [topTab, setTopTab] = useState<'patients' | 'lookup'>('patients');
   const [detailPill, setDetailPill] = useState<PillResult | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [onboardOpen, setOnboardOpen] = useState(() => {
+    try {
+      return !localStorage.getItem(ONBOARDED_KEY);
+    } catch {
+      return false;
+    }
+  });
+  const closeOnboarding = () => {
+    try {
+      localStorage.setItem(ONBOARDED_KEY, '1');
+    } catch {
+      /* ignore */
+    }
+    setOnboardOpen(false);
+  };
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [showTop, setShowTop] = useState(false);
 
   const patients = state.patients;
   const activePatient: Patient | null = patients.find((p) => p.id === route.patientId) ?? null;
@@ -57,6 +78,7 @@ export default function App() {
       setDrawOpen(false);
     }
     setDetailPill(null);
+    setShowTop(false);
     setRoute(next);
   };
 
@@ -182,7 +204,9 @@ export default function App() {
     >
       <div
         key={routeKey}
+        ref={scrollRef}
         className="screen-scroll"
+        onScroll={(e) => setShowTop((e.target as HTMLDivElement).scrollTop > 500)}
         style={{
           position: 'absolute',
           inset: 0,
@@ -193,6 +217,34 @@ export default function App() {
       >
         {screen}
       </div>
+
+      {showTop && (
+        <button
+          type="button"
+          aria-label="맨 위로"
+          onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
+          style={{
+            position: 'absolute',
+            right: 16,
+            bottom: 150,
+            zIndex: 60,
+            width: 44,
+            height: 44,
+            borderRadius: '50%',
+            border: '1px solid var(--border)',
+            background: 'var(--card)',
+            color: 'var(--text)',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            WebkitTapHighlightColor: 'transparent',
+          }}
+        >
+          <Icon name="chevDown" size={22} style={{ transform: 'rotate(180deg)' }} />
+        </button>
+      )}
 
       <AddMedSheet
         open={addState.open}
@@ -231,7 +283,16 @@ export default function App() {
       <MarkGallerySheet open={galleryOpen} onClose={() => setGalleryOpen(false)} onPick={(m: MarkOption) => setPickedMark({ code: m.code, img: m.img })} />
       <DrawMarkSheet open={drawOpen} onClose={() => setDrawOpen(false)} onPick={(m: MarkOption) => setPickedMark({ code: m.code, img: m.img })} />
       <DrugDetailSheet open={!!detailPill} pill={detailPill} onClose={() => setDetailPill(null)} onZoom={(p) => setZoomPill(pillToZoom(p))} />
-      <SettingsSheet open={settingsOpen} onClose={() => setSettingsOpen(false)} onFlash={flash} />
+      <SettingsSheet
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onFlash={flash}
+        onShowGuide={() => {
+          setSettingsOpen(false);
+          setOnboardOpen(true);
+        }}
+      />
+      {onboardOpen && <Onboarding onClose={closeOnboarding} />}
       <Lightbox pill={zoomPill} onClose={() => setZoomPill(null)} />
 
       <Toast msg={toast} />

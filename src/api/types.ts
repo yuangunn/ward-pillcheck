@@ -7,7 +7,9 @@ export interface PillSearchQuery {
   itemName?: string; // 품목명
   entpName?: string; // 업체명
   drugShape?: string; // 모양 (drug_shape)
-  colorClass1?: string; // 색 (color_class1)
+  colorClass1?: string; // 색 (color_class1) — 단일(하위호환)
+  colors?: string[]; // 색 다중 선택(하나라도 일치)
+  forms?: string[]; // 제형 부분일치 키워드(정/경질/연질 등) — 하나라도 일치
   printFront?: string; // 앞면 각인 (print_front)
   markCode?: string; // 마크 코드(갤러리 선택) — 번들 데이터셋 전용
   formCodeName?: string; // 제형

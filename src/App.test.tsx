@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from './App';
@@ -15,10 +15,25 @@ function renderApp() {
 const medList = () => document.querySelector('ul.med-list') as HTMLElement | null;
 
 describe('App 리디자인 통합 (목 모드)', () => {
+  // 기본은 온보딩을 끈 상태로(테스트 방해 방지). 온보딩은 전용 케이스에서 검증.
+  beforeEach(() => {
+    localStorage.setItem('ward-pillcheck:onboarded', '1');
+  });
+
   it('홈: 제목 + 기본 환자(환자1) 카드 표시', () => {
     renderApp();
     expect(screen.getByRole('tab', { name: '지참약 식별' })).toBeInTheDocument();
     expect(screen.getByText('환자1')).toBeInTheDocument();
+  });
+
+  it('첫 실행: 온보딩 가이드 노출 → 건너뛰기', async () => {
+    localStorage.removeItem('ward-pillcheck:onboarded');
+    const user = userEvent.setup();
+    renderApp();
+    const guide = await screen.findByRole('dialog', { name: '사용 가이드' });
+    expect(guide).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '건너뛰기' }));
+    expect(screen.queryByRole('dialog', { name: '사용 가이드' })).not.toBeInTheDocument();
   });
 
   it('의약품 검색 탭: 경구약 이름검색 → 약 누르면 상세 보기', async () => {
@@ -112,7 +127,7 @@ describe('App 리디자인 통합 (목 모드)', () => {
 
     const sheet = await screen.findByRole('dialog', { name: '직접 입력' });
     await user.type(within(sheet).getByLabelText('약 이름'), '란투스주');
-    await user.click(within(sheet).getByRole('button', { name: '단위 U' }));
+    await user.selectOptions(within(sheet).getByLabelText('용량 단위'), 'U');
     await user.click(within(sheet).getByRole('button', { name: '환자 리스트에 추가' }));
 
     await waitFor(() => {
