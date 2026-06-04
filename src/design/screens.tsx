@@ -470,13 +470,13 @@ export function SearchScreen({
 
   return (
     <div style={{ paddingBottom: 30 }}>
-      <PageHeader title="약 검색" sub="색·모양·각인·마크 / 주사제는 이름으로" onBack={onBack} />
+      <PageHeader title="약 검색" sub="색·모양·각인·마크 / 외용·주사제는 이름으로" onBack={onBack} />
       <div style={{ padding: '4px 20px 0' }}>
         <SegTabs
           tabs={[
             { value: 'visual', label: '실물 검색' },
             { value: 'name', label: '이름 검색' },
-            { value: 'injection', label: '주사제' },
+            { value: 'injection', label: '외용·주사제' },
           ]}
           value={mode}
           onChange={setMode}
@@ -485,10 +485,10 @@ export function SearchScreen({
 
       {mode === 'injection' ? (
         <div style={{ padding: '20px 20px 8px' }}>
-          <FieldLabel>주사제 이름</FieldLabel>
-          <TextField value={name} onChange={setName} placeholder="예) 란투스, 휴마로그, 인슐린" aria-label="주사제 이름" autoFocus />
+          <FieldLabel>외용약·주사제 이름</FieldLabel>
+          <TextField value={name} onChange={setName} placeholder="예) 벤토린, 둘코락스좌약, 란투스, 인슐린" aria-label="외용·주사제 이름" autoFocus />
           <p style={{ margin: '10px 2px 0', fontSize: 12.5, color: 'var(--text-weaker)', fontWeight: 600, lineHeight: 1.45 }}>
-            주사제는 색·모양·각인이 없어 이름으로 찾아요 (식약처 허가정보).
+            흡입제·좌약·연고·점안 등 외용약과 주사제는 낱알 모양이 없어 이름으로 찾아요 (식약처 허가정보).
           </p>
           <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 'var(--list-gap)' }}>
             {name.trim() && injLoading && (

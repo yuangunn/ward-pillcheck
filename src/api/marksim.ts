@@ -17,6 +17,40 @@ export interface ImgLike {
 
 export const GRID = 24; // 특징 그리드 한 변
 const INK_THRESHOLD = 0.32; // 잉크로 칠 luminance 기준(0~1, 클수록 진함)
+const BLUR_RADIUS = 2; // 손그림 흔들림 흡수용 디스크립터 블러(셀 반경)
+const FEAT_VERSION = 2; // 디스크립터 알고리즘 버전(바뀌면 캐시 무효화)
+
+/** 그리드 디스크립터에 분리형 박스 블러 — 손그림의 위치/굵기 오차를 흡수 */
+function blurGrid(src: Float32Array, grid: number, radius: number): Float32Array {
+  if (radius <= 0) return src;
+  const horiz = new Float32Array(grid * grid);
+  for (let y = 0; y < grid; y++) {
+    for (let x = 0; x < grid; x++) {
+      let sum = 0, n = 0;
+      for (let dx = -radius; dx <= radius; dx++) {
+        const xx = x + dx;
+        if (xx < 0 || xx >= grid) continue;
+        sum += src[y * grid + xx];
+        n++;
+      }
+      horiz[y * grid + x] = sum / n;
+    }
+  }
+  const out = new Float32Array(grid * grid);
+  for (let y = 0; y < grid; y++) {
+    for (let x = 0; x < grid; x++) {
+      let sum = 0, n = 0;
+      for (let dy = -radius; dy <= radius; dy++) {
+        const yy = y + dy;
+        if (yy < 0 || yy >= grid) continue;
+        sum += horiz[yy * grid + x];
+        n++;
+      }
+      out[y * grid + x] = sum / n;
+    }
+  }
+  return out;
+}
 
 /**
  * 이미지(검정 그림/흰 배경 가정)에서 위치·크기 불변 형상 특징을 뽑는다.
@@ -69,7 +103,8 @@ export function extractFeature(img: ImgLike, grid = GRID): Float32Array {
       out[gy * grid + gx] = n ? sum / n : 0;
     }
   }
-  return out;
+  // 블러로 손그림 vs 인쇄마크의 미세 정렬·굵기 차이를 완화 (마크·질의 동일 적용)
+  return blurGrid(out, grid, BLUR_RADIUS);
 }
 
 /** 코사인 유사도(0~1). 빈 벡터는 0. */
@@ -145,7 +180,7 @@ export async function ensureMarkFeatures(
 ): Promise<MarkFeature[]> {
   if (featCache) return featCache;
   const opts = await getMarkOptions();
-  const key = `markfeat:${getMeta()?.builtAt ?? 'x'}:${opts.length}`;
+  const key = `markfeat:v${FEAT_VERSION}:${getMeta()?.builtAt ?? 'x'}:${opts.length}`;
 
   try {
     const cached = await idbGet<MarkFeature[]>(key);

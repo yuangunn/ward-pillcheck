@@ -30,6 +30,7 @@ export interface PillResult {
   itemImage?: string; // 낱알이미지 URL
   etcOtcName?: string; // 전문/일반
   className?: string; // 분류
+  ingredient?: string; // 주성분(번들: 허가정보 ITEM_INGR_NAME 결합)
   markFrontImg?: string; // 앞면 마크 이미지 URL
   markBackImg?: string; // 뒤면 마크 이미지 URL
   markFrontAnal?: string; // 앞면 마크 분석 텍스트(마크 속 글자/기호)
