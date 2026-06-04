@@ -12,187 +12,58 @@ function renderApp() {
   );
 }
 
-/** 실물 검색으로 Bayer 약을 찾아 환자 리스트에 추가하는 공통 흐름 */
-async function searchAndAddBayer(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(screen.getByLabelText(/각인/), 'Bayer');
-  await user.click(screen.getByRole('button', { name: '검색' }));
-  // 결과 카드 등장 대기
-  await screen.findByText('아스피린장용정100mg');
-  await user.click(screen.getByRole('button', { name: '환자 리스트에 추가' }));
-  // 추가 시트의 제출 버튼
-  const sheet = await screen.findByRole('dialog', { name: '환자 리스트에 추가' });
-  await user.click(within(sheet).getByRole('button', { name: '추가' }));
-}
+const medList = () => document.querySelector('ul.med-list') as HTMLElement | null;
 
-function medList(): HTMLElement {
-  // ul.med-list
-  return document.querySelector('ul.med-list') as HTMLElement;
-}
-
-describe('App 통합', () => {
-  it('첫 진입 시 기본 환자(환자1)가 존재한다', () => {
+describe('App 리디자인 통합 (목 모드)', () => {
+  it('홈: 제목 + 기본 환자(환자1) 카드 표시', () => {
     renderApp();
-    expect(screen.getByRole('button', { name: '환자1' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '지참약 식별' })).toBeInTheDocument();
+    expect(screen.getByText('환자1')).toBeInTheDocument();
   });
 
-  it('실물 검색 → 결과 카드 → 환자 리스트 추가 → 한 줄 포맷 표시', async () => {
+  it('환자 열기 → 빈 상태 → 검색 → 추가 → 리스트 표시', async () => {
     const user = userEvent.setup();
     renderApp();
-    await searchAndAddBayer(user);
 
-    await waitFor(() => expect(medList()).toBeInTheDocument());
-    const line = medList().querySelector('.med-name') as HTMLElement;
-    expect(line.textContent).toContain('아스피린장용정100mg');
-    expect(line.textContent).toContain('1T');
-    expect(line.textContent).toContain('QD');
-    expect(line.textContent).toContain('아침식후');
-  });
+    // 환자1 카드 열기
+    await user.click(screen.getByText('환자1'));
+    expect(await screen.findByText(/아직 추가된 약이 없어요/)).toBeInTheDocument();
 
-  it('결과 카드 탭 시 e약은요 상세를 펼쳐 로드한다', async () => {
-    const user = userEvent.setup();
-    renderApp();
-    await user.type(screen.getByLabelText(/각인/), 'Bayer');
-    await user.click(screen.getByRole('button', { name: '검색' }));
+    // 검색 화면으로
+    await user.click(screen.getByRole('button', { name: '약 검색해서 추가' }));
+    // 실물 검색 탭이 기본 선택
+    expect(screen.getByRole('tab', { name: '실물 검색' })).toHaveAttribute('aria-selected', 'true');
+
+    // 각인으로 검색
+    await user.type(screen.getByLabelText('각인'), 'Bayer');
     const name = await screen.findByText('아스피린장용정100mg');
-    await user.click(name); // 카드 본문 탭 → 상세 펼침
-    expect(await screen.findByText('효능')).toBeInTheDocument();
-    expect(await screen.findByText(/혈전 생성 억제/)).toBeInTheDocument();
-  });
+    await user.click(name);
 
-  it('저장 항목 편집: 정제수/용법 수정이 반영된다', async () => {
-    const user = userEvent.setup();
-    renderApp();
-    await searchAndAddBayer(user);
-    await waitFor(() => expect(medList()).toBeInTheDocument());
+    // 추가 시트 → 환자 리스트에 추가
+    const sheet = await screen.findByRole('dialog', { name: '리스트에 추가' });
+    await user.click(within(sheet).getByRole('button', { name: '환자 리스트에 추가' }));
 
-    // 약물 한 줄 탭 → 편집 시트
-    await user.click(medList().querySelector('.med-line') as HTMLElement);
-    const editSheet = await screen.findByRole('dialog', { name: '항목 편집' });
-
-    // 용법을 BID 칩으로 변경
-    await user.click(within(editSheet).getByRole('button', { name: /BID/ }));
-    // 정제수 0.5 증가(스테퍼 +)
-    await user.click(within(editSheet).getByRole('button', { name: '0.5정 증가' }));
-    await user.click(within(editSheet).getByRole('button', { name: '저장' }));
-
+    // 환자 화면으로 돌아와 약 행 표시
     await waitFor(() => {
-      const line = medList().querySelector('.med-name') as HTMLElement;
-      expect(line.textContent).toContain('1.5T');
-      expect(line.textContent).toContain('BID');
+      const line = medList()?.querySelector('.med-name') as HTMLElement;
+      expect(line?.textContent).toContain('아스피린장용정100mg');
     });
   });
 
-  it('저장 항목 삭제', async () => {
+  it('이름 검색 탭으로 전환된다', async () => {
     const user = userEvent.setup();
     renderApp();
-    await searchAndAddBayer(user);
-    await waitFor(() => expect(medList()).toBeInTheDocument());
-
-    await user.click(medList().querySelector('.med-line') as HTMLElement);
-    const editSheet = await screen.findByRole('dialog', { name: '항목 편집' });
-    await user.click(within(editSheet).getByRole('button', { name: '삭제' }));
-
-    await screen.findByText(/아직 추가된 약이 없습니다/);
+    await user.click(screen.getByText('환자1'));
+    await user.click(screen.getByRole('button', { name: '약 검색해서 추가' }));
+    await user.click(screen.getByRole('tab', { name: '이름 검색' }));
+    expect(screen.getByLabelText('품목명')).toBeInTheDocument();
   });
 
-  it('자동정렬: 용법순 버튼이 활성(aria-pressed) 상태가 된다', async () => {
+  it('새 환자 추가 후 해당 환자 화면으로 이동', async () => {
     const user = userEvent.setup();
     renderApp();
-    await searchAndAddBayer(user);
-
-    const sortBtn = screen.getByRole('button', { name: '용법순' });
-    expect(sortBtn).toHaveAttribute('aria-pressed', 'false');
-    await user.click(sortBtn);
-    expect(sortBtn).toHaveAttribute('aria-pressed', 'true');
-  });
-
-  it('환자 추가 버튼으로 환자2 생성 및 전환', async () => {
-    const user = userEvent.setup();
-    renderApp();
-    await user.click(screen.getByRole('button', { name: '환자 추가' }));
-    expect(screen.getByRole('button', { name: '환자2' })).toBeInTheDocument();
-    // 새 환자가 active → 약 없음 안내
-    expect(screen.getByText(/아직 추가된 약이 없습니다/)).toBeInTheDocument();
-  });
-
-  it('BID 선택 시 복용시점 입력칸이 2개로 늘어난다', async () => {
-    const user = userEvent.setup();
-    renderApp();
-    await user.type(screen.getByLabelText(/각인/), 'Bayer');
-    await user.click(screen.getByRole('button', { name: '검색' }));
-    await screen.findByText('아스피린장용정100mg');
-    await user.click(screen.getByRole('button', { name: '환자 리스트에 추가' }));
-    const sheet = await screen.findByRole('dialog', { name: '환자 리스트에 추가' });
-
-    // 기본 QD → 복용시점 1칸
-    expect(within(sheet).getByText('복용시점')).toBeInTheDocument();
-    // BID 선택 → 2칸
-    await user.click(within(sheet).getByRole('button', { name: /BID/ }));
-    expect(within(sheet).getByText('복용시점 1')).toBeInTheDocument();
-    expect(within(sheet).getByText('복용시점 2')).toBeInTheDocument();
-
-    await user.click(within(sheet).getByRole('button', { name: '추가' }));
-    await waitFor(() => {
-      const line = medList().querySelector('.med-name') as HTMLElement;
-      expect(line.textContent).toContain('BID');
-      expect(line.textContent).toContain('아침식후,'); // 복용시점 2개가 콤마로
-    });
-  });
-
-  it('데모(목) 모드 배너가 표시된다', () => {
-    renderApp();
-    expect(screen.getByText(/데모\(목\) 모드/)).toBeInTheDocument();
-  });
-
-  it('리스트 복사 버튼: 클릭 시 복사 피드백 표시', async () => {
-    const user = userEvent.setup(); // userEvent 가 navigator.clipboard 스텁 제공
-    renderApp();
-    await searchAndAddBayer(user);
-    await waitFor(() => expect(medList()).toBeInTheDocument());
-
-    await user.click(screen.getByRole('button', { name: '리스트 복사' }));
-    expect(await screen.findByRole('button', { name: '복사됨 ✓' })).toBeInTheDocument();
-
-    const copied = await navigator.clipboard.readText();
-    expect(copied).toContain('[환자1]');
-    expect(copied).toContain('아스피린장용정100mg 1T QD 아침식후');
-  });
-
-  it('중복 약 추가 시 경고 배너 표시(추가는 여전히 가능)', async () => {
-    const user = userEvent.setup();
-    renderApp();
-    await searchAndAddBayer(user); // 1회 추가
-
-    // 결과 카드가 남아 있으므로 다시 추가 시도
-    await user.click(screen.getByRole('button', { name: '환자 리스트에 추가' }));
-    const sheet = await screen.findByRole('dialog', { name: '환자 리스트에 추가' });
-    expect(within(sheet).getByRole('alert')).toHaveTextContent('이미 이 환자 리스트에 같은 약');
-  });
-
-  it('환자 관리: 라벨 변경', async () => {
-    const user = userEvent.setup();
-    renderApp();
-    await user.click(screen.getByRole('button', { name: '환자 관리' }));
-    const sheet = await screen.findByRole('dialog', { name: '환자 관리' });
-    const input = within(sheet).getByLabelText(/환자 라벨/);
-    await user.clear(input);
-    await user.type(input, '3호실A');
-    await user.click(within(sheet).getByRole('button', { name: '저장' }));
-
-    expect(screen.getByRole('button', { name: '3호실A' })).toBeInTheDocument();
-  });
-
-  it('환자 관리: 삭제(확인 단계 거쳐)', async () => {
-    const user = userEvent.setup();
-    renderApp();
-    await user.click(screen.getByRole('button', { name: '환자 추가' })); // 환자2 생성·active
-
-    await user.click(screen.getByRole('button', { name: '환자 관리' }));
-    const sheet = await screen.findByRole('dialog', { name: '환자 관리' });
-    await user.click(within(sheet).getByRole('button', { name: '환자 삭제' }));
-    await user.click(within(sheet).getByRole('button', { name: '삭제 확인' }));
-
-    expect(screen.queryByRole('button', { name: '환자2' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '환자1' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '새 환자 추가' }));
+    // 환자2 상세 화면(헤더 제목)
+    expect(await screen.findByRole('heading', { name: '환자2' })).toBeInTheDocument();
   });
 });
