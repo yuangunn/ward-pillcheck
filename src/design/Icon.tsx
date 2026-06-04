@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react';
+import { useState, type CSSProperties, type ReactNode } from 'react';
 import { COLOR_OPTIONS } from '../constants/appearance';
 
 // 라인 SVG 아이콘 세트.
@@ -208,19 +208,25 @@ export interface MarkOpt {
 
 /** 마크(그림 식별표시). 실데이터는 이미지 URL, 없으면 코드 글자 폴백. */
 export function MarkGlyph({ option, size = 44, plain }: { option?: MarkOpt | null; size?: number; plain?: boolean }) {
+  const [imgFailed, setImgFailed] = useState(false);
   if (!option) return null;
-  const inner = option.img ? (
-    <img
-      src={option.img}
-      alt={option.code}
-      style={{ width: size * 0.84, height: size * 0.84, objectFit: 'contain' }}
-      loading="lazy"
-    />
-  ) : (
-    <span style={{ fontSize: size * 0.4, fontWeight: 800, color: 'var(--text)', letterSpacing: -0.5 }}>
-      {(option.letter || option.code || '').slice(0, 3)}
+  const letter = (
+    <span style={{ fontSize: size * 0.36, fontWeight: 800, color: 'var(--text)', letterSpacing: -0.5 }}>
+      {(option.letter || option.code || '').slice(0, 4)}
     </span>
   );
+  const inner =
+    option.img && !imgFailed ? (
+      <img
+        src={option.img}
+        alt={option.code}
+        onError={() => setImgFailed(true)}
+        style={{ width: size * 0.84, height: size * 0.84, objectFit: 'contain' }}
+        loading="lazy"
+      />
+    ) : (
+      letter
+    );
   if (plain) return inner;
   return (
     <div
@@ -229,7 +235,7 @@ export function MarkGlyph({ option, size = 44, plain }: { option?: MarkOpt | nul
         height: size,
         borderRadius: Math.max(8, size * 0.22),
         flexShrink: 0,
-        background: option.img ? '#fff' : 'var(--fill)',
+        background: option.img && !imgFailed ? '#fff' : 'var(--fill)',
         border: '1px solid var(--border)',
         display: 'flex',
         alignItems: 'center',

@@ -18,4 +18,4 @@ export const isMockMode = !apiBase;
 /** 검색에 번들 데이터셋을 쓰는지 (데이터 업데이트·마크 갤러리 노출용) */
 export const usesDataset = !!apiBase;
 
-export { getMarkOptions, type MarkOption } from './dataset';
+export { getMarkOptions, proxiedImg, type MarkOption } from './dataset';

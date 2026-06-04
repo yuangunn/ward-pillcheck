@@ -294,6 +294,38 @@ export default {
       return durForItem(itemSeq, env);
     }
 
+    // 이미지 프록시(마크/낱알 이미지). nedrug 가 charset 붙은 content-type·크로스사이트로
+    // 모바일 브라우저에서 안 뜨는 문제 → 헤더 정리 + CORS 부여해 중계.
+    if (url.pathname === '/api/img') {
+      const u = url.searchParams.get('u');
+      if (!u) return json({ error: 'u 필요' }, env, 400);
+      let target: URL;
+      try {
+        target = new URL(u);
+      } catch {
+        return json({ error: 'bad url' }, env, 400);
+      }
+      if (target.hostname !== 'nedrug.mfds.go.kr') {
+        return json({ error: 'forbidden host' }, env, 403);
+      }
+      let res: Response;
+      try {
+        res = await fetch(target.toString());
+      } catch {
+        return json({ error: 'img fetch 실패' }, env, 502);
+      }
+      if (!res.ok) return json({ error: `img ${res.status}` }, env, 502);
+      const ct = (res.headers.get('content-type') || 'image/jpeg').split(';')[0].trim();
+      const body = await res.arrayBuffer();
+      return new Response(body, {
+        headers: {
+          'Content-Type': ct || 'image/jpeg',
+          'Cache-Control': 'public, max-age=604800',
+          ...cors(env),
+        },
+      });
+    }
+
     if (url.pathname === '/' || url.pathname === '/health') {
       return json({ ok: true, service: 'ward-pillcheck-proxy' }, env);
     }
