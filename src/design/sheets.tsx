@@ -6,7 +6,7 @@ import { FREQUENCY_PRESETS, freqMeta } from '../constants/frequency';
 import { TIMING_PRESETS, timingOrder } from '../constants/timing';
 import { buildListText } from '../domain/format';
 import type { MedItem, Patient } from '../domain/models';
-import { drugApi, getMarkOptions, type DrugDetail, type MarkOption, type PillResult } from '../api';
+import { drugApi, getMarkOptions, proxiedImg, type DrugDetail, type MarkOption, type PillResult } from '../api';
 import { ensureMarkFeatures, featureFromCanvas, rankFeatures, type RankedMark } from '../api';
 import { analyzeInteractions, fetchDurMap, type InteractionResult } from '../api/dur';
 
@@ -48,10 +48,21 @@ function Section({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+/** 빈/의미없는 값('-','없음') 정리 */
+function fieldVal(v?: string): string {
+  const x = (v || '').trim();
+  return x && x !== '-' && x !== '없음' ? x : '';
+}
+/** 앞/뒤 한 줄 표기 ("앞 X / 뒤 Y") */
+function frontBack(front?: string, back?: string): string {
+  return [fieldVal(front) && `앞 ${fieldVal(front)}`, fieldVal(back) && `뒤 ${fieldVal(back)}`].filter(Boolean).join(' / ');
+}
+
 function DetailAccordion({ seq, pill }: { seq: string; pill: PillResult }) {
   const [open, setOpen] = useState(false);
   const [detail, setDetail] = useState<DrugDetail | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [imgFail, setImgFail] = useState(false);
   useEffect(() => {
     if (!open || loaded) return;
     drugApi
@@ -62,15 +73,32 @@ function DetailAccordion({ seq, pill }: { seq: string; pill: PillResult }) {
       })
       .catch(() => setLoaded(true));
   }, [open, loaded, seq]);
+
+  const photo = proxiedImg(pill.itemImage);
+  // 외형/분류 기본 정보(상세가 없어도 항상 제공)
+  const basics = ([
+    ['분류', pill.className],
+    ['구분', pill.etcOtcName],
+    ['제형', pill.formCodeName],
+    ['색상', pill.colorClass1],
+    ['모양', pill.drugShape],
+  ] as [string, string | undefined][])
+    .map(([k, v]) => [k, fieldVal(v)] as [string, string])
+    .filter(([, v]) => v);
+  const imprint = frontBack(pill.printFront, pill.printBack);
+  const splitLine = frontBack(pill.lineFront, pill.lineBack);
+
   const rows = detail
     ? ([
-        ['효능', detail.efcy],
-        ['용법', detail.useMethod],
-        ['주의', detail.atpn],
-        ['부작용', detail.se],
+        ['효능·효과', detail.efcy],
+        ['용법·용량', detail.useMethod],
+        ['주의사항', detail.atpn],
+        ['상호작용', detail.intrc],
+        ['이상반응', detail.se],
         ['보관법', detail.deposit],
-      ] as [string, string | undefined][]).filter(([, v]) => v)
+      ] as [string, string | undefined][]).filter(([, v]) => fieldVal(v))
     : [];
+
   return (
     <div style={{ marginBottom: 4 }}>
       <button
@@ -83,24 +111,85 @@ function DetailAccordion({ seq, pill }: { seq: string; pill: PillResult }) {
       </button>
       {open && (
         <div style={{ padding: '14px 4px 4px' }}>
-          {!loaded ? (
-            <div style={{ fontSize: 13.5, color: 'var(--text-weak)' }}>불러오는 중…</div>
-          ) : rows.length ? (
-            <dl style={{ margin: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {rows.map(([k, v]) => (
-                <div key={k}>
-                  <dt style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--primary-ink)', marginBottom: 3 }}>{k}</dt>
-                  <dd style={{ margin: 0, fontSize: 14, color: 'var(--text)', lineHeight: 1.5, letterSpacing: -0.3 }}>{v}</dd>
+          {/* 실물 사진 + 외형/분류 요약 (항상 표시) */}
+          <div style={{ display: 'flex', gap: 14, marginBottom: 16 }}>
+            <div
+              style={{
+                width: 84,
+                height: 84,
+                flexShrink: 0,
+                borderRadius: 16,
+                background: '#fff',
+                border: '1px solid var(--border)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden',
+              }}
+            >
+              {photo && !imgFail ? (
+                <img src={photo} alt={pill.itemName} loading="lazy" onError={() => setImgFail(true)} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+              ) : (
+                <PillGlyph color={pill.colorClass1} shape={pill.drugShape} marking={pill.printFront} size={72} />
+              )}
+            </div>
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {basics.map(([k, v]) => (
+                <div key={k} style={{ display: 'flex', gap: 8, fontSize: 13, lineHeight: 1.4 }}>
+                  <span style={{ flexShrink: 0, width: 38, color: 'var(--text-weaker)', fontWeight: 700 }}>{k}</span>
+                  <span style={{ color: 'var(--text)', fontWeight: 600, letterSpacing: -0.3 }}>{v}</span>
                 </div>
               ))}
-            </dl>
+              {imprint && (
+                <div style={{ display: 'flex', gap: 8, fontSize: 13, lineHeight: 1.4 }}>
+                  <span style={{ flexShrink: 0, width: 38, color: 'var(--text-weaker)', fontWeight: 700 }}>각인</span>
+                  <span style={{ color: 'var(--text)', fontWeight: 600, letterSpacing: -0.3 }}>{imprint}</span>
+                </div>
+              )}
+              {splitLine && (
+                <div style={{ display: 'flex', gap: 8, fontSize: 13, lineHeight: 1.4 }}>
+                  <span style={{ flexShrink: 0, width: 38, color: 'var(--text-weaker)', fontWeight: 700 }}>분할선</span>
+                  <span style={{ color: 'var(--text)', fontWeight: 600, letterSpacing: -0.3 }}>{splitLine}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {pill.itemImage && (
+            <a
+              href={pill.itemImage}
+              target="_blank"
+              rel="noreferrer"
+              style={{ display: 'inline-block', marginBottom: 14, fontSize: 12.5, fontWeight: 700, color: 'var(--primary-ink)', textDecoration: 'none' }}
+            >
+              실물 사진 원본 열기 ↗
+            </a>
+          )}
+
+          {/* 식약처 상세(효능/용법/주의/상호작용/이상반응/보관) */}
+          {!loaded ? (
+            <div style={{ fontSize: 13.5, color: 'var(--text-weak)' }}>상세 정보 불러오는 중…</div>
+          ) : rows.length ? (
+            <>
+              {detail?.source && (
+                <span style={{ display: 'inline-block', marginBottom: 12, fontSize: 11.5, fontWeight: 800, color: 'var(--primary-ink)', background: 'var(--primary-weak)', padding: '3px 9px', borderRadius: 999 }}>
+                  출처 · {detail.source}
+                </span>
+              )}
+              <dl style={{ margin: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {rows.map(([k, v]) => (
+                  <div key={k}>
+                    <dt style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--primary-ink)', marginBottom: 3 }}>{k}</dt>
+                    <dd style={{ margin: 0, fontSize: 14, color: 'var(--text)', lineHeight: 1.55, letterSpacing: -0.3, whiteSpace: 'pre-line' }}>{v}</dd>
+                  </div>
+                ))}
+              </dl>
+            </>
           ) : (
             <div style={{ fontSize: 13.5, color: 'var(--text-weak)', lineHeight: 1.5 }}>
-              e약은요 상세 정보가 없는 약이에요 (전문의약품 등 다수).
+              효능·용법 등 상세 설명은 등록돼 있지 않아요 (전문의약품 등 다수).
               <br />
-              <span style={{ color: 'var(--text-weaker)' }}>
-                분류 {pill.className || '—'} · {pill.etcOtcName || '—'} · {pill.formCodeName || '—'}
-              </span>
+              <span style={{ color: 'var(--text-weaker)' }}>위 외형·분류 정보를 참고하거나 실물 사진을 확인하세요.</span>
             </div>
           )}
         </div>

@@ -123,8 +123,10 @@ const DETAILS: Record<string, DrugDetail> = {
     efcy: '혈전 생성 억제(심근경색·뇌경색 예방).',
     useMethod: '성인 1일 1회 1정을 충분한 물과 함께 복용.',
     atpn: '위장 장애·출혈 위험. 수술 전 복용 여부를 알리세요.',
+    intrc: '항응고제(와파린)·다른 NSAIDs 병용 시 출혈 위험 증가.',
     se: '속쓰림, 위장관 출혈 등.',
     deposit: '실온보관, 습기 주의.',
+    source: 'e약은요',
   },
   '199301234': {
     itemSeq: '199301234',
