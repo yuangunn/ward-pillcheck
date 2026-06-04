@@ -119,4 +119,56 @@ describe('App 통합', () => {
     renderApp();
     expect(screen.getByText(/데모\(목\) 모드/)).toBeInTheDocument();
   });
+
+  it('리스트 복사 버튼: 클릭 시 복사 피드백 표시', async () => {
+    const user = userEvent.setup(); // userEvent 가 navigator.clipboard 스텁 제공
+    renderApp();
+    await searchAndAddBayer(user);
+    await waitFor(() => expect(medList()).toBeInTheDocument());
+
+    await user.click(screen.getByRole('button', { name: '리스트 복사' }));
+    expect(await screen.findByRole('button', { name: '복사됨 ✓' })).toBeInTheDocument();
+
+    const copied = await navigator.clipboard.readText();
+    expect(copied).toContain('[환자1]');
+    expect(copied).toContain('아스피린장용정100mg 1T QD 아침식후');
+  });
+
+  it('중복 약 추가 시 경고 배너 표시(추가는 여전히 가능)', async () => {
+    const user = userEvent.setup();
+    renderApp();
+    await searchAndAddBayer(user); // 1회 추가
+
+    // 결과 카드가 남아 있으므로 다시 추가 시도
+    await user.click(screen.getByRole('button', { name: '환자 리스트에 추가' }));
+    const sheet = await screen.findByRole('dialog', { name: '환자 리스트에 추가' });
+    expect(within(sheet).getByRole('alert')).toHaveTextContent('이미 이 환자 리스트에 같은 약');
+  });
+
+  it('환자 관리: 라벨 변경', async () => {
+    const user = userEvent.setup();
+    renderApp();
+    await user.click(screen.getByRole('button', { name: '환자 관리' }));
+    const sheet = await screen.findByRole('dialog', { name: '환자 관리' });
+    const input = within(sheet).getByLabelText(/환자 라벨/);
+    await user.clear(input);
+    await user.type(input, '3호실A');
+    await user.click(within(sheet).getByRole('button', { name: '저장' }));
+
+    expect(screen.getByRole('button', { name: '3호실A' })).toBeInTheDocument();
+  });
+
+  it('환자 관리: 삭제(확인 단계 거쳐)', async () => {
+    const user = userEvent.setup();
+    renderApp();
+    await user.click(screen.getByRole('button', { name: '환자 추가' })); // 환자2 생성·active
+
+    await user.click(screen.getByRole('button', { name: '환자 관리' }));
+    const sheet = await screen.findByRole('dialog', { name: '환자 관리' });
+    await user.click(within(sheet).getByRole('button', { name: '환자 삭제' }));
+    await user.click(within(sheet).getByRole('button', { name: '삭제 확인' }));
+
+    expect(screen.queryByRole('button', { name: '환자2' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '환자1' })).toBeInTheDocument();
+  });
 });

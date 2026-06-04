@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatMedLine, formatAppearance, formatTabletCount } from './format';
+import { formatMedLine, formatAppearance, formatTabletCount, buildListText } from './format';
 import type { MedItem } from './models';
 
 const base: MedItem = {
@@ -58,5 +58,20 @@ describe('formatMedLine', () => {
   it('외형 정보가 전혀 없으면 괄호 없이 끝남', () => {
     const med: MedItem = { ...base, color: undefined, shape: undefined, marking: undefined };
     expect(formatMedLine(med)).toBe('아스피린장용정100mg 1T QD 아침식후');
+  });
+});
+
+describe('buildListText', () => {
+  it('환자 라벨 헤더 + 각 약물 한 줄', () => {
+    const meds: MedItem[] = [
+      base,
+      { ...base, id: '2', name: '노바스크정5mg', frequency: 'BID', timing: '저녁식후', color: '흰', shape: '팔각', marking: 'NOVASC 5' },
+    ];
+    expect(buildListText('환자1', meds)).toBe(
+      '[환자1]\n아스피린장용정100mg 1T QD 아침식후 (흰/원형/Bayer)\n노바스크정5mg 1T BID 저녁식후 (흰/팔각/NOVASC 5)',
+    );
+  });
+  it('약이 없으면 헤더만', () => {
+    expect(buildListText('환자2', [])).toBe('[환자2]');
   });
 });

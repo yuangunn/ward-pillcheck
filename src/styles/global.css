@@ -194,6 +194,13 @@ h3 {
   font-size: 13px;
   margin: 0 12px 8px;
 }
+/* 시트 내부에서 쓰는 경고 배너(좌우 여백 제거) */
+.sheet-body .banner-warn {
+  margin: 0 0 12px;
+  background: #fdecea;
+  border-color: #f5c6c0;
+  color: #9b2c22;
+}
 
 .visually-hidden {
   position: absolute;
@@ -291,6 +298,16 @@ h3 {
   border: 1.5px dashed var(--border);
   background: transparent;
   font-size: 20px;
+  flex: none;
+}
+.patient-manage {
+  min-width: 40px;
+  min-height: 40px;
+  border-radius: 999px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  font-size: 20px;
+  line-height: 1;
   flex: none;
 }
 
@@ -423,6 +440,18 @@ h3 {
   border-color: var(--primary);
   background: #e3efed;
   color: var(--primary-press);
+}
+.copy-bar {
+  padding: 0 12px 4px;
+}
+.copy-row {
+  display: flex;
+  gap: 8px;
+}
+.copy-btn {
+  flex: 1;
+  min-height: 40px;
+  font-size: 14px;
 }
 .med-list {
   list-style: none;

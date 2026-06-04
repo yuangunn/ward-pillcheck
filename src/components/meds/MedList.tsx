@@ -23,6 +23,7 @@ import { EmptyState } from '../ui/States';
 import { SortControls } from './SortControls';
 import { MedRow } from './MedRow';
 import { MedEditSheet } from './MedEditSheet';
+import { CopyListButton } from './CopyListButton';
 
 interface Props {
   patient: Patient;
@@ -65,6 +66,10 @@ export function MedList({ patient }: Props) {
       {patient.meds.length === 0 ? (
         <EmptyState message="아직 추가된 약이 없습니다. 위에서 검색해 추가하세요." />
       ) : (
+        <>
+        <div className="copy-bar">
+          <CopyListButton label={patient.label} meds={displayed} />
+        </div>
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -82,6 +87,7 @@ export function MedList({ patient }: Props) {
             </ul>
           </SortableContext>
         </DndContext>
+        </>
       )}
 
       <MedEditSheet
