@@ -221,8 +221,22 @@ let markOptions: MarkOption[] | null = null;
 
 /** 마크 갤러리용: 고유 마크 코드 + 대표 이미지 (빈도순). 이미지 있는 코드만. */
 export async function getMarkOptions(): Promise<MarkOption[]> {
-  await ensureDataset();
   if (markOptions) return markOptions;
+  // 1) 번들 marks.json 우선 (빌드 때 받은 정적 이미지 → 같은 출처, 오프라인)
+  try {
+    const res = await fetch(`${BASE}data/marks.json`, { cache: 'no-cache' });
+    if (res.ok) {
+      const arr = (await res.json()) as { code: string; file: string; count: number }[];
+      if (arr.length) {
+        markOptions = arr.map((m) => ({ code: m.code, img: `${BASE}data/marks/${m.file}`, count: m.count }));
+        return markOptions;
+      }
+    }
+  } catch {
+    /* 번들 없음 — 데이터셋에서 유도(프록시 URL)로 폴백 */
+  }
+  // 2) 폴백: 데이터셋 레코드에서 유도
+  await ensureDataset();
   if (!records) return [];
   const map = new Map<string, { img?: string; count: number }>();
   for (const r of records) {
