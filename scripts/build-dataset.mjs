@@ -25,6 +25,11 @@ const PILL_ENDPOINT =
 const PERMIT_LIST_ENDPOINT =
   process.env.PERMIT_LIST_ENDPOINT ??
   'https://apis.data.go.kr/1471000/DrugPrdtPrmsnInfoService07/getDrugPrdtPrmsnInq07';
+// 허가 "상세" — 효능효과(EE)/용법용량(UD)/사용상주의(NB) 문서. 목록(Inq07)엔 없고 여기에 전수로 있음.
+const PERMIT_DETAIL_ENDPOINT =
+  process.env.PERMIT_DETAIL_ENDPOINT ??
+  'https://apis.data.go.kr/1471000/DrugPrdtPrmsnInfoService07/getDrugPrdtPrmsnDtlInq06';
+const DOC_CLIP = 12000; // 문서 1필드 최대 길이(과대 주의사항 표 대비 용량 상한)
 const DUR_BASE = process.env.DUR_BASE ?? 'https://apis.data.go.kr/1471000/DURPrdlstInfoService03';
 // DUR 5종: 병용금기/임부금기/노인주의/특정연령대금기/효능군중복
 const DUR_OPS = {
@@ -160,30 +165,14 @@ async function probeDocSource(sampleSeq) {
  */
 async function collectPermit() {
   const injections = [];
-  const details = [];
   const ingrBySeq = new Map();
   const seenInj = new Set();
-  let withDoc = 0;
 
   const handle = (row) => {
     const seq = row.ITEM_SEQ ?? '';
     if (!seq) return;
     const ingr = (row.ITEM_INGR_NAME ?? '').trim();
     if (ingr && !ingrBySeq.has(seq)) ingrBySeq.set(seq, ingr);
-
-    // 허가사항 문서(효능효과/용법용량/사용상주의) → 전수 상세
-    const efcy = stripDoc(row.EE_DOC_DATA);
-    const useMethod = stripDoc(row.UD_DOC_DATA);
-    const atpn = stripDoc(row.NB_DOC_DATA);
-    if (efcy || useMethod || atpn) {
-      const d = { seq };
-      if (efcy) d.efcy = efcy;
-      if (useMethod) d.useMethod = useMethod;
-      if (atpn) d.atpn = atpn;
-      details.push(d);
-      withDoc++;
-    }
-
     const inj = compactInjection(row);
     if (inj && inj.seq && !seenInj.has(inj.seq)) {
       seenInj.add(inj.seq);
@@ -195,11 +184,6 @@ async function collectPermit() {
   const total = totalCountOf(first);
   const pages = total ? Math.ceil(total / NUM) : 1;
   console.log(`  [허가] 총 ${total}건 / ${pages}페이지`);
-  const sample = extractItems(first)[0];
-  if (sample) {
-    console.log(`  [허가] 목록 필드: [${Object.keys(sample).join(',')}]`);
-    await probeDocSource(sample.ITEM_SEQ ?? '');
-  }
   for (const row of extractItems(first)) handle(row);
 
   for (let start = 2; start <= pages; start += CONCURRENCY) {
@@ -210,11 +194,45 @@ async function collectPermit() {
       if (r.status === 'fulfilled') r.value.forEach(handle);
       else console.warn(`  [허가] 페이지 실패: ${r.reason?.message ?? r.reason}`);
     }
-    console.log(
-      `  [허가] 주사·외용 ${injections.length} · 성분 ${ingrBySeq.size} · 상세 ${withDoc} (page ~${Math.min(start + CONCURRENCY - 1, pages)}/${pages})`,
-    );
+    console.log(`  [허가] 주사·외용 ${injections.length} · 성분 ${ingrBySeq.size} (page ~${Math.min(start + CONCURRENCY - 1, pages)}/${pages})`);
   }
-  return { injections, ingrBySeq, details };
+  return { injections, ingrBySeq };
+}
+
+/** 허가 상세(Dtl06) 전수 페이징 → 효능/용법/주의 (전문약 포함). seq별 컴팩트. */
+async function collectDetails() {
+  const details = [];
+  const clip = (s) => (s && s.length > DOC_CLIP ? s.slice(0, DOC_CLIP) + '…' : s);
+  const handle = (row) => {
+    const seq = row.ITEM_SEQ ?? '';
+    if (!seq) return;
+    const efcy = clip(stripDoc(row.EE_DOC_DATA));
+    const useMethod = clip(stripDoc(row.UD_DOC_DATA));
+    const atpn = clip(stripDoc(row.NB_DOC_DATA));
+    if (efcy || useMethod || atpn) {
+      const d = { seq };
+      if (efcy) d.efcy = efcy;
+      if (useMethod) d.useMethod = useMethod;
+      if (atpn) d.atpn = atpn;
+      details.push(d);
+    }
+  };
+  const first = await fetchPayload(PERMIT_DETAIL_ENDPOINT, 1);
+  const total = totalCountOf(first);
+  const pages = total ? Math.ceil(total / NUM) : 1;
+  console.log(`  [상세] 총 ${total} / ${pages}페이지`);
+  for (const row of extractItems(first)) handle(row);
+  for (let start = 2; start <= pages; start += CONCURRENCY) {
+    const batch = [];
+    for (let p = start; p < start + CONCURRENCY && p <= pages; p++) batch.push(p);
+    const res = await Promise.allSettled(batch.map((p) => fetchItems(PERMIT_DETAIL_ENDPOINT, p)));
+    for (const r of res) {
+      if (r.status === 'fulfilled') r.value.forEach(handle);
+      else console.warn(`  [상세] 페이지 실패: ${r.reason?.message ?? r.reason}`);
+    }
+    console.log(`  [상세] ...${details.length}건 (page ~${Math.min(start + CONCURRENCY - 1, pages)}/${pages})`);
+  }
+  return details;
 }
 
 /** DUR 룰셋 전수 수집 → seq별 컴팩트 맵 { c:[{s,n,t}], p,e,a,d }. 오프라인 금기점검용 */
@@ -386,8 +404,8 @@ if (!KEY) {
 } else {
   console.log('낱알식별 수집…');
   const pills = await collect('낱알', PILL_ENDPOINT, compactPill, 600);
-  console.log('허가정보(주사·외용 + 성분 + 허가사항 상세) 전수 수집…');
-  const { injections, ingrBySeq, details } = await collectPermit();
+  console.log('허가정보(주사·외용 + 성분) 전수 수집…');
+  const { injections, ingrBySeq } = await collectPermit();
   // 낱알 레코드에 주성분 결합(품목기준코드 ITEM_SEQ 일치)
   let joined = 0;
   for (const p of pills) {
@@ -402,6 +420,8 @@ if (!KEY) {
   console.log('마크 이미지 번들…');
   await buildMarks(pills);
   write('injections', injections);
+  console.log('허가사항 상세(Dtl06) 전수 수집…');
+  const details = await collectDetails();
   console.log(`허가사항 상세 ${details.length}건(전문약 포함) → details.json.gz`);
   writeGz('details', details);
   // DUR 은 온라인(워커) 전용 — 병용금기만 81만건이라 전수 오프라인 번들이 비현실적.
