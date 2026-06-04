@@ -41,6 +41,14 @@ const META_URL = `${BASE}data/pills-meta.json`;
 const DB_NAME = 'ward-pillcheck';
 const STORE = 'dataset';
 
+const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined)?.trim();
+/** nedrug 이미지를 워커 프록시 경유 URL로 변환(헤더 정리 + CORS). 워커 없으면 원본. */
+export function proxiedImg(url?: string): string | undefined {
+  if (!url) return undefined;
+  if (!API_BASE) return url;
+  return `${API_BASE.replace(/\/$/, '')}/api/img?u=${encodeURIComponent(url)}`;
+}
+
 // ── IndexedDB 최소 래퍼 (records / meta 두 키만 저장) ──
 function idb(): Promise<IDBDatabase> {
   return new Promise((res, rej) => {
@@ -234,7 +242,7 @@ export async function getMarkOptions(): Promise<MarkOption[]> {
   }
   markOptions = [...map.entries()]
     .filter(([, v]) => v.img)
-    .map(([code, v]) => ({ code, img: v.img!, count: v.count }))
+    .map(([code, v]) => ({ code, img: proxiedImg(v.img)!, count: v.count }))
     .sort((a, b) => b.count - a.count);
   return markOptions;
 }

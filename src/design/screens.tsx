@@ -5,7 +5,7 @@ import { COLOR_OPTIONS, SHAPE_OPTIONS } from '../constants/appearance';
 import { freqMeta } from '../constants/frequency';
 import { sortMeds } from '../domain/sort';
 import type { MedItem, Patient, SortMode } from '../domain/models';
-import { drugApi, type PillResult, type PillSearchQuery } from '../api';
+import { drugApi, proxiedImg, type PillResult, type PillSearchQuery } from '../api';
 
 const AVATAR_TINTS = ['#2f6bff', '#11b386', '#7c5cff', '#ff7a3d', '#e84393', '#0fa3b1'];
 const avatarTint = (i: number) => AVATAR_TINTS[i % AVATAR_TINTS.length];
@@ -549,7 +549,7 @@ function ResultCard({
   highlight: string;
 }) {
   const line = lineText(pill.lineFront, pill.lineBack);
-  const markImg = pill.markFrontImg || pill.markBackImg;
+  const markImg = proxiedImg(pill.markFrontImg || pill.markBackImg);
   return (
     <div
       className="result-card"
