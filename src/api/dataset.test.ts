@@ -34,6 +34,16 @@ describe('filterRecords', () => {
     expect(r.map((x) => x.itemSeq)).toEqual(['5']);
   });
 
+  it('마크 코드로 필터(markCode)', () => {
+    const data = [
+      ...DATA,
+      { seq: '6', name: '칸데사르정', entp: 'X', shape: '원형', color: '하양', markFA: 'P,d' },
+    ];
+    expect(filterRecords(data, { markCode: 'P' }).map((x) => x.itemSeq)).toEqual(['6']);
+    expect(filterRecords(data, { markCode: 'd' }).map((x) => x.itemSeq)).toEqual(['6']);
+    expect(filterRecords(data, { markCode: 'Q' })).toEqual([]);
+  });
+
   it('조건 불일치 시 빈 배열', () => {
     expect(filterRecords(DATA, { printFront: 'ZZZ' })).toEqual([]);
   });

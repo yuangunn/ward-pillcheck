@@ -174,6 +174,7 @@ export function filterRecords(
   const shape = q.drugShape?.trim();
   const color = q.colorClass1?.trim();
   const print = q.printFront?.trim().toUpperCase();
+  const markCode = q.markCode?.trim();
 
   const out: PillResult[] = [];
   for (const r of data) {
@@ -189,10 +190,53 @@ export function filterRecords(
         .join(' ');
       if (!hay.includes(print)) continue;
     }
+    if (markCode && !markCodesOf(r).includes(markCode)) continue;
     out.push(rec2result(r));
     if (out.length >= limit) break;
   }
   return out;
+}
+
+/** 한 레코드의 마크 코드 목록(앞/뒤, 콤마 분리) */
+function markCodesOf(r: PillRecord): string[] {
+  return [r.markFA, r.markBA].flatMap((v) =>
+    v ? String(v).split(',').map((s) => s.trim()).filter(Boolean) : [],
+  );
+}
+
+export interface MarkOption {
+  code: string;
+  img: string; // 대표 마크 이미지
+  count: number;
+}
+let markOptions: MarkOption[] | null = null;
+
+/** 마크 갤러리용: 고유 마크 코드 + 대표 이미지 (빈도순). 이미지 있는 코드만. */
+export async function getMarkOptions(): Promise<MarkOption[]> {
+  await ensureDataset();
+  if (markOptions) return markOptions;
+  if (!records) return [];
+  const map = new Map<string, { img?: string; count: number }>();
+  for (const r of records) {
+    const pairs: [string | undefined, string | undefined][] = [
+      [r.markFA, r.markFI],
+      [r.markBA, r.markBI],
+    ];
+    for (const [codes, img] of pairs) {
+      if (!codes) continue;
+      for (const c of String(codes).split(',').map((s) => s.trim()).filter(Boolean)) {
+        const e = map.get(c) ?? { img: undefined, count: 0 };
+        e.count += 1;
+        if (!e.img && img) e.img = img;
+        map.set(c, e);
+      }
+    }
+  }
+  markOptions = [...map.entries()]
+    .filter(([, v]) => v.img)
+    .map(([code, v]) => ({ code, img: v.img!, count: v.count }))
+    .sort((a, b) => b.count - a.count);
+  return markOptions;
 }
 
 /** 로드 보장 후 검색 */

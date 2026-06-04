@@ -22,7 +22,7 @@ const DEFAULT_DETAIL =
   'https://apis.data.go.kr/1471000/DrbEasyDrugInfoService/getDrbEasyDrugList';
 // 의약품 제품 허가정보(15095677) — e약은요에 없는 약(전문약 등) 상세 폴백용
 const DEFAULT_PERMIT =
-  'https://apis.data.go.kr/1471000/DrugPrdtPrmsnInfoService06/getDrugPrdtPrmsnDtlInq05';
+  'https://apis.data.go.kr/1471000/DrugPrdtPrmsnInfoService07/getDrugPrdtPrmsnInq07';
 // DUR 품목정보(15059486) — 병용금기/임부/노인/연령/효능군중복 점검
 const DEFAULT_DUR_BASE = 'https://apis.data.go.kr/1471000/DURPrdlstInfoService03';
 const DUR_OPS = {
