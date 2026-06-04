@@ -21,14 +21,11 @@ const DEFAULT_PILL =
 const DEFAULT_DETAIL =
   'https://apis.data.go.kr/1471000/DrbEasyDrugInfoService/getDrbEasyDrugList';
 // 의약품 제품 허가정보(15095677) — e약은요에 없는 약(전문약 등) 상세 폴백용.
-// 효능/용법/주의 문서(EE/UD/NB_DOC_DATA)는 "상세(Dtl)" 오퍼레이션에 있고
-// 서비스 버전이 환경마다 달라, 후보를 순서대로 시도해 문서가 나오는 것을 선택.
+// 효능/용법/주의 문서(EE/UD/NB_DOC_DATA)는 "허가 상세정보" 오퍼레이션에 있다.
+// data.go.kr 확인: 베이스 DrugPrdtPrmsnInfoService07, 상세 op = getDrugPrdtPrmsnDtlInq06.
 const PERMIT_CANDIDATES = [
-  'https://apis.data.go.kr/1471000/DrugPrdtPrmsnInfoService07/getDrugPrdtPrmsnDtlInq07',
-  'https://apis.data.go.kr/1471000/DrugPrdtPrmsnInfoService06/getDrugPrdtPrmsnDtlInq05',
-  'https://apis.data.go.kr/1471000/DrugPrdtPrmsnInfoService05/getDrugPrdtPrmsnDtlInq04',
-  'https://apis.data.go.kr/1471000/DrugPrdtPrmsnInfoService04/getDrugPrdtPrmsnDtlInq03',
-  'https://apis.data.go.kr/1471000/DrugPrdtPrmsnInfoService03/getDrugPrdtPrmsnDtlInq03',
+  'https://apis.data.go.kr/1471000/DrugPrdtPrmsnInfoService07/getDrugPrdtPrmsnDtlInq06',
+  'https://apis.data.go.kr/1471000/DrugPrdtPrmsnInfoService06/getDrugPrdtPrmsnDtlInq06',
 ];
 // DUR 품목정보(15059486) — 병용금기/임부/노인/연령/효능군중복 점검
 const DEFAULT_DUR_BASE = 'https://apis.data.go.kr/1471000/DURPrdlstInfoService03';
