@@ -11,6 +11,7 @@ export interface Env {
   SERVICE_KEY: string; // data.go.kr 일반 인증키(디코딩값). wrangler secret 으로 주입.
   PILL_ENDPOINT?: string;
   DETAIL_ENDPOINT?: string;
+  PERMIT_ENDPOINT?: string;
   ALLOW_ORIGIN?: string; // 기본 '*'. 운영 시 GitHub Pages 도메인으로 제한 권장.
 }
 
@@ -18,6 +19,9 @@ const DEFAULT_PILL =
   'https://apis.data.go.kr/1471000/MdcinGrnIdntfcInfoService03/getMdcinGrnIdntfcInfoList03';
 const DEFAULT_DETAIL =
   'https://apis.data.go.kr/1471000/DrbEasyDrugInfoService/getDrbEasyDrugList';
+// 의약품 제품 허가정보(15095677) — e약은요에 없는 약(전문약 등) 상세 폴백용
+const DEFAULT_PERMIT =
+  'https://apis.data.go.kr/1471000/DrugPrdtPrmsnInfoService06/getDrugPrdtPrmsnDtlInq05';
 
 function cors(env: Env): Record<string, string> {
   return {
@@ -32,6 +36,20 @@ function json(body: unknown, env: Env, status = 200): Response {
     status,
     headers: { 'Content-Type': 'application/json; charset=utf-8', ...cors(env) },
   });
+}
+
+/** 허가정보 효능/용법/주의 필드는 XML 문서 문자열 — 태그 제거 후 평문화 */
+function stripDoc(s: unknown): string | undefined {
+  if (typeof s !== 'string' || !s.trim()) return undefined;
+  const text = s
+    .replace(/<[^>]+>/g, ' ') // 태그 제거
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return text || undefined;
 }
 
 /** 다양한 공공데이터 JSON 봉투에서 items 배열을 안전하게 추출 */
@@ -168,6 +186,28 @@ export default {
       const params = new URLSearchParams({ itemSeq, pageNo: '1', numOfRows: '1' });
       const r = await fetchItems(env.DETAIL_ENDPOINT ?? DEFAULT_DETAIL, params, env);
       return 'error' in r ? r.error : json({ body: { items: r.items } }, env);
+    }
+
+    // 제품 허가정보(효능/용법/주의) — e약은요 폴백
+    if (url.pathname === '/api/permit') {
+      const itemSeq = url.searchParams.get('itemSeq');
+      if (!itemSeq) return json({ error: 'itemSeq 필요', body: { items: [] } }, env, 400);
+      const params = new URLSearchParams({
+        item_seq: itemSeq,
+        itemSeq, // 스네이크+카멜 동시
+        pageNo: '1',
+        numOfRows: '1',
+      });
+      const r = await fetchItems(env.PERMIT_ENDPOINT ?? DEFAULT_PERMIT, params, env);
+      if ('error' in r) return r.error;
+      const it = r.items[0] ?? {};
+      const norm = {
+        itemSeq,
+        efcy: stripDoc(it.EE_DOC_DATA),
+        useMethod: stripDoc(it.UD_DOC_DATA),
+        atpn: stripDoc(it.NB_DOC_DATA),
+      };
+      return json({ body: { items: [norm] } }, env);
     }
 
     if (url.pathname === '/' || url.pathname === '/health') {

@@ -147,6 +147,7 @@ curl "https://<worker-url>/api/detail?itemSeq=195700020"
 |---|---|
 | `GET /api/pills?item_name=&entp_name=&drug_shape=&color_class1=&print_front=&pageNo=&numOfRows=` | 낱알식별 `getMdcinGrnIdntfcInfoList03` |
 | `GET /api/detail?itemSeq=` | e약은요 `getDrbEasyDrugList` |
+| `GET /api/permit?itemSeq=` | 제품 허가정보 `getDrugPrdtPrmsnDtlInq` (효능/용법/주의 폴백) |
 
 ## 3. GitHub Pages 배포
 
@@ -173,8 +174,9 @@ curl "https://<worker-url>/api/detail?itemSeq=195700020"
 - 전송량은 gzip 약 2~3MB(원본 7~10MB), 기기 저장 약 7~10MB. 최초 1회만 다운로드.
 
 > e약은요(개요) 상세는 양이 크고 공급내역 있는 약 위주라 **번들에 넣지 않고 Worker로
-> 그때그때 조회**합니다. 상세가 없는 약(전문약 다수)은 분류·구분·제형과
-> 의약품안전나라 검색 링크로 폴백합니다.
+> 그때그때 조회**합니다. 상세 로딩은 **e약은요 → (없으면) 제품 허가정보(15095677)**
+> 순으로 폴백해 전문약 등도 효능/용법/주의를 채우고, 둘 다 없으면 분류·구분·제형 +
+> 의약품안전나라 검색 링크를 보여줍니다.
 
 ## 데이터 소스 교체(향후)
 
