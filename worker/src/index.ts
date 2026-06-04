@@ -181,6 +181,30 @@ async function searchPills(q: PillQuery, env: Env): Promise<Response> {
   return json({ body: { items: matches.slice(0, q.numOfRows) } }, env);
 }
 
+/**
+ * 주성분 조회 — 허가 목록(getDrugPrdtPrmsnInq07)에서.
+ * item_name 으로 받아 ITEM_SEQ 가 정확히 일치하는 건만 채택(이름검색이 신뢰도 높고,
+ * seq 일치로 오매칭을 막는다). itemName 이 없으면 item_seq 필터로 시도.
+ */
+async function fetchIngredient(itemSeq: string, itemName: string | undefined, env: Env): Promise<string | undefined> {
+  const ep = env.PERMIT_LIST_ENDPOINT ?? DEFAULT_PERMIT_LIST;
+  const p = new URLSearchParams({ pageNo: '1', numOfRows: '30' });
+  if (itemName) {
+    p.set('item_name', itemName);
+    p.set('itemName', itemName);
+  } else {
+    p.set('item_seq', itemSeq);
+    p.set('itemSeq', itemSeq);
+  }
+  const r = await fetchItems(ep, p, env);
+  if ('error' in r || !r.items.length) return undefined;
+  const exact = r.items.find((it: any) => String(it.ITEM_SEQ) === itemSeq);
+  const hit: any = exact ?? (itemName ? undefined : r.items[0]);
+  if (!hit) return undefined;
+  const ingr = (hit.ITEM_INGR_NAME || hit.MAIN_ITEM_INGR || '').toString().trim();
+  return ingr || undefined;
+}
+
 /** DUR 한 품목 점검 — 5개 카테고리를 동시 조회해 정규화 */
 async function durForItem(itemSeq: string, env: Env): Promise<Response> {
   const base = (env.DUR_BASE ?? DEFAULT_DUR_BASE).replace(/\/$/, '');
@@ -246,10 +270,11 @@ export default {
       return 'error' in r ? r.error : json({ body: { items: r.items } }, env);
     }
 
-    // 제품 허가정보(효능/용법/주의) — e약은요 폴백
+    // 제품 허가정보(효능/용법/주의 + 주성분) — e약은요 폴백 / 성분 보강
     if (url.pathname === '/api/permit') {
       const itemSeq = url.searchParams.get('itemSeq');
       if (!itemSeq) return json({ error: 'itemSeq 필요', body: { items: [] } }, env, 400);
+      const itemName = url.searchParams.get('item_name') || undefined;
       const params = new URLSearchParams({
         item_seq: itemSeq,
         itemSeq, // 스네이크+카멜 동시
@@ -263,11 +288,15 @@ export default {
         }
         return undefined;
       };
+
+      // 0) 주성분: 허가 목록에서 — 이름으로 받아 ITEM_SEQ 정확히 일치하는 건만 채택(오매칭 방지)
+      let ingredient = await fetchIngredient(itemSeq, itemName, env);
+
       const candidates = env.PERMIT_ENDPOINT ? [env.PERMIT_ENDPOINT] : PERMIT_CANDIDATES;
       const debug = url.searchParams.get('debug');
       const tried: unknown[] = [];
 
-      // 후보 상세 엔드포인트를 순서대로 시도해 문서가 나오는 것을 채택
+      // 1) 후보 상세 엔드포인트를 순서대로 시도해 문서가 나오는 것을 채택
       for (const ep of candidates) {
         const r = await fetchItems(ep, new URLSearchParams(params), env);
         if ('error' in r) {
@@ -280,15 +309,17 @@ export default {
           efcy: pick(it, 'EE_DOC_DATA', 'EE_DOC', 'eeDocData', 'efcyQesitm'),
           useMethod: pick(it, 'UD_DOC_DATA', 'UD_DOC', 'udDocData', 'useMethodQesitm'),
           atpn: pick(it, 'NB_DOC_DATA', 'NB_DOC', 'nbDocData', 'atpnQesitm'),
+          ingredient,
         };
         if (debug) tried.push({ ep, count: r.items.length, keys: Object.keys(it) });
         if (norm.efcy || norm.useMethod || norm.atpn) {
           return debug ? json({ debug: { tried, hit: ep } }, env) : json({ body: { items: [norm] } }, env);
         }
       }
+      // 문서가 없어도 성분만이라도 반환
       return debug
-        ? json({ debug: { tried, hit: null } }, env)
-        : json({ body: { items: [{ itemSeq }] } }, env);
+        ? json({ debug: { tried, hit: null, ingredient } }, env)
+        : json({ body: { items: [{ itemSeq, ingredient }] } }, env);
     }
 
     // DUR 점검: 병용금기/임부/노인/연령/효능군중복 (한 품목)

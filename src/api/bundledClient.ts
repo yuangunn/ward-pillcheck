@@ -11,8 +11,8 @@ export function createBundledClient(apiBase: string): DrugApi {
     searchPills(query: PillSearchQuery): Promise<PillResult[]> {
       return searchDataset(query);
     },
-    getDetail(itemSeq: string): Promise<DrugDetail | null> {
-      return worker.getDetail(itemSeq);
+    getDetail(itemSeq: string, itemName?: string): Promise<DrugDetail | null> {
+      return worker.getDetail(itemSeq, itemName);
     },
   };
 }

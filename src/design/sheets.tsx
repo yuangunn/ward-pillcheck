@@ -66,13 +66,13 @@ function DetailAccordion({ seq, pill }: { seq: string; pill: PillResult }) {
   useEffect(() => {
     if (!open || loaded) return;
     drugApi
-      .getDetail(seq)
+      .getDetail(seq, pill.itemName)
       .then((d) => {
         setDetail(d);
         setLoaded(true);
       })
       .catch(() => setLoaded(true));
-  }, [open, loaded, seq]);
+  }, [open, loaded, seq, pill.itemName]);
 
   const photo = proxiedImg(pill.itemImage);
   // 외형/분류 기본 정보(상세가 없어도 항상 제공)
@@ -134,6 +134,12 @@ function DetailAccordion({ seq, pill }: { seq: string; pill: PillResult }) {
               )}
             </div>
             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {detail?.ingredient && (
+                <div style={{ display: 'flex', gap: 8, fontSize: 13, lineHeight: 1.4 }}>
+                  <span style={{ flexShrink: 0, width: 38, color: 'var(--text-weaker)', fontWeight: 700 }}>성분</span>
+                  <span style={{ color: 'var(--text)', fontWeight: 700, letterSpacing: -0.3 }}>{detail.ingredient}</span>
+                </div>
+              )}
               {basics.map(([k, v]) => (
                 <div key={k} style={{ display: 'flex', gap: 8, fontSize: 13, lineHeight: 1.4 }}>
                   <span style={{ flexShrink: 0, width: 38, color: 'var(--text-weaker)', fontWeight: 700 }}>{k}</span>

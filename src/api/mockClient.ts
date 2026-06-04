@@ -126,6 +126,7 @@ const DETAILS: Record<string, DrugDetail> = {
     intrc: '항응고제(와파린)·다른 NSAIDs 병용 시 출혈 위험 증가.',
     se: '속쓰림, 위장관 출혈 등.',
     deposit: '실온보관, 습기 주의.',
+    ingredient: '아스피린(아세틸살리실산)',
     source: 'e약은요',
   },
   '199301234': {
@@ -178,7 +179,7 @@ export function createMockClient(): DrugApi {
       await delay(300); // 로딩 UI 확인용 지연
       return SAMPLE.filter((p) => matches(p, query));
     },
-    async getDetail(itemSeq: string): Promise<DrugDetail | null> {
+    async getDetail(itemSeq: string, _itemName?: string): Promise<DrugDetail | null> {
       await delay(200);
       return DETAILS[itemSeq] ?? null;
     },
