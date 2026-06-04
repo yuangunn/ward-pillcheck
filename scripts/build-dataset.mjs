@@ -404,8 +404,7 @@ if (!KEY) {
   write('injections', injections);
   console.log(`허가사항 상세 ${details.length}건(전문약 포함) → details.json.gz`);
   writeGz('details', details);
-  console.log('DUR 룰셋 전수 수집…');
-  const dur = await collectDur();
-  console.log(`DUR 대상 ${Object.keys(dur).length}품목 → dur.json.gz`);
-  writeGz('dur', dur);
+  // DUR 은 온라인(워커) 전용 — 병용금기만 81만건이라 전수 오프라인 번들이 비현실적.
+  // (오프라인에선 DUR 점검 생략, 온라인이면 /api/dur 품목별 점검)
+  writeGz('dur', {});
 }
