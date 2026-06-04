@@ -537,11 +537,13 @@ export function PageHeader({
   sub,
   onBack,
   right,
+  onTitleClick,
 }: {
   title: string;
   sub?: string;
   onBack?: () => void;
   right?: ReactNode;
+  onTitleClick?: () => void;
 }) {
   return (
     <div style={{ padding: `calc(${STATUS_TOP} + 8px) 20px 8px` }}>
@@ -571,9 +573,32 @@ export function PageHeader({
         )}
         <div style={{ display: 'flex', gap: 6 }}>{right}</div>
       </div>
-      <h1 style={{ margin: '6px 0 0', fontSize: 27, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.8, lineHeight: 1.25 }}>
-        {title}
-      </h1>
+      {onTitleClick ? (
+        <button
+          type="button"
+          onClick={onTitleClick}
+          aria-label="이름 수정"
+          style={{
+            margin: '6px 0 0',
+            padding: 0,
+            border: 'none',
+            background: 'none',
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 4,
+            color: 'var(--text-strong)',
+            WebkitTapHighlightColor: 'transparent',
+          }}
+        >
+          <span style={{ fontSize: 27, fontWeight: 800, letterSpacing: -0.8, lineHeight: 1.25 }}>{title}</span>
+          <Icon name="chevron" size={22} style={{ color: 'var(--text-weaker)', marginTop: 3 }} />
+        </button>
+      ) : (
+        <h1 style={{ margin: '6px 0 0', fontSize: 27, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.8, lineHeight: 1.25 }}>
+          {title}
+        </h1>
+      )}
       {sub && <p style={{ margin: '7px 0 0', fontSize: 15, color: 'var(--text-weak)', letterSpacing: -0.3, lineHeight: 1.45 }}>{sub}</p>}
     </div>
   );

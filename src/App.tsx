@@ -11,7 +11,10 @@ import type { MarkOption, PillResult } from './api';
 type Route = { name: 'home' | 'patient' | 'search'; patientId: string | null };
 const DEPTH: Record<Route['name'], number> = { home: 0, patient: 1, search: 2 };
 
-type AddSource = (PillResult & { __kind: 'pill' }) | (MedItem & { __kind: 'med' });
+type AddSource =
+  | (PillResult & { __kind: 'pill' })
+  | (MedItem & { __kind: 'med' })
+  | { __kind: 'manual'; itemSeq: string; itemName: string };
 
 export default function App() {
   const { state, dispatch } = useStore();
@@ -88,6 +91,7 @@ export default function App() {
         onOpenPatient={(id) => go({ name: 'patient', patientId: id })}
         onNewPatient={newPatient}
         onToggleTheme={toggle}
+        onFlash={flash}
       />
     );
   } else if (route.name === 'patient' && activePatient) {
@@ -114,6 +118,7 @@ export default function App() {
         onZoom={(pill) => setZoomPill({ itemName: pill.itemName, color: pill.colorClass1, drugShape: pill.drugShape, marking: pill.printFront, imageUrl: pill.itemImage })}
         onBack={() => go({ name: 'patient', patientId: activePatient.id })}
         onPick={(pill) => setAddState({ open: true, source: { ...pill, __kind: 'pill' }, mode: 'add' })}
+        onManual={() => setAddState({ open: true, source: { __kind: 'manual', itemSeq: '', itemName: '' }, mode: 'add' })}
       />
     );
   } else {
@@ -125,6 +130,7 @@ export default function App() {
         onOpenPatient={(id) => go({ name: 'patient', patientId: id })}
         onNewPatient={newPatient}
         onToggleTheme={toggle}
+        onFlash={flash}
       />
     );
   }

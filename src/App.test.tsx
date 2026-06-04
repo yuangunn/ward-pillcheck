@@ -59,11 +59,30 @@ describe('App 리디자인 통합 (목 모드)', () => {
     expect(screen.getByLabelText('품목명')).toBeInTheDocument();
   });
 
+  it('직접 입력으로 주사약(인슐린) 추가', async () => {
+    const user = userEvent.setup();
+    renderApp();
+    await user.click(screen.getByText('환자1'));
+    await user.click(screen.getByRole('button', { name: '약 검색해서 추가' }));
+    await user.click(screen.getByRole('button', { name: /직접 입력/ }));
+
+    const sheet = await screen.findByRole('dialog', { name: '직접 입력' });
+    await user.type(within(sheet).getByLabelText('약 이름'), '란투스주');
+    await user.click(within(sheet).getByRole('button', { name: '단위 U' }));
+    await user.click(within(sheet).getByRole('button', { name: '환자 리스트에 추가' }));
+
+    await waitFor(() => {
+      const line = medList()?.querySelector('.med-name') as HTMLElement;
+      expect(line?.textContent).toContain('란투스주');
+    });
+  });
+
   it('새 환자 추가 후 해당 환자 화면으로 이동', async () => {
     const user = userEvent.setup();
     renderApp();
     await user.click(screen.getByRole('button', { name: '새 환자 추가' }));
-    // 환자2 상세 화면(헤더 제목)
-    expect(await screen.findByRole('heading', { name: '환자2' })).toBeInTheDocument();
+    // 환자2 상세 화면(헤더 제목은 이름수정 버튼)
+    const titleBtn = await screen.findByRole('button', { name: '이름 수정' });
+    expect(titleBtn).toHaveTextContent('환자2');
   });
 });
