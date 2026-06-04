@@ -29,7 +29,13 @@ export interface MedFormData {
   timings: string[];
 }
 
-export type ManualSource = { __kind: 'manual'; itemSeq: string; itemName: string };
+export type ManualSource = {
+  __kind: 'manual';
+  itemSeq: string;
+  itemName: string;
+  defaultUnit?: string;
+  imageUrl?: string;
+};
 type AddSource = (PillResult & { __kind: 'pill' }) | (MedItem & { __kind: 'med' }) | ManualSource;
 
 function Section({ label, children }: { label: string; children: ReactNode }) {
@@ -146,8 +152,8 @@ export function AddMedSheet({
       setMarking(source.marking || '');
     } else if (source.__kind === 'manual') {
       setCount(1);
-      setDoseUnit('T');
-      setNameInput('');
+      setDoseUnit(source.defaultUnit || 'T');
+      setNameInput(source.itemName || '');
       setFreq('QD');
       setTimings(['아침식후']);
       setColor('');
@@ -197,7 +203,7 @@ export function AddMedSheet({
       shape,
       marking,
       doseUnit,
-      imageUrl: source.__kind === 'pill' ? source.itemImage : source.__kind === 'med' ? source.imageUrl : undefined,
+      imageUrl: source.__kind === 'pill' ? source.itemImage : source.imageUrl,
       tabletCount: count,
       frequency: freq,
       timings: timings.length ? timings : ['필요시'],

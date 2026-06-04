@@ -14,7 +14,7 @@ const DEPTH: Record<Route['name'], number> = { home: 0, patient: 1, search: 2 };
 type AddSource =
   | (PillResult & { __kind: 'pill' })
   | (MedItem & { __kind: 'med' })
-  | { __kind: 'manual'; itemSeq: string; itemName: string };
+  | { __kind: 'manual'; itemSeq: string; itemName: string; defaultUnit?: string; imageUrl?: string };
 
 export default function App() {
   const { state, dispatch } = useStore();
@@ -119,6 +119,13 @@ export default function App() {
         onBack={() => go({ name: 'patient', patientId: activePatient.id })}
         onPick={(pill) => setAddState({ open: true, source: { ...pill, __kind: 'pill' }, mode: 'add' })}
         onManual={() => setAddState({ open: true, source: { __kind: 'manual', itemSeq: '', itemName: '' }, mode: 'add' })}
+        onPickInjection={(d) =>
+          setAddState({
+            open: true,
+            source: { __kind: 'manual', itemSeq: d.itemSeq, itemName: d.itemName, defaultUnit: 'U', imageUrl: d.itemImage },
+            mode: 'add',
+          })
+        }
       />
     );
   } else {

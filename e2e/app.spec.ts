@@ -47,6 +47,19 @@ test('새 환자 추가 → 환자2 화면', async ({ page }) => {
   await expect(page.getByRole('button', { name: '이름 수정' })).toContainText('환자2');
 });
 
+test('주사제 탭: 이름검색 → 추가', async ({ page }) => {
+  await page.goto('/');
+  await page.getByText('환자1').click();
+  await page.getByRole('button', { name: '약 검색해서 추가' }).click();
+  await page.getByRole('tab', { name: '주사제' }).click();
+  await page.getByLabel('주사제 이름').fill('란투스');
+  await page.getByText('란투스주솔로스타펜').click();
+  const sheet = page.getByRole('dialog', { name: '직접 입력' });
+  await expect(sheet.getByLabel('약 이름')).toHaveValue('란투스주솔로스타펜');
+  await sheet.getByRole('button', { name: '환자 리스트에 추가' }).click();
+  await expect(page.locator('ul.med-list .med-name')).toContainText('란투스주솔로스타펜');
+});
+
 test('직접 입력으로 주사약 추가', async ({ page }) => {
   await page.goto('/');
   await page.getByText('환자1').click();
