@@ -46,6 +46,7 @@ export interface DrugDetail {
   intrc?: string; // 상호작용 intrcQesitm
   se?: string; // 부작용 seQesitm
   deposit?: string; // 보관법 depositMethodQesitm
+  ingredient?: string; // 주성분(허가정보 ITEM_INGR_NAME)
   source?: 'e약은요' | '허가사항'; // 상세 출처 표시용
 }
 
@@ -57,8 +58,8 @@ export interface DrugDetail {
 export interface DrugApi {
   /** 낱알식별 검색 */
   searchPills(query: PillSearchQuery): Promise<PillResult[]>;
-  /** e약은요 상세 (카드 탭 시 lazy 로드). 없으면 null */
-  getDetail(itemSeq: string): Promise<DrugDetail | null>;
+  /** 상세 (카드 탭 시 lazy 로드). itemName 주면 성분 조회 신뢰도↑. 없으면 null */
+  getDetail(itemSeq: string, itemName?: string): Promise<DrugDetail | null>;
 }
 
 /** API 호출 실패 시 던지는 표준 에러 */

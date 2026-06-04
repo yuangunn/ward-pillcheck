@@ -54,6 +54,7 @@ interface RawPermitItem {
   efcy?: string;
   useMethod?: string;
   atpn?: string;
+  ingredient?: string;
 }
 
 /** 식약처 공통 응답 봉투: body.items 배열 */
@@ -134,25 +135,31 @@ export function createWorkerClient(apiBase: string): DrugApi {
       return (env.body?.items ?? []).map(toPillResult).filter((p) => p.itemSeq);
     },
 
-    async getDetail(itemSeq: string): Promise<DrugDetail | null> {
-      const params = new URLSearchParams({ itemSeq, pageNo: '1', numOfRows: '1' });
-      // 1) e약은요
-      const env = await fetchJson<RawDetailItem>(`${base}/api/detail?${params}`);
-      const item = env.body?.items?.[0];
-      const easy = item ? toDrugDetail(item) : null;
-      if (easy && hasDetailContent(easy)) return { ...easy, source: 'e약은요' };
+    async getDetail(itemSeq: string, itemName?: string): Promise<DrugDetail | null> {
+      const dp = new URLSearchParams({ itemSeq, pageNo: '1', numOfRows: '1' });
+      const pp = new URLSearchParams({ itemSeq, pageNo: '1', numOfRows: '1' });
+      if (itemName) pp.set('item_name', itemName);
 
-      // 2) 제품 허가정보 폴백 (전문약 등 e약은요에 없는 약)
-      try {
-        const penv = await fetchJson<RawPermitItem>(`${base}/api/permit?${params}`);
-        const p = penv.body?.items?.[0];
-        const permit: DrugDetail | null = p
-          ? { itemSeq, efcy: p.efcy, useMethod: p.useMethod, atpn: p.atpn, source: '허가사항' }
-          : null;
-        if (permit && hasDetailContent(permit)) return permit;
-      } catch {
-        /* 폴백 실패 — e약은요 결과(없으면 null) 반환 */
+      // e약은요(상세) + 허가정보(성분·문서 폴백) 동시 조회
+      const [er, pr] = await Promise.allSettled([
+        fetchJson<RawDetailItem>(`${base}/api/detail?${dp}`),
+        fetchJson<RawPermitItem>(`${base}/api/permit?${pp}`),
+      ]);
+      const easyItem = er.status === 'fulfilled' ? er.value.body?.items?.[0] : undefined;
+      const easy = easyItem ? toDrugDetail(easyItem) : null;
+      const permit = pr.status === 'fulfilled' ? pr.value.body?.items?.[0] : undefined;
+      const ingredient = permit?.ingredient;
+
+      // 1) e약은요에 내용이 있으면 그걸 본문으로, 성분만 허가정보에서 보강
+      if (easy && hasDetailContent(easy)) return { ...easy, ingredient, source: 'e약은요' };
+
+      // 2) 허가정보 문서 폴백(전문약 등)
+      if (permit && (permit.efcy || permit.useMethod || permit.atpn)) {
+        return { itemSeq, efcy: permit.efcy, useMethod: permit.useMethod, atpn: permit.atpn, ingredient, source: '허가사항' };
       }
+
+      // 3) 문서가 전혀 없어도 성분이 있으면 그것만이라도 제공
+      if (ingredient) return { itemSeq, ingredient, source: '허가사항' };
       return easy;
     },
   };

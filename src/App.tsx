@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useStore, uid } from './state/store';
 import { buildTokens, useTheme } from './design/theme';
 import { HomeScreen, MedListScreen, SearchScreen, type PickedMark } from './design/screens';
-import { AddMedSheet, CopySheet, DurSheet, PatientManageSheet, MarkGallerySheet, type MedFormData } from './design/sheets';
+import { AddMedSheet, CopySheet, DurSheet, PatientManageSheet, MarkGallerySheet, DrawMarkSheet, type MedFormData } from './design/sheets';
 import { Toast, Lightbox, type ZoomPill } from './design/ui';
 import { sortMeds } from './domain/sort';
 import type { MedItem, Patient, SortMode } from './domain/models';
@@ -31,6 +31,7 @@ export default function App() {
   const [durOpen, setDurOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
+  const [drawOpen, setDrawOpen] = useState(false);
   const [pickedMark, setPickedMark] = useState<PickedMark | null>(null);
   const [zoomPill, setZoomPill] = useState<ZoomPill | null>(null);
 
@@ -46,6 +47,7 @@ export default function App() {
     if (next.name !== 'search') {
       setPickedMark(null);
       setGalleryOpen(false);
+      setDrawOpen(false);
     }
     setRoute(next);
   };
@@ -114,6 +116,7 @@ export default function App() {
         existingSeqs={existingSeqs}
         pickedMark={pickedMark}
         onOpenGallery={() => setGalleryOpen(true)}
+        onOpenDraw={() => setDrawOpen(true)}
         onClearMark={() => setPickedMark(null)}
         onZoom={(pill) => setZoomPill({ itemName: pill.itemName, color: pill.colorClass1, drugShape: pill.drugShape, marking: pill.printFront, imageUrl: pill.itemImage })}
         onBack={() => go({ name: 'patient', patientId: activePatient.id })}
@@ -210,6 +213,7 @@ export default function App() {
         }}
       />
       <MarkGallerySheet open={galleryOpen} onClose={() => setGalleryOpen(false)} onPick={(m: MarkOption) => setPickedMark({ code: m.code, img: m.img })} />
+      <DrawMarkSheet open={drawOpen} onClose={() => setDrawOpen(false)} onPick={(m: MarkOption) => setPickedMark({ code: m.code, img: m.img })} />
       <Lightbox pill={zoomPill} onClose={() => setZoomPill(null)} />
 
       <Toast msg={toast} />

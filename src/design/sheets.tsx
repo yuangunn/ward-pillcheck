@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Icon, PillGlyph, MarkGlyph, type MarkOpt } from './Icon';
 import { Btn, Chip, BottomSheet, FieldLabel, TextField, Stepper } from './ui';
 import { COLOR_OPTIONS, SHAPE_OPTIONS } from '../constants/appearance';
@@ -6,7 +6,8 @@ import { FREQUENCY_PRESETS, freqMeta } from '../constants/frequency';
 import { TIMING_PRESETS, timingOrder } from '../constants/timing';
 import { buildListText } from '../domain/format';
 import type { MedItem, Patient } from '../domain/models';
-import { drugApi, getMarkOptions, type DrugDetail, type MarkOption, type PillResult } from '../api';
+import { drugApi, getMarkOptions, proxiedImg, type DrugDetail, type MarkOption, type PillResult } from '../api';
+import { ensureMarkFeatures, featureFromCanvas, rankFeatures, type RankedMark } from '../api';
 import { analyzeInteractions, fetchDurMap, type InteractionResult } from '../api/dur';
 
 const TIMING_DEFAULTS: Record<number, string[]> = {
@@ -47,29 +48,57 @@ function Section({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+/** 빈/의미없는 값('-','없음') 정리 */
+function fieldVal(v?: string): string {
+  const x = (v || '').trim();
+  return x && x !== '-' && x !== '없음' ? x : '';
+}
+/** 앞/뒤 한 줄 표기 ("앞 X / 뒤 Y") */
+function frontBack(front?: string, back?: string): string {
+  return [fieldVal(front) && `앞 ${fieldVal(front)}`, fieldVal(back) && `뒤 ${fieldVal(back)}`].filter(Boolean).join(' / ');
+}
+
 function DetailAccordion({ seq, pill }: { seq: string; pill: PillResult }) {
   const [open, setOpen] = useState(false);
   const [detail, setDetail] = useState<DrugDetail | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [imgFail, setImgFail] = useState(false);
   useEffect(() => {
     if (!open || loaded) return;
     drugApi
-      .getDetail(seq)
+      .getDetail(seq, pill.itemName)
       .then((d) => {
         setDetail(d);
         setLoaded(true);
       })
       .catch(() => setLoaded(true));
-  }, [open, loaded, seq]);
+  }, [open, loaded, seq, pill.itemName]);
+
+  const photo = proxiedImg(pill.itemImage);
+  // 외형/분류 기본 정보(상세가 없어도 항상 제공)
+  const basics = ([
+    ['분류', pill.className],
+    ['구분', pill.etcOtcName],
+    ['제형', pill.formCodeName],
+    ['색상', pill.colorClass1],
+    ['모양', pill.drugShape],
+  ] as [string, string | undefined][])
+    .map(([k, v]) => [k, fieldVal(v)] as [string, string])
+    .filter(([, v]) => v);
+  const imprint = frontBack(pill.printFront, pill.printBack);
+  const splitLine = frontBack(pill.lineFront, pill.lineBack);
+
   const rows = detail
     ? ([
-        ['효능', detail.efcy],
-        ['용법', detail.useMethod],
-        ['주의', detail.atpn],
-        ['부작용', detail.se],
+        ['효능·효과', detail.efcy],
+        ['용법·용량', detail.useMethod],
+        ['주의사항', detail.atpn],
+        ['상호작용', detail.intrc],
+        ['이상반응', detail.se],
         ['보관법', detail.deposit],
-      ] as [string, string | undefined][]).filter(([, v]) => v)
+      ] as [string, string | undefined][]).filter(([, v]) => fieldVal(v))
     : [];
+
   return (
     <div style={{ marginBottom: 4 }}>
       <button
@@ -82,24 +111,91 @@ function DetailAccordion({ seq, pill }: { seq: string; pill: PillResult }) {
       </button>
       {open && (
         <div style={{ padding: '14px 4px 4px' }}>
-          {!loaded ? (
-            <div style={{ fontSize: 13.5, color: 'var(--text-weak)' }}>불러오는 중…</div>
-          ) : rows.length ? (
-            <dl style={{ margin: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {rows.map(([k, v]) => (
-                <div key={k}>
-                  <dt style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--primary-ink)', marginBottom: 3 }}>{k}</dt>
-                  <dd style={{ margin: 0, fontSize: 14, color: 'var(--text)', lineHeight: 1.5, letterSpacing: -0.3 }}>{v}</dd>
+          {/* 실물 사진 + 외형/분류 요약 (항상 표시) */}
+          <div style={{ display: 'flex', gap: 14, marginBottom: 16 }}>
+            <div
+              style={{
+                width: 84,
+                height: 84,
+                flexShrink: 0,
+                borderRadius: 16,
+                background: '#fff',
+                border: '1px solid var(--border)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden',
+              }}
+            >
+              {photo && !imgFail ? (
+                <img src={photo} alt={pill.itemName} loading="lazy" onError={() => setImgFail(true)} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+              ) : (
+                <PillGlyph color={pill.colorClass1} shape={pill.drugShape} marking={pill.printFront} size={72} />
+              )}
+            </div>
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {detail?.ingredient && (
+                <div style={{ display: 'flex', gap: 8, fontSize: 13, lineHeight: 1.4 }}>
+                  <span style={{ flexShrink: 0, width: 38, color: 'var(--text-weaker)', fontWeight: 700 }}>성분</span>
+                  <span style={{ color: 'var(--text)', fontWeight: 700, letterSpacing: -0.3 }}>{detail.ingredient}</span>
+                </div>
+              )}
+              {basics.map(([k, v]) => (
+                <div key={k} style={{ display: 'flex', gap: 8, fontSize: 13, lineHeight: 1.4 }}>
+                  <span style={{ flexShrink: 0, width: 38, color: 'var(--text-weaker)', fontWeight: 700 }}>{k}</span>
+                  <span style={{ color: 'var(--text)', fontWeight: 600, letterSpacing: -0.3 }}>{v}</span>
                 </div>
               ))}
-            </dl>
+              {imprint && (
+                <div style={{ display: 'flex', gap: 8, fontSize: 13, lineHeight: 1.4 }}>
+                  <span style={{ flexShrink: 0, width: 38, color: 'var(--text-weaker)', fontWeight: 700 }}>각인</span>
+                  <span style={{ color: 'var(--text)', fontWeight: 600, letterSpacing: -0.3 }}>{imprint}</span>
+                </div>
+              )}
+              {splitLine && (
+                <div style={{ display: 'flex', gap: 8, fontSize: 13, lineHeight: 1.4 }}>
+                  <span style={{ flexShrink: 0, width: 38, color: 'var(--text-weaker)', fontWeight: 700 }}>분할선</span>
+                  <span style={{ color: 'var(--text)', fontWeight: 600, letterSpacing: -0.3 }}>{splitLine}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {pill.itemImage && (
+            <a
+              href={pill.itemImage}
+              target="_blank"
+              rel="noreferrer"
+              style={{ display: 'inline-block', marginBottom: 14, fontSize: 12.5, fontWeight: 700, color: 'var(--primary-ink)', textDecoration: 'none' }}
+            >
+              실물 사진 원본 열기 ↗
+            </a>
+          )}
+
+          {/* 식약처 상세(효능/용법/주의/상호작용/이상반응/보관) */}
+          {!loaded ? (
+            <div style={{ fontSize: 13.5, color: 'var(--text-weak)' }}>상세 정보 불러오는 중…</div>
+          ) : rows.length ? (
+            <>
+              {detail?.source && (
+                <span style={{ display: 'inline-block', marginBottom: 12, fontSize: 11.5, fontWeight: 800, color: 'var(--primary-ink)', background: 'var(--primary-weak)', padding: '3px 9px', borderRadius: 999 }}>
+                  출처 · {detail.source}
+                </span>
+              )}
+              <dl style={{ margin: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {rows.map(([k, v]) => (
+                  <div key={k}>
+                    <dt style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--primary-ink)', marginBottom: 3 }}>{k}</dt>
+                    <dd style={{ margin: 0, fontSize: 14, color: 'var(--text)', lineHeight: 1.55, letterSpacing: -0.3, whiteSpace: 'pre-line' }}>{v}</dd>
+                  </div>
+                ))}
+              </dl>
+            </>
           ) : (
             <div style={{ fontSize: 13.5, color: 'var(--text-weak)', lineHeight: 1.5 }}>
-              e약은요 상세 정보가 없는 약이에요 (전문의약품 등 다수).
+              효능·용법 등 상세 설명은 등록돼 있지 않아요 (전문의약품 등 다수).
               <br />
-              <span style={{ color: 'var(--text-weaker)' }}>
-                분류 {pill.className || '—'} · {pill.etcOtcName || '—'} · {pill.formCodeName || '—'}
-              </span>
+              <span style={{ color: 'var(--text-weaker)' }}>위 외형·분류 정보를 참고하거나 실물 사진을 확인하세요.</span>
             </div>
           )}
         </div>
@@ -586,6 +682,169 @@ export function MarkGallerySheet({ open, onClose, onPick }: { open: boolean; onC
               <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-weak)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{o.code}</span>
             </button>
           ))}
+        </div>
+      )}
+    </BottomSheet>
+  );
+}
+
+// ── 그려서 마크 찾기 (온디바이스 형상 유사도) ──────────────────
+// 캔버스에 그린 그림을 번들 마크 이미지와 비교해 닮은 순으로 후보를 낸다.
+// 마크가 있는 약만 대상(고른 마크코드로 검색).
+const CANVAS_SIZE = 300;
+
+export function DrawMarkSheet({ open, onPick, onClose }: { open: boolean; onPick: (m: MarkOption) => void; onClose: () => void }) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const drawing = useRef(false);
+  const last = useRef<{ x: number; y: number } | null>(null);
+  const [hasInk, setHasInk] = useState(false);
+  const [ready, setReady] = useState(false); // 마크 특징 DB 준비됨
+  const [progress, setProgress] = useState(0);
+  const [results, setResults] = useState<RankedMark[] | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  // 흰 배경으로 캔버스 초기화
+  const clearCanvas = () => {
+    const c = canvasRef.current;
+    if (!c) return;
+    const ctx = c.getContext('2d');
+    if (!ctx) return;
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, c.width, c.height);
+    setHasInk(false);
+    setResults(null);
+  };
+
+  // 열릴 때: 캔버스 초기화 + 마크 특징 DB 준비(최초 1회 디코딩, 이후 캐시)
+  useEffect(() => {
+    if (!open) return;
+    setReady(false);
+    setProgress(0);
+    setResults(null);
+    requestAnimationFrame(clearCanvas);
+    let alive = true;
+    ensureMarkFeatures((d, t) => alive && setProgress(t ? Math.round((d / t) * 100) : 0)).then(() => {
+      if (alive) setReady(true);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [open]);
+
+  const pos = (e: React.PointerEvent) => {
+    const c = canvasRef.current!;
+    const rect = c.getBoundingClientRect();
+    return { x: ((e.clientX - rect.left) / rect.width) * c.width, y: ((e.clientY - rect.top) / rect.height) * c.height };
+  };
+  const start = (e: React.PointerEvent) => {
+    e.preventDefault();
+    const c = canvasRef.current;
+    if (!c) return;
+    c.setPointerCapture(e.pointerId);
+    drawing.current = true;
+    last.current = pos(e);
+    setHasInk(true);
+  };
+  const move = (e: React.PointerEvent) => {
+    if (!drawing.current) return;
+    const c = canvasRef.current;
+    const ctx = c?.getContext('2d');
+    if (!c || !ctx || !last.current) return;
+    const p = pos(e);
+    ctx.strokeStyle = '#16181d';
+    ctx.lineWidth = 14;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(last.current.x, last.current.y);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+    last.current = p;
+  };
+  const end = () => {
+    drawing.current = false;
+    last.current = null;
+  };
+
+  const runSearch = async () => {
+    const c = canvasRef.current;
+    if (!c) return;
+    const q = featureFromCanvas(c);
+    if (!q) {
+      setResults([]);
+      return;
+    }
+    setBusy(true);
+    const feats = await ensureMarkFeatures();
+    setResults(rankFeatures(q, feats, 12));
+    setBusy(false);
+  };
+
+  return (
+    <BottomSheet open={open} onClose={onClose} title="그려서 마크 찾기" maxH="92%">
+      <p style={{ margin: '0 0 14px', fontSize: 14, color: 'var(--text-weak)', fontWeight: 600, letterSpacing: -0.3, lineHeight: 1.45 }}>
+        약에 새겨진 <b style={{ color: 'var(--text-strong)' }}>그림(마크)</b>을 그려보세요. 닮은 마크를 찾아드려요.
+        <br />
+        <span style={{ fontSize: 12.5, color: 'var(--text-weaker)' }}>마크가 있는 약만 검색돼요 · 결과는 “닮은 후보”예요.</span>
+      </p>
+
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
+        <canvas
+          ref={canvasRef}
+          width={CANVAS_SIZE}
+          height={CANVAS_SIZE}
+          onPointerDown={start}
+          onPointerMove={move}
+          onPointerUp={end}
+          onPointerCancel={end}
+          aria-label="마크 그리기 캔버스"
+          style={{
+            width: 'min(78vw, 300px)',
+            height: 'min(78vw, 300px)',
+            borderRadius: 20,
+            border: '1.5px solid var(--border)',
+            background: '#fff',
+            touchAction: 'none',
+            cursor: 'crosshair',
+            boxShadow: 'var(--shadow-sm)',
+          }}
+        />
+      </div>
+
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        <Btn variant="ghost" full icon="trash" onClick={clearCanvas} disabled={!hasInk} style={{ height: 48 }}>
+          지우기
+        </Btn>
+        <Btn variant="primary" full icon="search" onClick={runSearch} disabled={!hasInk || !ready || busy} style={{ height: 48 }}>
+          {ready ? '닮은 마크 찾기' : `준비 중 ${progress}%`}
+        </Btn>
+      </div>
+
+      {results && (
+        <div style={{ paddingBottom: 8 }}>
+          <FieldLabel>닮은 마크 {results.length}개</FieldLabel>
+          {results.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-weak)', fontSize: 14, fontWeight: 600 }}>
+              닮은 마크를 못 찾았어요. 다시 그려보세요.
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+              {results.map((o) => (
+                <button
+                  key={o.code}
+                  type="button"
+                  onClick={() => {
+                    onPick({ code: o.code, img: o.img, count: 0 });
+                    onClose();
+                  }}
+                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '12px 4px', borderRadius: 'var(--r-card)', background: 'var(--card)', border: '1px solid var(--border)', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                >
+                  <MarkGlyph option={o as MarkOpt} size={48} />
+                  <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-weak)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{o.code}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </BottomSheet>

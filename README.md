@@ -10,187 +10,150 @@
 # ward-pillcheck · 병동 지참약 식별 PWA
 
 > 병동 간호사가 환자가 **가져온 약(지참약)** 을 현장에서 빠르게 식별·정리하는 모바일 PWA.
-> 약 이름을 몰라도 **색 + 모양 + 각인**으로 거꾸로 찾고, 환자별 복약 리스트를 만들어
-> 정렬·편집·인계 복사까지. 모든 데이터는 **기기에만**, 외부 전송 없음.
+> 약 이름을 몰라도 **색 + 모양 + 각인 + 마크**로 거꾸로 찾고, 주사제·수기 약도 더해
+> 환자별 복약 리스트를 만들어 정렬·금기점검·인계 복사까지. 데이터는 **기기에만**.
+
+🔗 **앱**: https://yuangunn.github.io/ward-pillcheck/
 
 ## About
 
-- 🏥 **용도**: 입원 환자 지참약 식별 및 복약 리스트 정리(인계) 보조 도구
-- 🔍 **식별**: 식약처 공공데이터 2종(낱알식별 + e약은요)을 Cloudflare Worker로 프록시
-- 🔒 **개인정보**: 실명·주민번호·등록번호 입력란 없음(익명 라벨만), localStorage 전용
-- 📱 **플랫폼**: 모바일 세로 우선 PWA(설치/오프라인 셸), 라이트·다크 모드
-- 🎨 **UI**: Toss 스타일 리디자인 — 홈(환자 목록) → 환자(복약 리스트) → 검색 화면 전환,
-  PillGlyph(색·모양·각인 미리보기), 색 스와치/세그먼트 탭/바텀시트, Pretendard 폰트,
-  디자인 토큰(CSS 변수) 기반 라이트/다크(기기 설정 자동 감지)
-- ⚖️ **주의**: 처방·복약지도 자동화가 아닌 **식별 보조** 도구이며 최종 확인은 의료진 책임
+병동에서 입원 환자의 **지참약(가져온 약)** 을 식별하고 복약 리스트로 정리해 인계까지
+돕는 **모바일 PWA**입니다. 지참약은 보통 이름표 없이 낱알만 오므로, 식약처 공공데이터를
+활용해 **색·모양·각인·마크(그림)** 같은 겉모습으로 거꾸로 찾는 데 초점을 맞췄습니다.
 
-- **모바일 세로 화면 우선**, 한 손 조작, 큰 탭 영역, 최소 입력
-- **데이터는 기기 localStorage 에만** 저장 — 외부 서버로 환자정보 전송 없음
-- 실명·주민번호·환자등록번호 입력란 **없음**. 환자는 `환자1`, `환자2` … 익명 라벨만
-- 설치 가능 PWA(오프라인 셸 캐싱). 데이터는 항상 네트워크에서 fresh fetch
-- **라이트/다크 모드** 토글(헤더 🌙/☀️), 기기 설정 자동 감지
+- 🔍 **식별 방법**: ① 실물검색(색·모양·각인·마크 갤러리) ② 이름검색 ③ 주사제(이름) ④ 직접입력(수기)
+- 🗂 **데이터**: 식약처 낱알식별·허가정보·e약은요·DUR. 낱알·주사제·마크는 **기기에 번들**로
+  내려받아 오프라인·즉시 검색(매일 자동 갱신)
+- 🛡 **안전**: 환자 리스트에 대해 **DUR 금기·중복 점검**(병용금기·임부·노인·연령·효능군중복)
+- 🔒 **개인정보**: 실명·주민번호·등록번호 입력란 **없음**(익명 라벨만), 모든 기록은
+  기기 **localStorage** 에만 — 외부 서버 전송 없음
+- 📱 **UX**: 모바일 세로 우선, 한 손 조작. 홈(환자) → 환자(복약 리스트) → 검색 흐름,
+  Toss 스타일 디자인, **라이트/다크**(기기 설정 자동), 설치형 PWA(오프라인 셸)
+- ⚖️ **주의**: 처방·복약지도 자동화가 아닌 **식별 보조** 도구이며 **최종 확인은 의료진 책임**
 
 ## 기능
 
 | 기능 | 설명 |
 |---|---|
-| 실물 역방향 검색(기본 탭) | 색/모양 칩 + 앞면 각인 텍스트 조합으로 검색 |
+| 실물 검색 | 색 스와치 + 모양 칩 + 앞면 각인으로 거꾸로 찾기(기본 탭). 각인은 **실제 인쇄 각인**만(마크는 별도) |
+| 마크로 찾기(골라서) | 약에 새겨진 **그림(마크)을 이미지 갤러리에서 골라** 검색(번들 마크 이미지 431종) |
+| 마크로 찾기(그려서) | 캔버스에 **마크를 그리면** 번들 마크와 **온디바이스 형상 유사도**로 닮은 후보 제시(서버·API 0) |
 | 이름 검색 | 품목명으로 검색 |
-| 마크로 찾기 | 약에 새겨진 **그림(마크)을 이미지 갤러리에서 골라** 검색(번들 데이터, 431종) |
-| 번들 데이터셋 검색 | 낱알식별 전체를 기기(IndexedDB)에 받아 색/모양/**각인까지 전체 커버·오프라인** 검색. 매일 자동 갱신 + 수동 "데이터 업데이트" |
-| 결과 카드 | 낱알이미지·품목명·업체·색/모양/각인·**분할선**·제형. 이미지 탭 시 **전체화면 확대**, 텍스트 탭 시 e약은요 상세 펼침. **상세 없는 약은 분류·구분·제형 + 의약품안전나라 검색 링크로 폴백** |
-| 환자 리스트 추가 | 정제수(0.5 단위)·용법·복용시점 입력. 색/모양/각인 자동채움(수정 가능) |
-| 복용시점 多 입력 | 용법에 맞춰 복용시점 칸 자동 증가 — QD=1, **BID=2, TID=3, QID=4** |
-| 환자 관리 | 익명 라벨 추가/전환 + 관리 시트(⋯)에서 이름변경·삭제(확인 단계) |
-| 정렬 | 드래그 수동정렬 + 자동정렬(용법순·복용시점순). 모드는 환자별 저장 |
-| 편집/삭제 | 저장 항목 탭 → 수정·삭제 |
-| 리스트 복사/공유 | 복약 리스트를 인계용 텍스트로 클립보드 복사(지원 시 시스템 공유) |
-| 금기·중복 점검 (DUR) | 환자 리스트에 대해 **병용금기 쌍 + 임부·노인·연령 금기 + 효능군 중복** 자동 점검(식약처 DUR) |
-| 다크 모드 | 헤더 🌙/☀️ 토글, 기기 설정 자동 감지·localStorage 저장 |
+| 주사제 검색 | 인슐린 등 주사제를 **이름**으로 검색(허가정보 번들). 색·모양 없는 약 대응 |
+| 직접 입력 | 목록에 없는 약·주사제를 **수기**로(이름 + 용량 단위 T/U/mL/회분/포 + 용법·시점) |
+| 결과 카드 | 품목명·업체·색/모양/각인(앞·뒤, 검색어 강조)·분할선·제형. **약 글리프 탭 → 확대**(실사진 원본 링크) |
+| 상세 정보 | **실물사진 + 외형요약**(**성분**·분류·구분·제형·색·모양·각인·분할선) + 효능·용법·주의·**상호작용**·이상반응·보관(e약은요→허가정보 폴백, **출처 표시**) + 사진 원본 링크 |
+| 환자 리스트 추가 | 정제수(0.5 단위)·용법·복용시점. 색/모양/각인 자동채움(수정 가능) |
+| 복용시점 多 | 용법에 맞춰 시점 칸 자동 — QD=1, **BID=2, TID=3, QID=4** + 직접입력 |
+| 환자 관리 | 익명 라벨 추가/전환, 제목 옆 **`>`** 또는 ⋯ 로 이름변경·삭제 |
+| 정렬 | 기본순 / 용법순 / 시점순 (환자별 저장) |
+| 인계 복사/공유 | 복약 리스트를 한 줄 포맷 텍스트로 클립보드 복사(지원 시 시스템 공유) |
+| 금기·중복 점검(DUR) | 리스트에 대해 **병용금기·임부·노인·연령 금기·효능군 중복** 자동 점검 |
+| DB 정보·업데이트 | 홈에서 약품 데이터 **건수·최근 업데이트일** 표시 + 수동 **업데이트** |
+| 다크 모드 | 헤더 🌙/☀️ 토글, 기기 설정 자동 감지 |
 
-저장 항목 표시 포맷(한 줄):
+저장 항목 한 줄 표시 포맷:
 ```
 아스피린장용정100mg 1T QD 아침식후 (흰/원형/Bayer)
-자나팜 0.25mg 0.5T QD 자기전 (흰/타원/MYUNGIN 25)
 메트포르민500mg 1T BID 아침식후,저녁식후 (흰/원형/MF500)
+란투스주솔로스타펜 10U BID 아침식전,저녁식전
 ```
 
-## 기술 스택
+## 기술 스택 / 구조
 
-Vite + React + TypeScript · `vite-plugin-pwa` · `@dnd-kit/sortable`(터치 드래그) ·
-상태는 Context + `useReducer` + localStorage. API 호출은 **추상화 계층**(`src/api`)
-뒤에 두어, Cloudflare Worker 프록시를 추후 "번들 데이터셋" 등으로 교체 가능.
+Vite + React + TypeScript · `vite-plugin-pwa` · `@dnd-kit` · 상태는 Context + `useReducer`
++ localStorage. 데이터 접근은 **추상화 계층(`src/api`)** 뒤에 두고, 검색은 기기 번들
+데이터셋(IndexedDB/정적파일), 상세·이미지는 Cloudflare Worker 프록시로 분리.
 
 ```
 src/
-  api/        DrugApi 인터페이스 + workerClient / mockClient (팩토리: index.ts)
-  domain/     models · format(한 줄 포맷) · sort(정렬 로직)
-  constants/  frequency · timing(정렬 가중치) · appearance(색/모양 칩)
-  state/      store(Context+reducer) · persist(localStorage)
-  components/  search/ · meds/ · patient/ · ui/
-worker/       Cloudflare Worker 프록시 (인증키 보관 + CORS)
+  api/        types · workerClient · bundledClient · mockClient · index(팩토리)
+              dataset(번들 낱알/마크 IndexedDB) · dur(금기점검) · permit(주사제·허가)
+              marksim(그려서 마크 찾기 — 온디바이스 형상 유사도)
+  domain/     models · format(한 줄 포맷) · sort(정렬)
+  constants/  frequency(용법·시점칸) · timing · appearance(색/모양)
+  state/      store(Context+reducer) · persist(localStorage) · useDataset
+  design/     theme(토큰·라이트/다크) · Icon(+PillGlyph/MarkGlyph) · ui · screens · sheets
+worker/       Cloudflare Worker(인증키 보관 + CORS + 이미지 프록시)
+scripts/      build-dataset.mjs(낱알·주사제·마크 번들 생성)
 ```
 
-## 로컬 개발
+## 로컬 개발 / 테스트
 
 ```bash
 npm install
 npm run dev        # http://localhost:5173 (VITE_API_BASE 없으면 데모/목 모드)
-npm run build      # 타입체크 + 프로덕션 빌드 (dist/)
+npm run build      # 타입체크 + 프로덕션 빌드
+npm test           # Vitest 단위/통합 (60+ 케이스)
+npm run e2e        # Playwright 실브라우저 E2E (최초 1회 npx playwright install chromium)
 ```
 
-`VITE_API_BASE` 가 비어 있으면 **목(mock) 클라이언트**가 동작해 인증키 없이도
-UI/정렬/저장 흐름을 확인할 수 있습니다(샘플 약품 8종 내장). 실제 식약처 데이터를 쓰려면 아래 Worker를
-배포하고 `.env`(또는 GitHub Pages용 repo Variable)에 Worker URL을 넣으세요.
+`VITE_API_BASE` 가 비어 있으면 **목(mock) 모드** — 인증키 없이 샘플 데이터로 UI/흐름 확인.
+**CI**(`.github/workflows/ci.yml`): PR/푸시마다 typecheck + Vitest + 빌드 + E2E.
 
-```bash
-cp .env.example .env
-# VITE_API_BASE=https://ward-pillcheck-proxy.<your-subdomain>.workers.dev
-```
+## 배포
 
-## 테스트
+### 1) data.go.kr 인증키 (5종 API, 하나의 키)
+[공공데이터포털](https://www.data.go.kr)에서 아래를 **활용신청**(개발계정·자동승인) 후,
+마이페이지의 **일반 인증키(Decoding)** 를 사용합니다(코드/저장소엔 절대 넣지 않음).
 
-```bash
-npm test           # Vitest: 도메인/리듀서/목 클라이언트 + App 통합(jsdom) 42케이스
-npm run e2e        # Playwright(실제 브라우저): 검색→추가→드래그 정렬→자동정렬 흐름
-```
+| 데이터 | ID | 용도 |
+|---|---|---|
+| 의약품 낱알식별 정보 | 15057639 | 색·모양·각인·마크 검색 |
+| 의약품개요정보(e약은요) | 15075057 | 효능/용법/주의 상세 |
+| 의약품 제품 허가정보 | 15095677 | 주사제 이름검색 · 상세 폴백 |
+| 의약품안전사용서비스(DUR) 품목정보 | 15059486 | 금기·중복 점검 |
+| (선택) DUR 성분정보 | 15056780 | 성분 기준 보조 |
 
-- **단위/통합**(`src/**/*.test.ts(x)`): 정렬·포맷 로직, 스토어 리듀서, 목 클라이언트,
-  그리고 `StoreProvider`로 감싼 `App` 전체를 렌더해 검색→추가→편집→삭제→정렬 흐름 검증.
-- **E2E**(`e2e/`): 데모 모드로 실제 브라우저에서 **터치 포인터 드래그 정렬**까지 검증
-  (jsdom 으로 불가능한 dnd-kit 드래그 포함). 최초 1회 `npx playwright install chromium` 필요.
-- **CI**(`.github/workflows/ci.yml`): PR/푸시마다 typecheck + Vitest + 빌드, 별도 잡으로 Playwright E2E 실행.
+> 엔드포인트 버전 suffix 는 갱신될 수 있어 Worker 의 `*_ENDPOINT` 환경변수로 덮어쓸 수 있습니다.
 
-## 1. data.go.kr 인증키 발급
-
-두 개의 공공데이터(식약처) 오픈API를 사용합니다. **하나의 data.go.kr 계정/인증키**로
-두 API 모두 신청합니다.
-
-1. [공공데이터포털](https://www.data.go.kr) 회원가입 / 로그인
-2. 아래 두 데이터에서 각각 **활용신청**(개발계정, 자동승인):
-   - 의약품 낱알식별 정보 — <https://www.data.go.kr/data/15057639/openapi.do>
-   - 의약품개요정보(e약은요) — <https://www.data.go.kr/data/15075057/openapi.do>
-3. 마이페이지 → **오픈API → 인증키**에서 **일반 인증키(Decoding)** 값을 복사
-   - Worker 에는 **Decoding(원본) 키**를 넣습니다(Worker가 자동 URL 인코딩).
-4. 각 API의 **활용가이드/상세설명** 문서에서 엔드포인트·파라미터를 한 번 확인하세요.
-   서비스 버전 suffix(`...Service03/getMdcinGrnIdntfcInfoList03` 등)는 갱신될 수 있어,
-   Worker 의 `PILL_ENDPOINT` / `DETAIL_ENDPOINT` 변수로 덮어쓸 수 있게 했습니다.
-
-> 개발계정 트래픽은 보통 일 10,000건. 운영계정 승인 시 상향됩니다.
-
-## 2. Cloudflare Worker(프록시) 배포
-
-브라우저에서 data.go.kr 직접 호출은 **CORS 로 차단**됩니다. Worker가
-① 인증키를 환경변수로 보관하고 ② CORS 헤더를 부여해 중계합니다. 프론트는
-Worker 엔드포인트(`/api/pills`, `/api/detail`)만 호출합니다.
-
+### 2) Cloudflare Worker (인증키 보관 + 프록시)
 ```bash
 cd worker
 npm install
-npx wrangler login                 # 최초 1회 Cloudflare 인증
-
-# 인증키를 secret 으로 주입 (data.go.kr Decoding 키 붙여넣기)
-npx wrangler secret put SERVICE_KEY
-
-npm run deploy                     # = wrangler deploy
+npx wrangler login
+npx wrangler secret put SERVICE_KEY   # data.go.kr Decoding 키
+npm run deploy
 ```
+출력된 `https://<name>.<subdomain>.workers.dev` 가 프론트의 `VITE_API_BASE` 값입니다.
+운영 시 `wrangler.toml` 의 `ALLOW_ORIGIN` 을 Pages 도메인으로 제한 권장.
 
-배포 후 출력되는 URL(예: `https://ward-pillcheck-proxy.<subdomain>.workers.dev`)이
-프론트의 `VITE_API_BASE` 값입니다. 동작 확인:
+**Worker 엔드포인트**
 
-```bash
-curl "https://<worker-url>/api/pills?color_class1=하양&drug_shape=원형"
-curl "https://<worker-url>/api/detail?itemSeq=195700020"
-```
-
-운영 시에는 `worker/wrangler.toml` 의 `ALLOW_ORIGIN` 을 GitHub Pages 도메인으로
-제한하는 것을 권장합니다(기본값 `*`).
-
-### Worker 엔드포인트
-
-| 경로 | 매핑되는 식약처 API |
+| 경로 | 식약처 API / 역할 |
 |---|---|
-| `GET /api/pills?item_name=&entp_name=&drug_shape=&color_class1=&print_front=&pageNo=&numOfRows=` | 낱알식별 `getMdcinGrnIdntfcInfoList03` |
+| `GET /api/pills` | 낱알식별 `getMdcinGrnIdntfcInfoList03` |
 | `GET /api/detail?itemSeq=` | e약은요 `getDrbEasyDrugList` |
-| `GET /api/permit?itemSeq=` | 제품 허가정보 `getDrugPrdtPrmsnDtlInq` (효능/용법/주의 폴백) |
-| `GET /api/dur?itemSeq=` | DUR 품목정보 `DURPrdlstInfoService03/*` (병용금기·임부·노인·연령·효능군중복) |
+| `GET /api/permit?itemSeq=&item_name=` | 제품 허가정보 — 효능/용법/주의 폴백 + **주성분**(허가목록 ITEM_SEQ 일치 매칭) |
+| `GET /api/drugsearch?item_name=&inj=1` | 허가정보 이름검색(주사제) |
+| `GET /api/dur?itemSeq=` | DUR 품목정보(병용금기·임부·노인·연령·효능군중복) |
+| `GET /api/img?u=` | nedrug 이미지 프록시(헤더 정리 + CORS) |
 
-## 3. GitHub Pages 배포
+### 3) GitHub Pages
+`main` push 시 `.github/workflows/deploy.yml` 가 데이터셋 빌드 → 빌드 → 배포.
+1. **Settings → Pages → Source: GitHub Actions**
+2. **Settings → … → Variables**: `VITE_API_BASE` = Worker URL
+3. **Settings → … → Secrets**: `SERVICE_KEY` = data.go.kr Decoding 키(데이터셋 빌드용)
+4. base 경로는 저장소명 기준 `/ward-pillcheck/` (다르면 `VITE_BASE`)
 
-`main` 브랜치 push 시 `.github/workflows/deploy.yml` 가 빌드 후 Pages 에 배포합니다.
+## 번들 데이터셋 (오프라인 검색)
 
-1. repo **Settings → Pages → Source: GitHub Actions**
-2. repo **Settings → Secrets and variables → Actions → Variables** 에
-   `VITE_API_BASE` = Worker URL 추가 (미설정 시 데모/목 모드로 빌드)
-3. repo **Settings → Secrets and variables → Actions → Secrets** 에
-   `SERVICE_KEY` = data.go.kr **Decoding 키** 추가 (낱알 데이터셋 빌드용)
-4. `base` 경로는 저장소명 기준 `/ward-pillcheck/` (다르면 `VITE_BASE` 로 덮어쓰기)
+식약처 API는 색/모양/각인 검색 파라미터를 서버에서 무시하는 경우가 있어, **전체 데이터를
+빌드 때 받아 기기에서 직접 검색**합니다. `scripts/build-dataset.mjs` 가 생성:
 
-## 4. 낱알 데이터셋 (실물검색 정확도)
+| 파일 | 내용 | 규모(예시) |
+|---|---|---|
+| `pills.json` | 낱알식별 전체(색/모양/각인/마크코드/분할선…) | ~25,000건 |
+| `injections.json` | 허가정보에서 추린 주사제 | ~3,700건 |
+| `marks.json` + `marks/*.gif` | 고유 마크 코드 + **마크 이미지 번들** | ~431종, ~수MB |
 
-식약처 낱알식별 API는 색/모양/각인 **검색 파라미터를 서버에서 무시**해, 정밀(각인)
-검색이 불안정합니다. 그래서 **전체 데이터를 미리 받아 기기에서 검색**합니다.
-
-- `scripts/build-dataset.mjs` 가 `SERVICE_KEY` 로 전체 낱알을 페이징 수집 →
-  `public/data/pills.json` + `pills-meta.json` 생성 (커밋하지 않고 빌드시 생성).
-- 배포 워크플로가 빌드 전 이 스크립트를 실행하고, **매일 cron(`0 18 * * *` UTC)** 으로
-  자동 재생성·재배포합니다.
-- 앱은 첫 실행 시 데이터셋을 IndexedDB 에 캐시하고, 메타(생성일)가 바뀌면 자동 갱신.
-  상단 바의 **"데이터 업데이트"** 버튼으로 수동 갱신도 가능.
-- 전송량은 gzip 약 2~3MB(원본 7~10MB), 기기 저장 약 7~10MB. 최초 1회만 다운로드.
-
-> e약은요(개요) 상세는 양이 크고 공급내역 있는 약 위주라 **번들에 넣지 않고 Worker로
-> 그때그때 조회**합니다. 상세 로딩은 **e약은요 → (없으면) 제품 허가정보(15095677)**
-> 순으로 폴백해 전문약 등도 효능/용법/주의를 채우고, 둘 다 없으면 분류·구분·제형 +
-> 의약품안전나라 검색 링크를 보여줍니다.
-
-## 데이터 소스 교체(향후)
-
-`src/api/types.ts` 의 `DrugApi` 인터페이스만 구현하면 데이터 소스를 바꿀 수 있습니다.
-예: 오프라인 번들 JSON 을 읽는 `bundledClient` 를 만들어 `src/api/index.ts` 의
-팩토리에서 선택하도록 교체.
+- 앱은 첫 실행 시 IndexedDB 에 캐시하고, 메타(생성일)가 바뀌면 자동 갱신(홈 "업데이트"로 수동도).
+- **매일 cron(`0 18 * * *` UTC)** 으로 재생성·재배포.
+- **이미지**: 마크는 번들(같은 출처)이라 오프라인·즉시 표시. **낱알 실사진(~2.4GB)** 은
+  번들 불가 + Worker→nedrug 이미지 프록시가 간헐 TLS 오류라, 라이트박스의 **"원본 열기"
+  링크**로 새 탭에서 보고 앱 내 식별은 색·모양·각인 글리프로 대체합니다.
 
 ## 비목표
 
-- 처방·복약 지도 자동화 아님. **식별 보조 도구**이며 최종 확인은 의료진 책임
-- 환자 식별정보 수집/전송 없음
+- 처방·복약 지도 자동화 아님 — **식별 보조 도구**, 최종 확인은 의료진 책임
+- 환자 식별정보(실명·등록번호 등) 수집/전송 없음

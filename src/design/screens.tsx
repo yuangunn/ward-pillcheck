@@ -382,6 +382,7 @@ export function SearchScreen({
   existingSeqs,
   pickedMark,
   onOpenGallery,
+  onOpenDraw,
   onClearMark,
   onZoom,
   onBack,
@@ -392,6 +393,7 @@ export function SearchScreen({
   existingSeqs: string[];
   pickedMark: PickedMark | null;
   onOpenGallery: () => void;
+  onOpenDraw: () => void;
   onClearMark: () => void;
   onZoom: (pill: PillResult) => void;
   onBack: () => void;
@@ -557,30 +559,56 @@ export function SearchScreen({
               </button>
             </div>
           ) : (
-            <button
-              type="button"
-              onClick={onOpenGallery}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                width: '100%',
-                height: 54,
-                borderRadius: 'var(--r-btn)',
-                border: '1.5px dashed var(--border)',
-                background: 'var(--fill)',
-                color: 'var(--text-weak)',
-                fontSize: 15.5,
-                fontWeight: 700,
-                letterSpacing: -0.3,
-                cursor: 'pointer',
-                WebkitTapHighlightColor: 'transparent',
-              }}
-            >
-              <Icon name="search" size={19} />
-              마크 골라서 찾기
-            </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                onClick={onOpenGallery}
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 7,
+                  height: 54,
+                  borderRadius: 'var(--r-btn)',
+                  border: '1.5px dashed var(--border)',
+                  background: 'var(--fill)',
+                  color: 'var(--text-weak)',
+                  fontSize: 14.5,
+                  fontWeight: 700,
+                  letterSpacing: -0.3,
+                  cursor: 'pointer',
+                  WebkitTapHighlightColor: 'transparent',
+                }}
+              >
+                <Icon name="search" size={18} />
+                골라서 찾기
+              </button>
+              <button
+                type="button"
+                onClick={onOpenDraw}
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 7,
+                  height: 54,
+                  borderRadius: 'var(--r-btn)',
+                  border: '1.5px solid var(--primary)',
+                  background: 'var(--primary-weak)',
+                  color: 'var(--primary-ink)',
+                  fontSize: 14.5,
+                  fontWeight: 800,
+                  letterSpacing: -0.3,
+                  cursor: 'pointer',
+                  WebkitTapHighlightColor: 'transparent',
+                }}
+              >
+                <Icon name="edit" size={18} />
+                그려서 찾기
+              </button>
+            </div>
           )}
           {active && (
             <button

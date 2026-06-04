@@ -72,6 +72,17 @@ test('직접 입력으로 주사약 추가', async ({ page }) => {
   await expect(page.locator('ul.med-list .med-name')).toContainText('란투스주');
 });
 
+test('그려서 마크 찾기 시트 열림', async ({ page }) => {
+  await page.goto('/');
+  await page.getByText('환자1').click();
+  await page.getByRole('button', { name: '약 검색해서 추가' }).click();
+  // 실물 검색 탭에서 마크 "그려서 찾기"
+  await page.getByRole('button', { name: '그려서 찾기' }).click();
+  const sheet = page.getByRole('dialog', { name: '그려서 마크 찾기' });
+  await expect(sheet.getByLabel('마크 그리기 캔버스')).toBeVisible();
+  await expect(sheet.getByRole('button', { name: '지우기' })).toBeVisible();
+});
+
 test('다크 모드 토글', async ({ page }) => {
   await page.goto('/');
   const before = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
