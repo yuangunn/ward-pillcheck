@@ -100,7 +100,12 @@ export function SearchSection() {
             <EmptyState message="검색 결과가 없습니다. 조건을 바꿔보세요." />
           ) : (
             results.results.map((pill) => (
-              <ResultCard key={pill.itemSeq} pill={pill} onAdd={setAdding} />
+              <ResultCard
+                key={pill.itemSeq}
+                pill={pill}
+                onAdd={setAdding}
+                highlight={lastQuery?.printFront}
+              />
             ))
           ))}
       </div>
