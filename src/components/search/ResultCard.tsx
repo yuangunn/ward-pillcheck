@@ -69,7 +69,7 @@ export function ResultCard({ pill, onAdd }: Props) {
           {detail.status === 'error' && (
             <ErrorState message="상세 정보를 불러오지 못했습니다." onRetry={loadDetail} />
           )}
-          {detail.status === 'loaded' && <DetailBody detail={detail.detail} />}
+          {detail.status === 'loaded' && <DetailBody detail={detail.detail} pill={pill} />}
         </div>
       )}
 
@@ -82,19 +82,22 @@ export function ResultCard({ pill, onAdd }: Props) {
   );
 }
 
-function DetailBody({ detail }: { detail: DrugDetail | null }) {
-  if (!detail) return <div className="result-sub">상세(e약은요) 정보가 없습니다.</div>;
-  const rows: [string, string | undefined][] = [
-    ['효능', detail.efcy],
-    ['용법', detail.useMethod],
-    ['주의', detail.atpn],
-    ['상호작용', detail.intrc],
-    ['부작용', detail.se],
-    ['보관법', detail.deposit],
-  ];
+function DetailBody({ detail, pill }: { detail: DrugDetail | null; pill: PillResult }) {
+  const rows: [string, string | undefined][] = detail
+    ? [
+        ['효능', detail.efcy],
+        ['용법', detail.useMethod],
+        ['주의', detail.atpn],
+        ['상호작용', detail.intrc],
+        ['부작용', detail.se],
+        ['보관법', detail.deposit],
+      ]
+    : [];
   const visible = rows.filter(([, v]) => v && v.trim());
-  if (visible.length === 0)
-    return <div className="result-sub">상세(e약은요) 정보가 없습니다.</div>;
+
+  // e약은요 상세가 없으면(전문약 등 다수) 낱알식별 정보 + 검색 링크로 폴백
+  if (visible.length === 0) return <FallbackDetail pill={pill} />;
+
   return (
     <dl>
       {visible.map(([k, v]) => (
@@ -104,5 +107,38 @@ function DetailBody({ detail }: { detail: DrugDetail | null }) {
         </div>
       ))}
     </dl>
+  );
+}
+
+/** e약은요 상세가 없을 때: 가진 기본 정보 + 의약품안전나라 검색 링크 */
+function FallbackDetail({ pill }: { pill: PillResult }) {
+  const nedrug = `https://nedrug.mfds.go.kr/searchDrug?searchYn=true&keyword=${encodeURIComponent(
+    pill.itemName,
+  )}`;
+  const rows: [string, string | undefined][] = [
+    ['분류', pill.className],
+    ['구분', pill.etcOtcName],
+    ['제형', pill.formCodeName],
+  ];
+  const visible = rows.filter(([, v]) => v && v.trim());
+  return (
+    <div>
+      <div className="result-sub" style={{ marginBottom: 8 }}>
+        e약은요 상세 정보가 없는 약입니다(전문의약품 등 다수). 기본 정보:
+      </div>
+      {visible.length > 0 && (
+        <dl>
+          {visible.map(([k, v]) => (
+            <div key={k}>
+              <dt>{k}</dt>
+              <dd>{v}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      <a className="detail-link" href={nedrug} target="_blank" rel="noopener noreferrer">
+        의약품안전나라에서 더 찾기 ↗
+      </a>
+    </div>
   );
 }

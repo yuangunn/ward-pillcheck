@@ -2,6 +2,7 @@ import { isMockMode } from './api';
 import { useStore } from './state/store';
 import { useTheme } from './state/useTheme';
 import { PatientBar } from './components/patient/PatientBar';
+import { DatasetBar } from './components/DatasetBar';
 import { SearchSection } from './components/search/SearchSection';
 import { MedList } from './components/meds/MedList';
 
@@ -32,6 +33,7 @@ export default function App() {
       )}
 
       <PatientBar />
+      <DatasetBar />
 
       {activePatient ? (
         <>

@@ -12,6 +12,9 @@ worker/.dev.vars
 
 *.tsbuildinfo
 
+# 빌드시 생성되는 번들 데이터셋(커밋하지 않음 — CI에서 생성)
+public/data/
+
 # playwright
 test-results/
 playwright-report/
