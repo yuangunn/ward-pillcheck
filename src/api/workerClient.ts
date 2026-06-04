@@ -44,6 +44,14 @@ interface RawDetailItem {
   depositMethodQesitm?: string;
 }
 
+/** 워커가 정규화해 주는 제품 허가정보 폴백 아이템 */
+interface RawPermitItem {
+  itemSeq?: string;
+  efcy?: string;
+  useMethod?: string;
+  atpn?: string;
+}
+
 /** 식약처 공통 응답 봉투: body.items 배열 */
 interface ServiceEnvelope<T> {
   body?: { items?: T[]; totalCount?: number };
@@ -120,9 +128,29 @@ export function createWorkerClient(apiBase: string): DrugApi {
 
     async getDetail(itemSeq: string): Promise<DrugDetail | null> {
       const params = new URLSearchParams({ itemSeq, pageNo: '1', numOfRows: '1' });
+      // 1) e약은요
       const env = await fetchJson<RawDetailItem>(`${base}/api/detail?${params}`);
       const item = env.body?.items?.[0];
-      return item ? toDrugDetail(item) : null;
+      const easy = item ? toDrugDetail(item) : null;
+      if (easy && hasDetailContent(easy)) return { ...easy, source: 'e약은요' };
+
+      // 2) 제품 허가정보 폴백 (전문약 등 e약은요에 없는 약)
+      try {
+        const penv = await fetchJson<RawPermitItem>(`${base}/api/permit?${params}`);
+        const p = penv.body?.items?.[0];
+        const permit: DrugDetail | null = p
+          ? { itemSeq, efcy: p.efcy, useMethod: p.useMethod, atpn: p.atpn, source: '허가사항' }
+          : null;
+        if (permit && hasDetailContent(permit)) return permit;
+      } catch {
+        /* 폴백 실패 — e약은요 결과(없으면 null) 반환 */
+      }
+      return easy;
     },
   };
+}
+
+/** efcy/useMethod/atpn/intrc/se/deposit 중 하나라도 내용이 있으면 true */
+function hasDetailContent(d: DrugDetail): boolean {
+  return [d.efcy, d.useMethod, d.atpn, d.intrc, d.se, d.deposit].some((v) => v && v.trim());
 }

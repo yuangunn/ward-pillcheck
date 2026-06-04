@@ -41,6 +41,7 @@ export interface DrugDetail {
   intrc?: string; // 상호작용 intrcQesitm
   se?: string; // 부작용 seQesitm
   deposit?: string; // 보관법 depositMethodQesitm
+  source?: 'e약은요' | '허가사항'; // 상세 출처 표시용
 }
 
 /**

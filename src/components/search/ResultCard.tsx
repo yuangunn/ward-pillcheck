@@ -95,18 +95,21 @@ function DetailBody({ detail, pill }: { detail: DrugDetail | null; pill: PillRes
     : [];
   const visible = rows.filter(([, v]) => v && v.trim());
 
-  // e약은요 상세가 없으면(전문약 등 다수) 낱알식별 정보 + 검색 링크로 폴백
+  // e약은요·허가정보 모두 없으면 낱알식별 정보 + 검색 링크로 폴백
   if (visible.length === 0) return <FallbackDetail pill={pill} />;
 
   return (
-    <dl>
-      {visible.map(([k, v]) => (
-        <div key={k}>
-          <dt>{k}</dt>
-          <dd>{v}</dd>
-        </div>
-      ))}
-    </dl>
+    <div>
+      {detail?.source && <div className="detail-source">출처: {detail.source}</div>}
+      <dl>
+        {visible.map(([k, v]) => (
+          <div key={k}>
+            <dt>{k}</dt>
+            <dd>{v}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
   );
 }
 

@@ -47,6 +47,9 @@ function compact(r) {
   return o;
 }
 
+const CONCURRENCY = 6; // 동시 요청 수
+const REQ_TIMEOUT = 20000; // 요청 타임아웃(ms) — 멈춤 방지
+
 async function fetchPage(pageNo) {
   const params = new URLSearchParams({
     serviceKey: KEY,
@@ -54,23 +57,18 @@ async function fetchPage(pageNo) {
     pageNo: String(pageNo),
     numOfRows: String(NUM),
   });
-  const res = await fetch(`${ENDPOINT}?${params}`);
+  const res = await fetch(`${ENDPOINT}?${params}`, {
+    signal: AbortSignal.timeout(REQ_TIMEOUT),
+  });
   if (!res.ok) throw new Error(`upstream ${res.status} on page ${pageNo}`);
   return items(await res.json());
 }
 
 async function buildAll() {
+  // 1페이지로 총 건수 파악 후, 나머지를 동시성으로 수집
   const all = [];
   const seen = new Set();
-  for (let page = 1; page <= MAX_PAGES; page++) {
-    let rows;
-    try {
-      rows = await fetchPage(page);
-    } catch (e) {
-      console.warn(`페이지 ${page} 실패: ${e.message} — 지금까지 받은 것으로 마무리`);
-      break;
-    }
-    if (rows.length === 0) break;
+  const add = (rows) => {
     for (const r of rows) {
       const c = compact(r);
       if (c.seq && !seen.has(c.seq)) {
@@ -78,8 +76,24 @@ async function buildAll() {
         all.push(c);
       }
     }
-    if (page % 20 === 0) console.log(`  ...${all.length}건 수집`);
-    if (rows.length < NUM) break; // 마지막 페이지
+  };
+
+  let lastPage = MAX_PAGES;
+  let done = false;
+  // CONCURRENCY 페이지씩 배치로 진행, 한 배치에서 빈/짧은 페이지가 나오면 종료
+  for (let start = 1; start <= lastPage && !done; start += CONCURRENCY) {
+    const batch = [];
+    for (let p = start; p < start + CONCURRENCY && p <= lastPage; p++) batch.push(p);
+    const results = await Promise.allSettled(batch.map(fetchPage));
+    for (const r of results) {
+      if (r.status === 'fulfilled') {
+        add(r.value);
+        if (r.value.length < NUM) done = true; // 마지막 페이지 도달
+      } else {
+        console.warn(`  페이지 실패: ${r.reason?.message ?? r.reason}`);
+      }
+    }
+    console.log(`  ...${all.length}건 수집 (page ~${start + CONCURRENCY - 1})`);
   }
   return all;
 }
