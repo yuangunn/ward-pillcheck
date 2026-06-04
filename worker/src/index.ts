@@ -340,7 +340,15 @@ export default {
       }
       let res: Response;
       try {
-        res = await fetch(target.toString());
+        // nedrug 은 브라우저 UA/Referer 없는 요청을 막는 경우가 있어 헤더를 부여
+        res = await fetch(target.toString(), {
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148',
+            Referer: 'https://nedrug.mfds.go.kr/',
+            Accept: 'image/avif,image/webp,image/png,image/*,*/*;q=0.8',
+          },
+        });
       } catch {
         return json({ error: 'img fetch 실패' }, env, 502);
       }
