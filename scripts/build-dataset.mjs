@@ -124,13 +124,75 @@ function write(name, records) {
   console.log(`작성됨: ${name}.json (${records.length}건)`);
 }
 
+const IMG_HEADERS = {
+  'User-Agent':
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148',
+  Referer: 'https://nedrug.mfds.go.kr/',
+};
+const nedrugId = (url) => (String(url).split('/').pop() || '').replace(/[^a-zA-Z0-9]/g, '');
+
+/** 낱알 레코드에서 고유 마크(코드→대표이미지)를 추려 이미지를 받아 번들 */
+async function buildMarks(pills) {
+  const map = new Map(); // code -> { img, count }
+  for (const r of pills) {
+    for (const [codes, img] of [
+      [r.markFA, r.markFI],
+      [r.markBA, r.markBI],
+    ]) {
+      if (!codes) continue;
+      for (const c of String(codes).split(',').map((s) => s.trim()).filter(Boolean)) {
+        const e = map.get(c) || { img: undefined, count: 0 };
+        e.count += 1;
+        if (!e.img && img) e.img = img;
+        map.set(c, e);
+      }
+    }
+  }
+  const entries = [...map.entries()].filter(([, v]) => v.img).sort((a, b) => b[1].count - a[1].count);
+  const marksDir = resolve(OUT, 'marks');
+  mkdirSync(marksDir, { recursive: true });
+
+  const downloaded = new Set();
+  const out = [];
+  // 동시성 다운로드(배치 8)
+  for (let i = 0; i < entries.length; i += 8) {
+    const batch = entries.slice(i, i + 8);
+    await Promise.allSettled(
+      batch.map(async ([code, v]) => {
+        const id = nedrugId(v.img);
+        if (!id) return;
+        const file = `${id}.gif`;
+        if (!downloaded.has(id)) {
+          try {
+            const res = await fetch(v.img, { headers: IMG_HEADERS, signal: AbortSignal.timeout(REQ_TIMEOUT) });
+            if (!res.ok) return;
+            writeFileSync(resolve(marksDir, file), Buffer.from(await res.arrayBuffer()));
+            downloaded.add(id);
+          } catch {
+            return;
+          }
+        }
+        out.push({ code, file, count: v.count });
+      }),
+    );
+    console.log(`  [마크] ...${out.length}/${entries.length}`);
+  }
+  out.sort((a, b) => b.count - a.count);
+  write('marks', out);
+}
+
 if (!KEY) {
   console.warn('⚠️  SERVICE_KEY 미설정 — 빈 데이터셋을 생성합니다(데모/로컬 빌드).');
   write('pills', []);
   write('injections', []);
+  write('marks', []);
 } else {
   console.log('낱알식별 수집…');
-  write('pills', await collect('낱알', PILL_ENDPOINT, compactPill, 600));
+  const pills = await collect('낱알', PILL_ENDPOINT, compactPill, 600);
+  write('pills', pills);
+  console.log('마크 이미지 번들…');
+  await buildMarks(pills);
   console.log('주사제(허가정보) 수집…');
   write('injections', await collect('주사제', PERMIT_LIST_ENDPOINT, compactInjection, 800));
 }
+
