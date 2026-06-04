@@ -67,7 +67,7 @@ test('직접 입력으로 주사약 추가', async ({ page }) => {
   await page.getByRole('button', { name: /직접 입력/ }).click();
   const sheet = page.getByRole('dialog', { name: '직접 입력' });
   await sheet.getByLabel('약 이름').fill('란투스주');
-  await sheet.getByRole('button', { name: '단위 U' }).click();
+  await sheet.getByLabel('용량 단위').selectOption('U');
   await sheet.getByRole('button', { name: '환자 리스트에 추가' }).click();
   await expect(page.locator('ul.med-list .med-name')).toContainText('란투스주');
 });

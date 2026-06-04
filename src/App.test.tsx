@@ -112,7 +112,7 @@ describe('App 리디자인 통합 (목 모드)', () => {
 
     const sheet = await screen.findByRole('dialog', { name: '직접 입력' });
     await user.type(within(sheet).getByLabelText('약 이름'), '란투스주');
-    await user.click(within(sheet).getByRole('button', { name: '단위 U' }));
+    await user.selectOptions(within(sheet).getByLabelText('용량 단위'), 'U');
     await user.click(within(sheet).getByRole('button', { name: '환자 리스트에 추가' }));
 
     await waitFor(() => {
