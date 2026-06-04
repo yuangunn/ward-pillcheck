@@ -5,9 +5,6 @@ import {
   detailsStatus,
   downloadDetails,
   clearDetails,
-  durBundleStatus,
-  downloadDur,
-  clearDur,
   downloadPhotos,
   cachedPhotoCount,
   clearPhotos,
@@ -35,7 +32,6 @@ function Row({ label, value, ok }: { label: string; value: string; ok?: boolean 
 export function SettingsSheet({ open, onClose, onFlash }: { open: boolean; onClose: () => void; onFlash?: (m: string) => void }) {
   const ds = useDataset();
   const [det, setDet] = useState<Stat | null>(null);
-  const [dur, setDur] = useState<Stat | null>(null);
   const [usage, setUsage] = useState('');
   const [busy, setBusy] = useState('');
   const [photos, setPhotos] = useState(0);
@@ -44,7 +40,6 @@ export function SettingsSheet({ open, onClose, onFlash }: { open: boolean; onClo
 
   const refresh = async () => {
     setDet(await detailsStatus());
-    setDur(await durBundleStatus());
     setPhotos(await cachedPhotoCount());
     try {
       const e = await navigator.storage?.estimate?.();
@@ -64,8 +59,6 @@ export function SettingsSheet({ open, onClose, onFlash }: { open: boolean; onClo
       await ds.update();
       setBusy('허가사항 상세 받는 중…');
       await downloadDetails();
-      setBusy('금기점검(DUR) 받는 중…');
-      await downloadDur();
       setBusy('');
       await refresh();
       onFlash?.('오프라인 데이터 다운로드 완료');
@@ -76,9 +69,8 @@ export function SettingsSheet({ open, onClose, onFlash }: { open: boolean; onClo
   };
   const clearAll = async () => {
     await clearDetails();
-    await clearDur();
     await refresh();
-    onFlash?.('오프라인 상세·DUR 캐시를 비웠어요');
+    onFlash?.('오프라인 상세 캐시를 비웠어요');
   };
 
   const getPhotos = async () => {
@@ -99,13 +91,13 @@ export function SettingsSheet({ open, onClose, onFlash }: { open: boolean; onClo
     <BottomSheet open={open} onClose={onClose} title="설정" maxH="90%">
       <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.4, marginBottom: 4 }}>오프라인 데이터</div>
       <p style={{ margin: '0 0 14px', fontSize: 13, color: 'var(--text-weak)', fontWeight: 600, lineHeight: 1.5 }}>
-        받아두면 <b style={{ color: 'var(--text-strong)' }}>인터넷 없이(인트라넷)</b> 도 검색·상세·금기점검이 됩니다. (실물사진 제외)
+        받아두면 <b style={{ color: 'var(--text-strong)' }}>인터넷 없이(인트라넷)</b> 도 검색·상세가 됩니다. (금기점검·실물사진은 온라인)
       </p>
 
       <div style={{ padding: '4px 14px', borderRadius: 'var(--r-card)', background: 'var(--fill)', marginBottom: 16 }}>
         <Row label="약품 검색(낱알·주사·외용·마크)" value={ds.meta ? `${ds.meta.count.toLocaleString()}건` : ds.enabled ? '미수신' : '데모'} ok={!!ds.meta?.count} />
         <Row label="허가사항 상세(효능·용법·주의)" value={det?.downloaded ? `${det.count.toLocaleString()}건 · ${fmtDate(det.builtAt)}` : '미다운로드'} ok={!!det?.downloaded} />
-        <Row label="금기점검(DUR) 룰셋" value={dur?.downloaded ? `${dur.count.toLocaleString()}품목` : '미다운로드'} ok={!!dur?.downloaded} />
+        <Row label="금기점검(DUR)" value="온라인 점검" />
         <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', fontSize: 13, fontWeight: 700, color: 'var(--text-weaker)' }}>
           <span>기기 사용 용량</span>
           <span>{usage || '—'}</span>
