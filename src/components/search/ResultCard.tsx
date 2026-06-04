@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { drugApi, type DrugDetail, type PillResult } from '../../api';
 import { Spinner, ErrorState } from '../ui/States';
+import { ImageLightbox } from '../ui/ImageLightbox';
 
 interface Props {
   pill: PillResult;
@@ -13,11 +14,27 @@ type DetailState =
   | { status: 'loaded'; detail: DrugDetail | null }
   | { status: 'error' };
 
+/** 분할선 표시용: "-"/없음/빈값은 숨기고 의미있는 값만 */
+export function lineText(front?: string, back?: string): string | null {
+  const norm = (v?: string) => {
+    const t = (v ?? '').trim();
+    return t && t !== '-' && t !== '없음' ? t : '';
+  };
+  const f = norm(front);
+  const b = norm(back);
+  if (!f && !b) return null;
+  const parts: string[] = [];
+  if (f) parts.push(`앞 ${f}`);
+  if (b) parts.push(`뒤 ${b}`);
+  return `분할선 ${parts.join(' / ')}`;
+}
+
 /** 검색 결과 카드. 탭 시 e약은요 상세를 선택적(lazy)으로 로드. */
 export function ResultCard({ pill, onAdd }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [detail, setDetail] = useState<DetailState>({ status: 'idle' });
   const [imgError, setImgError] = useState(false); // 낱알이미지 로드 실패 시 폴백
+  const [zoom, setZoom] = useState(false); // 이미지 확대 보기
 
   const loadDetail = async () => {
     setDetail({ status: 'loading' });
@@ -38,30 +55,45 @@ export function ResultCard({ pill, onAdd }: Props) {
   const sub = [pill.colorClass1, pill.drugShape, pill.printFront]
     .filter(Boolean)
     .join(' · ');
+  const hasImage = !!pill.itemImage && !imgError;
+  const line = lineText(pill.lineFront, pill.lineBack);
 
   return (
     <div className="card result-card">
-      <button type="button" className="result-main" onClick={toggle} aria-expanded={expanded}>
-        {pill.itemImage && !imgError ? (
-          <img
-            className="result-img"
-            src={pill.itemImage}
-            alt=""
-            loading="lazy"
-            onError={() => setImgError(true)}
-          />
+      <div className="result-main">
+        {hasImage ? (
+          <button
+            type="button"
+            className="result-img-btn"
+            aria-label="이미지 확대"
+            onClick={() => setZoom(true)}
+          >
+            <img
+              className="result-img"
+              src={pill.itemImage}
+              alt=""
+              loading="lazy"
+              onError={() => setImgError(true)}
+            />
+          </button>
         ) : (
           <div className="result-img-placeholder">이미지 없음</div>
         )}
-        <div className="result-info">
+        <button
+          type="button"
+          className="result-info-btn"
+          onClick={toggle}
+          aria-expanded={expanded}
+        >
           <div className="result-name">{pill.itemName}</div>
           <div className="result-sub">{pill.entpName}</div>
           <div className="result-sub">
             {sub}
             {pill.formCodeName ? ` · ${pill.formCodeName}` : ''}
           </div>
-        </div>
-      </button>
+          {line && <div className="result-sub">{line}</div>}
+        </button>
+      </div>
 
       {expanded && (
         <div className="result-detail">
@@ -78,6 +110,10 @@ export function ResultCard({ pill, onAdd }: Props) {
           환자 리스트에 추가
         </button>
       </div>
+
+      {zoom && hasImage && (
+        <ImageLightbox src={pill.itemImage!} alt={pill.itemName} onClose={() => setZoom(false)} />
+      )}
     </div>
   );
 }

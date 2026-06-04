@@ -434,10 +434,31 @@ h3 {
   display: flex;
   gap: 12px;
   padding: 12px;
+  align-items: flex-start;
+}
+.result-img-btn {
+  padding: 0;
+  border: none;
+  background: transparent;
+  flex: none;
+  border-radius: 6px;
+  position: relative;
+}
+.result-img-btn::after {
+  content: '🔍';
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  font-size: 11px;
+  opacity: 0.7;
+}
+.result-info-btn {
+  flex: 1;
+  min-width: 0;
   text-align: left;
-  width: 100%;
   background: transparent;
   border: none;
+  padding: 0;
 }
 .result-img {
   width: 64px;
@@ -503,6 +524,37 @@ h3 {
   font-size: 12px;
   color: var(--text-muted);
   margin-bottom: 6px;
+}
+
+/* ── 이미지 확대(라이트박스) ── */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(0, 0, 0, 0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: env(safe-area-inset-top) 16px;
+}
+.lightbox-img {
+  max-width: 100%;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: 8px;
+  background: #fff;
+}
+.lightbox-close {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top));
+  right: 12px;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  border: none;
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  font-size: 20px;
 }
 
 /* ── 약물 리스트 ── */
