@@ -24,6 +24,13 @@ import { SortControls } from './SortControls';
 import { MedRow } from './MedRow';
 import { MedEditSheet } from './MedEditSheet';
 import { CopyListButton } from './CopyListButton';
+import { InteractionSheet } from './InteractionSheet';
+import {
+  durEnabled,
+  fetchDurMap,
+  analyzeInteractions,
+  type InteractionResult,
+} from '../../api/dur';
 
 interface Props {
   patient: Patient;
@@ -33,6 +40,25 @@ interface Props {
 export function MedList({ patient }: Props) {
   const { dispatch } = useStore();
   const [editing, setEditing] = useState<MedItem | null>(null);
+
+  // DUR 점검 상태
+  const [durOpen, setDurOpen] = useState(false);
+  const [durLoading, setDurLoading] = useState(false);
+  const [durResult, setDurResult] = useState<InteractionResult | null>(null);
+
+  const runDurCheck = async () => {
+    setDurOpen(true);
+    setDurLoading(true);
+    setDurResult(null);
+    try {
+      const map = await fetchDurMap(patient.meds);
+      setDurResult(analyzeInteractions(patient.meds, map));
+    } catch {
+      setDurResult({ combos: [], flags: [] });
+    } finally {
+      setDurLoading(false);
+    }
+  };
 
   // 표시 순서는 정렬 모드에 따라 파생. 수동 모드면 저장 순서 그대로.
   const displayed = sortMeds(patient.meds, patient.sortMode);
@@ -69,6 +95,11 @@ export function MedList({ patient }: Props) {
         <>
         <div className="copy-bar">
           <CopyListButton label={patient.label} meds={displayed} />
+          {durEnabled && (
+            <button type="button" className="btn btn-ghost copy-btn" onClick={runDurCheck}>
+              금기·중복 점검
+            </button>
+          )}
         </div>
         <DndContext
           sensors={sensors}
@@ -95,6 +126,13 @@ export function MedList({ patient }: Props) {
         onClose={() => setEditing(null)}
         onSave={(med) => dispatch({ type: 'UPDATE_MED', patientId: patient.id, med })}
         onDelete={(medId) => dispatch({ type: 'REMOVE_MED', patientId: patient.id, medId })}
+      />
+
+      <InteractionSheet
+        open={durOpen}
+        loading={durLoading}
+        result={durResult}
+        onClose={() => setDurOpen(false)}
       />
     </section>
   );

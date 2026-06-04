@@ -622,3 +622,60 @@ h3 {
   gap: 8px;
   margin-top: 16px;
 }
+
+/* ── DUR 점검 시트 ── */
+.dur-section {
+  margin-bottom: 16px;
+}
+.dur-h {
+  font-size: 15px;
+  margin: 8px 0;
+}
+.dur-h.dur-danger {
+  color: var(--danger);
+}
+.dur-item {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+.dur-danger-box {
+  border-color: #f5c6c0;
+  background: #fdecea;
+}
+:root[data-theme='dark'] .dur-danger-box {
+  border-color: #6b3e3a;
+  background: #432a28;
+}
+.dur-pair {
+  font-weight: 700;
+  color: var(--danger);
+}
+.dur-name {
+  font-weight: 600;
+}
+.dur-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0;
+}
+.dur-tag {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text);
+}
+.dur-content {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+.dur-foot {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
