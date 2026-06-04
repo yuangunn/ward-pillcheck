@@ -1,5 +1,7 @@
-// 주사제 등 낱알식별에 없는 약 — 식약처 「의약품 제품 허가정보」 이름검색.
-// Worker /api/drugsearch 경유. 워커 없으면(목 모드) 데모 주사제 목록.
+// 주사제 등 낱알식별에 없는 약 검색.
+// 1) 번들 injections.json(빌드 때 허가정보에서 추림) — 오프라인·즉시
+// 2) 없으면 Worker /api/drugsearch(라이브)
+// 3) 둘 다 없으면(목 모드) 데모 목록
 
 export interface PermitDrug {
   itemSeq: string;
@@ -11,6 +13,7 @@ export interface PermitDrug {
 }
 
 const apiBase = (import.meta.env.VITE_API_BASE as string | undefined)?.trim();
+const BASE = (import.meta.env.BASE_URL as string | undefined) ?? '/';
 
 const MOCK_INJECTIONS: PermitDrug[] = [
   { itemSeq: 'inj-lantus', itemName: '란투스주솔로스타펜', entpName: '한국사노피', ingredient: '인슐린글라진', etcOtcName: '전문의약품' },
@@ -24,21 +27,65 @@ function includesCI(h: string, n: string) {
   return h.toLowerCase().includes(n.toLowerCase());
 }
 
-/** 주사제 이름검색 (실패/빈입력 시 빈 배열) */
+// 번들 주사제 데이터(컴팩트 → PermitDrug) 1회 로드 캐시
+let bundle: PermitDrug[] | null = null;
+let bundleLoaded = false;
+interface InjRecord {
+  seq: string;
+  name: string;
+  entp: string;
+  ingr?: string;
+  otc?: string;
+  img?: string;
+}
+async function loadBundle(): Promise<PermitDrug[]> {
+  if (bundleLoaded) return bundle ?? [];
+  try {
+    const res = await fetch(`${BASE}data/injections.json`, { cache: 'no-cache' });
+    if (res.ok) {
+      const arr = (await res.json()) as InjRecord[];
+      bundle = arr.map((r) => ({
+        itemSeq: r.seq,
+        itemName: r.name,
+        entpName: r.entp,
+        ingredient: r.ingr,
+        etcOtcName: r.otc,
+        itemImage: r.img,
+      }));
+    }
+  } catch {
+    /* 번들 없음 — 라이브/목으로 폴백 */
+  }
+  bundleLoaded = true;
+  return bundle ?? [];
+}
+
+/** 주사제 이름검색 (빈입력 시 빈 배열) */
 export async function searchInjections(name: string): Promise<PermitDrug[]> {
   const q = name.trim();
   if (!q) return [];
-  if (!apiBase) {
-    return MOCK_INJECTIONS.filter((d) => includesCI(d.itemName, q) || includesCI(d.ingredient || '', q));
+
+  // 1) 번들 우선
+  const b = await loadBundle();
+  if (b.length) {
+    return b.filter((d) => includesCI(d.itemName, q) || includesCI(d.ingredient || '', q)).slice(0, 50);
   }
-  try {
-    const res = await fetch(
-      `${apiBase.replace(/\/$/, '')}/api/drugsearch?inj=1&item_name=${encodeURIComponent(q)}`,
-    );
-    if (!res.ok) return [];
-    const d = (await res.json()) as { body?: { items?: PermitDrug[] } };
-    return (d.body?.items ?? []).filter((x) => x.itemSeq);
-  } catch {
-    return [];
+
+  // 2) 워커 라이브
+  if (apiBase) {
+    try {
+      const res = await fetch(
+        `${apiBase.replace(/\/$/, '')}/api/drugsearch?inj=1&item_name=${encodeURIComponent(q)}`,
+      );
+      if (res.ok) {
+        const d = (await res.json()) as { body?: { items?: PermitDrug[] } };
+        return (d.body?.items ?? []).filter((x) => x.itemSeq);
+      }
+    } catch {
+      /* 폴백 */
+    }
   }
+
+  // 3) 목
+  return MOCK_INJECTIONS.filter((d) => includesCI(d.itemName, q) || includesCI(d.ingredient || '', q));
 }
