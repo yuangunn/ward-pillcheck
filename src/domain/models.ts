@@ -34,7 +34,8 @@ export interface MedItem {
   color?: string; // API 자동채움(수정 가능)
   shape?: string;
   marking?: string; // 앞면 각인
-  tabletCount: number; // 정제 수, 소수 허용(0.5 등) → 표시 시 "T"
+  tabletCount: number; // 용량 수치(정제 수 등, 소수 허용)
+  doseUnit?: string; // 용량 단위. 기본 'T'(정). 주사약 'U'(단위)·'mL'·'회분' 등
   frequency: FrequencyCode;
   timings: TimingCode[]; // 복용시점. 1일 투여횟수만큼(QD=1, BID=2, TID=3, QID=4)
   createdAt: number;

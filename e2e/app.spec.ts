@@ -43,7 +43,20 @@ test('이름 검색 탭 전환', async ({ page }) => {
 test('새 환자 추가 → 환자2 화면', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: '새 환자 추가' }).click();
-  await expect(page.getByRole('heading', { name: '환자2' })).toBeVisible();
+  // 환자명은 이름수정 버튼으로 표시
+  await expect(page.getByRole('button', { name: '이름 수정' })).toContainText('환자2');
+});
+
+test('직접 입력으로 주사약 추가', async ({ page }) => {
+  await page.goto('/');
+  await page.getByText('환자1').click();
+  await page.getByRole('button', { name: '약 검색해서 추가' }).click();
+  await page.getByRole('button', { name: /직접 입력/ }).click();
+  const sheet = page.getByRole('dialog', { name: '직접 입력' });
+  await sheet.getByLabel('약 이름').fill('란투스주');
+  await sheet.getByRole('button', { name: '단위 U' }).click();
+  await sheet.getByRole('button', { name: '환자 리스트에 추가' }).click();
+  await expect(page.locator('ul.med-list .med-name')).toContainText('란투스주');
 });
 
 test('다크 모드 토글', async ({ page }) => {

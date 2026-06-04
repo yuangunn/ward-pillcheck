@@ -6,6 +6,13 @@ import { freqMeta } from '../constants/frequency';
 import { sortMeds } from '../domain/sort';
 import type { MedItem, Patient, SortMode } from '../domain/models';
 import { drugApi, proxiedImg, type PillResult, type PillSearchQuery } from '../api';
+import { useDataset } from '../state/useDataset';
+
+function fmtDate(iso?: string): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('ko-KR');
+}
 
 const AVATAR_TINTS = ['#2f6bff', '#11b386', '#7c5cff', '#ff7a3d', '#e84393', '#0fa3b1'];
 const avatarTint = (i: number) => AVATAR_TINTS[i % AVATAR_TINTS.length];
@@ -17,14 +24,21 @@ export function HomeScreen({
   onOpenPatient,
   onNewPatient,
   onToggleTheme,
+  onFlash,
 }: {
   patients: Patient[];
   dark: boolean;
   onOpenPatient: (id: string) => void;
   onNewPatient: () => void;
   onToggleTheme: () => void;
+  onFlash?: (m: string) => void;
 }) {
   const totalMeds = patients.reduce((s, p) => s + p.meds.length, 0);
+  const ds = useDataset();
+  const runUpdate = async () => {
+    const s = await ds.update();
+    onFlash?.(s === 'ready' ? '약품 데이터 최신화 완료' : '업데이트에 실패했어요');
+  };
   return (
     <div style={{ paddingBottom: 120 }}>
       <PageHeader title="지참약 식별" right={<IconBtn name={dark ? 'sun' : 'moon'} label="테마 전환" onClick={onToggleTheme} />} />
@@ -60,6 +74,55 @@ export function HomeScreen({
           이름·식별정보는 받지 않아요.
         </div>
       </div>
+
+      {ds.enabled && (
+        <div
+          style={{
+            margin: '0 20px 22px',
+            padding: '14px 16px',
+            borderRadius: 'var(--r-card)',
+            background: 'var(--card)',
+            border: '1px solid var(--border)',
+            boxShadow: 'var(--shadow-sm)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+          }}
+        >
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14.5, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.4 }}>약품 데이터베이스</div>
+            <div style={{ fontSize: 12.5, color: 'var(--text-weaker)', fontWeight: 600, marginTop: 3 }}>
+              {ds.status === 'loading'
+                ? '불러오는 중…'
+                : ds.meta
+                  ? `${ds.meta.count.toLocaleString()}건 · 업데이트 ${fmtDate(ds.meta.builtAt)}`
+                  : '데이터 없음'}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={runUpdate}
+            disabled={ds.status === 'loading'}
+            style={{
+              flexShrink: 0,
+              height: 40,
+              padding: '0 16px',
+              borderRadius: 999,
+              border: '1.5px solid var(--border)',
+              background: 'var(--fill)',
+              color: 'var(--text)',
+              fontSize: 13.5,
+              fontWeight: 700,
+              letterSpacing: -0.3,
+              cursor: ds.status === 'loading' ? 'default' : 'pointer',
+              opacity: ds.status === 'loading' ? 0.6 : 1,
+              WebkitTapHighlightColor: 'transparent',
+            }}
+          >
+            {ds.status === 'loading' ? '…' : '업데이트'}
+          </button>
+        </div>
+      )}
 
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', padding: '0 24px 14px' }}>
         <span style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.4 }}>
@@ -176,6 +239,7 @@ export function MedListScreen({
         title={patient.label}
         sub={patient.meds.length ? `지참약 ${patient.meds.length}건` : '지참약을 추가해 보세요'}
         onBack={onBack}
+        onTitleClick={onManage}
         right={<IconBtn name="dots" label="환자 관리" onClick={onManage} />}
       />
       {patient.meds.length > 1 && (
@@ -296,7 +360,7 @@ function MedRow({ med, onClick, onZoom }: { med: MedItem; onClick: () => void; o
           {med.name}
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 7 }}>
-          <Tag tone="primary">{med.tabletCount}T</Tag>
+          <Tag tone="primary">{med.tabletCount}{med.doseUnit || 'T'}</Tag>
           <Tag tone="primary">{fm.sub || fm.label}</Tag>
           {(med.timings || []).map((t, i) => (
             <Tag key={i}>{t}</Tag>
@@ -322,6 +386,7 @@ export function SearchScreen({
   onZoom,
   onBack,
   onPick,
+  onManual,
 }: {
   existingSeqs: string[];
   pickedMark: PickedMark | null;
@@ -330,6 +395,7 @@ export function SearchScreen({
   onZoom: (pill: PillResult) => void;
   onBack: () => void;
   onPick: (pill: PillResult) => void;
+  onManual: () => void;
 }) {
   const [mode, setMode] = useState<'visual' | 'name'>('visual');
   const [color, setColor] = useState('');
@@ -508,6 +574,33 @@ export function SearchScreen({
               />
             ))}
         </div>
+
+        {/* 찾는 약이 없거나 주사약(인슐린 등) → 직접 입력 */}
+        <button
+          type="button"
+          onClick={onManual}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            width: '100%',
+            marginTop: 16,
+            height: 50,
+            borderRadius: 'var(--r-btn)',
+            border: '1.5px dashed var(--border)',
+            background: 'transparent',
+            color: 'var(--text-weak)',
+            fontSize: 14.5,
+            fontWeight: 700,
+            letterSpacing: -0.3,
+            cursor: 'pointer',
+            WebkitTapHighlightColor: 'transparent',
+          }}
+        >
+          <Icon name="edit" size={18} />
+          직접 입력 (주사약·인슐린 등)
+        </button>
       </div>
     </div>
   );

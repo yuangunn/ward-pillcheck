@@ -24,11 +24,13 @@ export interface MedFormData {
   marking?: string;
   imageUrl?: string;
   tabletCount: number;
+  doseUnit?: string;
   frequency: string;
   timings: string[];
 }
 
-type AddSource = (PillResult & { __kind: 'pill' }) | (MedItem & { __kind: 'med' });
+export type ManualSource = { __kind: 'manual'; itemSeq: string; itemName: string };
+type AddSource = (PillResult & { __kind: 'pill' }) | (MedItem & { __kind: 'med' }) | ManualSource;
 
 function Section({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -118,7 +120,10 @@ export function AddMedSheet({
   onDelete: () => void;
 }) {
   const isEdit = mode === 'edit';
+  const isManual = source?.__kind === 'manual';
   const [count, setCount] = useState(1);
+  const [doseUnit, setDoseUnit] = useState('T');
+  const [nameInput, setNameInput] = useState('');
   const [freq, setFreq] = useState('QD');
   const [timings, setTimings] = useState<string[]>(['아침식후']);
   const [color, setColor] = useState('');
@@ -132,13 +137,26 @@ export function AddMedSheet({
     if (!open || !source) return;
     if (source.__kind === 'med') {
       setCount(source.tabletCount);
+      setDoseUnit(source.doseUnit || 'T');
+      setNameInput(source.name);
       setFreq(source.frequency);
       setTimings(source.timings?.length ? source.timings : ['아침식후']);
       setColor(source.color || '');
       setShape(source.shape || '');
       setMarking(source.marking || '');
+    } else if (source.__kind === 'manual') {
+      setCount(1);
+      setDoseUnit('T');
+      setNameInput('');
+      setFreq('QD');
+      setTimings(['아침식후']);
+      setColor('');
+      setShape('');
+      setMarking('');
     } else {
       setCount(1);
+      setDoseUnit('T');
+      setNameInput(source.itemName);
       setFreq('QD');
       setTimings(['아침식후']);
       setColor(source.colorClass1 || '');
@@ -153,8 +171,8 @@ export function AddMedSheet({
 
   if (!source) return null;
   const seq = source.itemSeq;
-  const name = source.__kind === 'med' ? source.name : source.itemName;
-  const entp = source.__kind === 'med' ? undefined : source.entpName;
+  const name = source.__kind === 'med' ? source.name : source.__kind === 'manual' ? nameInput : source.itemName;
+  const entp = source.__kind === 'med' || source.__kind === 'manual' ? undefined : source.entpName;
   const slots = freqMeta(freq).slots;
 
   const changeFreq = (code: string) => {
@@ -169,26 +187,43 @@ export function AddMedSheet({
     setTimings((ts) => (ts.includes(v) ? ts : [...ts, v].sort((a, b) => timingOrder(a) - timingOrder(b))));
     setCustomInput('');
   };
-  const submit = () =>
+  const finalName = (isManual ? nameInput : name).trim();
+  const submit = () => {
+    if (!finalName) return;
     onSubmit({
       itemSeq: seq,
-      name,
+      name: finalName,
       color,
       shape,
       marking,
-      imageUrl: source.__kind === 'pill' ? source.itemImage : (source as MedItem).imageUrl,
+      doseUnit,
+      imageUrl: source.__kind === 'pill' ? source.itemImage : source.__kind === 'med' ? source.imageUrl : undefined,
       tabletCount: count,
       frequency: freq,
       timings: timings.length ? timings : ['필요시'],
     });
+  };
 
   return (
-    <BottomSheet open={open} onClose={onClose} title={isEdit ? '약 수정' : '리스트에 추가'}>
+    <BottomSheet open={open} onClose={onClose} title={isManual ? '직접 입력' : isEdit ? '약 수정' : '리스트에 추가'}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '8px 0 16px' }}>
         <PillGlyph color={color} shape={shape} marking={marking} size={56} />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.4 }}>{name}</div>
-          {entp && <div style={{ fontSize: 13.5, color: 'var(--text-weak)', fontWeight: 600, marginTop: 2 }}>{entp}</div>}
+          {isManual ? (
+            <input
+              value={nameInput}
+              onChange={(e) => setNameInput(e.target.value)}
+              placeholder="약 이름 (예: 란투스주, 휴마로그퀵펜)"
+              aria-label="약 이름"
+              autoFocus
+              style={{ width: '100%', boxSizing: 'border-box', height: 44, padding: '0 12px', borderRadius: 'var(--r-btn)', border: '1.5px solid var(--border)', background: 'var(--fill)', color: 'var(--text)', fontSize: 16, fontFamily: 'inherit', fontWeight: 700, letterSpacing: -0.3, outline: 'none' }}
+            />
+          ) : (
+            <>
+              <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.4 }}>{name}</div>
+              {entp && <div style={{ fontSize: 13.5, color: 'var(--text-weak)', fontWeight: 600, marginTop: 2 }}>{entp}</div>}
+            </>
+          )}
         </div>
       </div>
 
@@ -201,9 +236,31 @@ export function AddMedSheet({
 
       {!isEdit && source.__kind === 'pill' && <DetailAccordion seq={seq} pill={source} />}
 
-      <Section label="정제 수">
+      <Section label="용량">
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14, justifyContent: 'center' }}>
+          {['T', 'U', 'mL', '회분', '포'].map((u) => (
+            <Chip
+              key={u}
+              selected={doseUnit === u}
+              onClick={() => {
+                setDoseUnit(u);
+                if (u !== 'T' && !Number.isInteger(count)) setCount(Math.round(count));
+              }}
+              style={{ padding: '8px 14px', fontSize: 14 }}
+            >
+              {u === 'T' ? '정 T' : u === 'U' ? '단위 U' : u}
+            </Chip>
+          ))}
+        </div>
         <div style={{ display: 'flex', justifyContent: 'center', padding: '4px 0' }}>
-          <Stepper value={count} onChange={setCount} />
+          <Stepper
+            value={count}
+            onChange={setCount}
+            unit={doseUnit}
+            step={doseUnit === 'T' ? 0.5 : 1}
+            min={doseUnit === 'T' ? 0.5 : 1}
+            max={doseUnit === 'T' ? 20 : 200}
+          />
         </div>
       </Section>
 
@@ -316,7 +373,7 @@ export function AddMedSheet({
       )}
 
       <div style={{ paddingTop: 8 }}>
-        <Btn variant="primary" full onClick={submit}>
+        <Btn variant="primary" full onClick={submit} disabled={!finalName}>
           {isEdit ? '수정 저장' : '환자 리스트에 추가'}
         </Btn>
         {isEdit && (

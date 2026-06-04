@@ -12,7 +12,8 @@ export function formatTabletCount(count: number): string {
  */
 export function formatMedLine(med: MedItem): string {
   const timing = med.timings.join(',');
-  const head = `${med.name} ${formatTabletCount(med.tabletCount)}T ${med.frequency} ${timing}`;
+  const unit = med.doseUnit || 'T';
+  const head = `${med.name} ${formatTabletCount(med.tabletCount)}${unit} ${med.frequency} ${timing}`;
   const appearance = formatAppearance(med);
   return appearance ? `${head} ${appearance}` : head;
 }
