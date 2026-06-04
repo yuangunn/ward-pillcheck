@@ -115,6 +115,30 @@ describe('App 통합', () => {
     expect(screen.getByText(/아직 추가된 약이 없습니다/)).toBeInTheDocument();
   });
 
+  it('BID 선택 시 복용시점 입력칸이 2개로 늘어난다', async () => {
+    const user = userEvent.setup();
+    renderApp();
+    await user.type(screen.getByLabelText(/각인/), 'Bayer');
+    await user.click(screen.getByRole('button', { name: '검색' }));
+    await screen.findByText('아스피린장용정100mg');
+    await user.click(screen.getByRole('button', { name: '환자 리스트에 추가' }));
+    const sheet = await screen.findByRole('dialog', { name: '환자 리스트에 추가' });
+
+    // 기본 QD → 복용시점 1칸
+    expect(within(sheet).getByText('복용시점')).toBeInTheDocument();
+    // BID 선택 → 2칸
+    await user.click(within(sheet).getByRole('button', { name: /BID/ }));
+    expect(within(sheet).getByText('복용시점 1')).toBeInTheDocument();
+    expect(within(sheet).getByText('복용시점 2')).toBeInTheDocument();
+
+    await user.click(within(sheet).getByRole('button', { name: '추가' }));
+    await waitFor(() => {
+      const line = medList().querySelector('.med-name') as HTMLElement;
+      expect(line.textContent).toContain('BID');
+      expect(line.textContent).toContain('아침식후,'); // 복용시점 2개가 콤마로
+    });
+  });
+
   it('데모(목) 모드 배너가 표시된다', () => {
     renderApp();
     expect(screen.getByText(/데모\(목\) 모드/)).toBeInTheDocument();

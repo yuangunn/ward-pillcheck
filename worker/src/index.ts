@@ -19,18 +19,6 @@ const DEFAULT_PILL =
 const DEFAULT_DETAIL =
   'https://apis.data.go.kr/1471000/DrbEasyDrugInfoService/getDrbEasyDrugList';
 
-// 프론트가 보낼 수 있는 낱알식별 파라미터 화이트리스트
-const PILL_PARAMS = [
-  'item_name',
-  'entp_name',
-  'drug_shape',
-  'color_class1',
-  'print_front',
-  'form_code_name',
-  'pageNo',
-  'numOfRows',
-];
-
 function cors(env: Env): Record<string, string> {
   return {
     'Access-Control-Allow-Origin': env.ALLOW_ORIGIN ?? '*',
@@ -54,34 +42,100 @@ function extractItems(payload: any): any[] {
   return [];
 }
 
-async function callUpstream(base: string, params: URLSearchParams, env: Env): Promise<Response> {
-  if (!env.SERVICE_KEY) {
-    return json({ error: 'SERVICE_KEY 미설정' }, env, 500);
-  }
+type FetchResult = { items: any[] } | { error: Response };
+
+/** 상위 API 한 번 호출 → items 배열 또는 에러 Response */
+async function fetchItems(base: string, params: URLSearchParams, env: Env): Promise<FetchResult> {
+  if (!env.SERVICE_KEY) return { error: json({ error: 'SERVICE_KEY 미설정' }, env, 500) };
   params.set('serviceKey', env.SERVICE_KEY);
   params.set('type', 'json');
 
-  const upstream = `${base}?${params.toString()}`;
   let res: Response;
   try {
-    res = await fetch(upstream);
+    res = await fetch(`${base}?${params.toString()}`);
   } catch {
-    return json({ error: 'upstream fetch 실패' }, env, 502);
+    return { error: json({ error: 'upstream fetch 실패' }, env, 502) };
   }
-  if (!res.ok) {
-    return json({ error: `upstream ${res.status}` }, env, 502);
-  }
-
-  let payload: any;
+  if (!res.ok) return { error: json({ error: `upstream ${res.status}` }, env, 502) };
   try {
-    payload = await res.json();
+    return { items: extractItems(await res.json()) };
   } catch {
-    // 일부 오류는 XML 로 옴 → 그대로 에러 처리
-    return json({ error: 'upstream non-JSON 응답', items: [] }, env, 502);
+    return { error: json({ error: 'upstream non-JSON 응답', items: [] }, env, 502) };
   }
+}
 
-  // 프론트가 기대하는 { body: { items } } 형태로 정규화
-  return json({ body: { items: extractItems(payload) } }, env);
+/** 낱알식별 검색 파라미터(프론트가 보내는 스네이크 표기) */
+interface PillQuery {
+  item_name?: string;
+  entp_name?: string;
+  drug_shape?: string;
+  color_class1?: string;
+  print_front?: string;
+  form_code_name?: string;
+  numOfRows: number;
+}
+
+/** 상위 API 에 보낼 파라미터(스네이크+카멜 동시 전송 — 어느 쪽을 받든 동작). */
+function buildPillParams(q: PillQuery, pageNo: number, pageSize: number): URLSearchParams {
+  const p = new URLSearchParams();
+  const setBoth = (snake: string, camel: string, v?: string) => {
+    if (v) {
+      p.set(snake, v);
+      p.set(camel, v);
+    }
+  };
+  setBoth('item_name', 'itemName', q.item_name);
+  setBoth('entp_name', 'entpName', q.entp_name);
+  setBoth('drug_shape', 'drugShape', q.drug_shape);
+  setBoth('color_class1', 'colorClass1', q.color_class1);
+  setBoth('print_front', 'printFront', q.print_front);
+  setBoth('form_code_name', 'formCodeName', q.form_code_name);
+  p.set('pageNo', String(pageNo));
+  p.set('numOfRows', String(pageSize));
+  return p;
+}
+
+/** 외형 조건(색/모양/각인)으로 한 건이 일치하는지 — 상위 API 가 필터를 무시할 때의 안전망 */
+function matchesAppearance(item: any, q: PillQuery): boolean {
+  if (q.color_class1) {
+    const c1 = item.COLOR_CLASS1 ?? '';
+    const c2 = item.COLOR_CLASS2 ?? '';
+    if (!c1.includes(q.color_class1) && !c2.includes(q.color_class1)) return false;
+  }
+  if (q.drug_shape && (item.DRUG_SHAPE ?? '') !== q.drug_shape) return false;
+  if (q.print_front) {
+    const needle = q.print_front.toUpperCase();
+    const front = (item.PRINT_FRONT ?? '').toUpperCase();
+    const back = (item.PRINT_BACK ?? '').toUpperCase();
+    if (!front.includes(needle) && !back.includes(needle)) return false;
+  }
+  return true;
+}
+
+/**
+ * 낱알식별 검색. 상위 API 가 외형 파라미터를 무시하는 경우가 있어,
+ * 외형 조건이 있으면 여러 페이지를 받아 워커에서 직접 필터링한다.
+ */
+async function searchPills(q: PillQuery, env: Env): Promise<Response> {
+  const base = env.PILL_ENDPOINT ?? DEFAULT_PILL;
+  const appearance = !!(q.color_class1 || q.drug_shape || q.print_front);
+  const pageSize = appearance ? 100 : q.numOfRows;
+  const maxPages = appearance ? 10 : 1; // 외형 검색은 최대 1000건까지 훑어 매칭
+
+  const matches: any[] = [];
+  for (let page = 1; page <= maxPages; page++) {
+    const r = await fetchItems(base, buildPillParams(q, page, pageSize), env);
+    if ('error' in r) {
+      if (matches.length) break; // 일부라도 모았으면 그걸로 응답
+      return r.error;
+    }
+    for (const it of r.items) {
+      if (matchesAppearance(it, q)) matches.push(it);
+    }
+    if (matches.length >= q.numOfRows) break; // 충분히 모음
+    if (r.items.length < pageSize) break; // 마지막 페이지
+  }
+  return json({ body: { items: matches.slice(0, q.numOfRows) } }, env);
 }
 
 export default {
@@ -92,19 +146,28 @@ export default {
     const url = new URL(request.url);
 
     if (url.pathname === '/api/pills') {
-      const params = new URLSearchParams();
-      for (const key of PILL_PARAMS) {
-        const v = url.searchParams.get(key);
-        if (v) params.set(key, v);
-      }
-      return callUpstream(env.PILL_ENDPOINT ?? DEFAULT_PILL, params, env);
+      const q = url.searchParams;
+      const num = Number(q.get('numOfRows')) || 30;
+      return searchPills(
+        {
+          item_name: q.get('item_name') || undefined,
+          entp_name: q.get('entp_name') || undefined,
+          drug_shape: q.get('drug_shape') || undefined,
+          color_class1: q.get('color_class1') || undefined,
+          print_front: q.get('print_front') || undefined,
+          form_code_name: q.get('form_code_name') || undefined,
+          numOfRows: Math.min(Math.max(num, 1), 100),
+        },
+        env,
+      );
     }
 
     if (url.pathname === '/api/detail') {
       const itemSeq = url.searchParams.get('itemSeq');
       if (!itemSeq) return json({ error: 'itemSeq 필요', body: { items: [] } }, env, 400);
       const params = new URLSearchParams({ itemSeq, pageNo: '1', numOfRows: '1' });
-      return callUpstream(env.DETAIL_ENDPOINT ?? DEFAULT_DETAIL, params, env);
+      const r = await fetchItems(env.DETAIL_ENDPOINT ?? DEFAULT_DETAIL, params, env);
+      return 'error' in r ? r.error : json({ body: { items: r.items } }, env);
     }
 
     if (url.pathname === '/' || url.pathname === '/health') {

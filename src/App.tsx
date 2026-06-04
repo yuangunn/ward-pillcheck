@@ -1,17 +1,27 @@
 import { isMockMode } from './api';
 import { useStore } from './state/store';
+import { useTheme } from './state/useTheme';
 import { PatientBar } from './components/patient/PatientBar';
 import { SearchSection } from './components/search/SearchSection';
 import { MedList } from './components/meds/MedList';
 
 export default function App() {
   const { activePatient } = useStore();
+  const { theme, toggle } = useTheme();
   // 환자 시드는 store 초기화 단계에서 보장됨(seedState).
 
   return (
     <div className="app-shell">
       <header className="app-header">
         <h1>병동 지참약 식별</h1>
+        <button
+          type="button"
+          className="theme-toggle"
+          onClick={toggle}
+          aria-label={theme === 'dark' ? '라이트 모드로 전환' : '다크 모드로 전환'}
+        >
+          {theme === 'dark' ? '☀️' : '🌙'}
+        </button>
       </header>
 
       {isMockMode && (

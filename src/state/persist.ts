@@ -3,7 +3,23 @@ import type { AppState } from '../domain/models';
 // localStorage 영속화. 외부 서버 전송 없음 — 데이터는 기기에만 존재.
 
 const STORAGE_KEY = 'ward-pillcheck:v1';
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
+
+/** 구버전(v1) 약물 항목의 단일 timing 을 timings 배열로 마이그레이션 */
+function migrate(state: AppState): AppState {
+  return {
+    ...state,
+    patients: (state.patients ?? []).map((p) => ({
+      ...p,
+      meds: (p.meds ?? []).map((m) => {
+        const legacy = m as unknown as { timing?: string; timings?: string[] };
+        if (Array.isArray(legacy.timings)) return m;
+        const { timing, ...rest } = legacy;
+        return { ...(rest as object), timings: timing ? [timing] : [] } as typeof m;
+      }),
+    })),
+  };
+}
 
 export const initialState: AppState = {
   schemaVersion: SCHEMA_VERSION,
@@ -20,8 +36,9 @@ export function loadState(): AppState {
     if (typeof parsed !== 'object' || !Array.isArray(parsed.patients)) {
       return initialState;
     }
-    // 향후 schemaVersion 분기 마이그레이션 지점
-    return { ...initialState, ...parsed, schemaVersion: SCHEMA_VERSION };
+    // 구버전 데이터는 timings 배열로 마이그레이션
+    const migrated = migrate({ ...initialState, ...parsed });
+    return { ...migrated, schemaVersion: SCHEMA_VERSION };
   } catch {
     return initialState;
   }
