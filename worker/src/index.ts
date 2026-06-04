@@ -133,9 +133,16 @@ function matchesAppearance(item: any, q: PillQuery): boolean {
   if (q.drug_shape && (item.DRUG_SHAPE ?? '') !== q.drug_shape) return false;
   if (q.print_front) {
     const needle = q.print_front.toUpperCase();
-    const front = (item.PRINT_FRONT ?? '').toUpperCase();
-    const back = (item.PRINT_BACK ?? '').toUpperCase();
-    if (!front.includes(needle) && !back.includes(needle)) return false;
+    // 각인(앞/뒤) + 마크 분석 텍스트(앞/뒤)까지 포함
+    const hay = [
+      item.PRINT_FRONT,
+      item.PRINT_BACK,
+      item.MARK_CODE_FRONT_ANAL,
+      item.MARK_CODE_BACK_ANAL,
+    ]
+      .map((v: unknown) => (typeof v === 'string' ? v.toUpperCase() : ''))
+      .join(' ');
+    if (!hay.includes(needle)) return false;
   }
   return true;
 }

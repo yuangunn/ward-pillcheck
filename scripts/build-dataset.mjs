@@ -44,6 +44,10 @@ function compact(r) {
   put('otc', r.ETC_OTC_NAME);
   put('cls', r.CLASS_NAME);
   put('img', r.ITEM_IMAGE);
+  put('markFI', r.MARK_CODE_FRONT_IMG);
+  put('markBI', r.MARK_CODE_BACK_IMG);
+  put('markFA', r.MARK_CODE_FRONT_ANAL);
+  put('markBA', r.MARK_CODE_BACK_ANAL);
   return o;
 }
 

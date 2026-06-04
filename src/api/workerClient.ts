@@ -30,6 +30,10 @@ interface RawPillItem {
   ITEM_IMAGE?: string;
   ETC_OTC_NAME?: string;
   CLASS_NAME?: string;
+  MARK_CODE_FRONT_IMG?: string;
+  MARK_CODE_BACK_IMG?: string;
+  MARK_CODE_FRONT_ANAL?: string;
+  MARK_CODE_BACK_ANAL?: string;
 }
 
 /** e약은요 raw item */
@@ -74,6 +78,10 @@ function toPillResult(r: RawPillItem): PillResult {
     itemImage: r.ITEM_IMAGE || undefined,
     etcOtcName: r.ETC_OTC_NAME || undefined,
     className: r.CLASS_NAME || undefined,
+    markFrontImg: r.MARK_CODE_FRONT_IMG || undefined,
+    markBackImg: r.MARK_CODE_BACK_IMG || undefined,
+    markFrontAnal: r.MARK_CODE_FRONT_ANAL || undefined,
+    markBackAnal: r.MARK_CODE_BACK_ANAL || undefined,
   };
 }
 

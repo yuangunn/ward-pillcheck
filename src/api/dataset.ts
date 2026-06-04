@@ -19,6 +19,10 @@ export interface PillRecord {
   otc?: string;
   cls?: string;
   img?: string;
+  markFI?: string; // 앞면 마크 이미지
+  markBI?: string; // 뒤면 마크 이미지
+  markFA?: string; // 앞면 마크 분석 텍스트
+  markBA?: string; // 뒤면 마크 분석 텍스트
 }
 
 export interface DatasetMeta {
@@ -152,6 +156,10 @@ function rec2result(r: PillRecord): PillResult {
     itemImage: r.img,
     etcOtcName: r.otc,
     className: r.cls,
+    markFrontImg: r.markFI,
+    markBackImg: r.markBI,
+    markFrontAnal: r.markFA,
+    markBackAnal: r.markBA,
   };
 }
 
@@ -174,9 +182,12 @@ export function filterRecords(
     if (shape && r.shape !== shape) continue;
     if (color && !(r.color ?? '').includes(color) && !(r.color2 ?? '').includes(color)) continue;
     if (print) {
-      const f = (r.front ?? '').toUpperCase();
-      const b = (r.back ?? '').toUpperCase();
-      if (!f.includes(print) && !b.includes(print)) continue;
+      // 각인 텍스트(앞/뒤) + 마크 분석 텍스트(앞/뒤)까지 검색 대상에 포함
+      // → 마크 이미지 속 글자/숫자(예: "25")가 분석필드에 있으면 검색됨
+      const hay = [r.front, r.back, r.markFA, r.markBA]
+        .map((v) => (v ?? '').toUpperCase())
+        .join(' ');
+      if (!hay.includes(print)) continue;
     }
     out.push(rec2result(r));
     if (out.length >= limit) break;

@@ -78,6 +78,12 @@ export function ResultCard({ pill, onAdd, highlight }: Props) {
   const imprintSides: { label: string; text: string }[] = [];
   if (pill.printFront) imprintSides.push({ label: '앞', text: pill.printFront });
   if (pill.printBack) imprintSides.push({ label: '뒤', text: pill.printBack });
+  // 마크(그림/기호) 앞/뒤 — 이미지 + 분석 텍스트
+  const markSides: { label: string; img?: string; text?: string }[] = [];
+  if (pill.markFrontImg || pill.markFrontAnal)
+    markSides.push({ label: '앞', img: pill.markFrontImg, text: pill.markFrontAnal });
+  if (pill.markBackImg || pill.markBackAnal)
+    markSides.push({ label: '뒤', img: pill.markBackImg, text: pill.markBackAnal });
 
   return (
     <div className="card result-card">
@@ -116,6 +122,19 @@ export function ResultCard({ pill, onAdd, highlight }: Props) {
                 <span key={s.label}>
                   {i > 0 && ' / '}
                   {s.label} <Highlighted text={s.text} term={highlight} />
+                </span>
+              ))}
+            </div>
+          )}
+          {markSides.length > 0 && (
+            <div className="result-sub result-mark">
+              마크{' '}
+              {markSides.map((m, i) => (
+                <span key={m.label} className="mark-side">
+                  {i > 0 && ' / '}
+                  {m.label}{' '}
+                  {m.img && <img className="mark-img" src={m.img} alt="" loading="lazy" />}
+                  {m.text && <Highlighted text={m.text} term={highlight} />}
                 </span>
               ))}
             </div>

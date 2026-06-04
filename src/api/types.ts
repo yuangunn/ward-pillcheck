@@ -29,6 +29,10 @@ export interface PillResult {
   itemImage?: string; // 낱알이미지 URL
   etcOtcName?: string; // 전문/일반
   className?: string; // 분류
+  markFrontImg?: string; // 앞면 마크 이미지 URL
+  markBackImg?: string; // 뒤면 마크 이미지 URL
+  markFrontAnal?: string; // 앞면 마크 분석 텍스트(마크 속 글자/기호)
+  markBackAnal?: string; // 뒤면 마크 분석 텍스트
 }
 
 /** e약은요 상세 정보 (itemSeq 로 연결) */

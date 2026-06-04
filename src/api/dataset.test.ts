@@ -6,6 +6,8 @@ const DATA: PillRecord[] = [
   { seq: '2', name: '타이레놀정500', entp: '얀센', shape: '장방형', color: '하양', front: 'TYLENOL', back: '500' },
   { seq: '3', name: '노바스크정5mg', entp: '화이자', shape: '팔각형', color: '하양', front: 'NVSC' },
   { seq: '4', name: '자나팜정0.25mg', entp: '명인', shape: '타원형', color: '노랑', front: 'MI' },
+  // 각인은 텍스트가 없고 마크(이미지) 속 글자가 분석필드(markFA)에만 있는 경우
+  { seq: '5', name: '녹더나설하정25mcg', entp: '환인', shape: '원형', color: '하양', markFA: '25' },
 ];
 
 describe('filterRecords', () => {
@@ -27,6 +29,11 @@ describe('filterRecords', () => {
   it('이름 부분일치', () => {
     expect(filterRecords(DATA, { itemName: '노바스크' }).map((x) => x.itemSeq)).toEqual(['3']);
   });
+  it('각인 텍스트가 없어도 마크 분석 텍스트(markFA)로 검색됨', () => {
+    const r = filterRecords(DATA, { printFront: '25' });
+    expect(r.map((x) => x.itemSeq)).toEqual(['5']);
+  });
+
   it('조건 불일치 시 빈 배열', () => {
     expect(filterRecords(DATA, { printFront: 'ZZZ' })).toEqual([]);
   });

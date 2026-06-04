@@ -503,6 +503,19 @@ h3 {
   background: #6b5a16;
   color: #ffe9a8;
 }
+.result-mark .mark-side {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.mark-img {
+  height: 18px;
+  width: auto;
+  vertical-align: middle;
+  background: #fff;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+}
 .result-detail {
   border-top: 1px solid var(--border);
   padding: 12px;
