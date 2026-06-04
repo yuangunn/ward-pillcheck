@@ -250,12 +250,24 @@ export default {
       });
       const r = await fetchItems(env.PERMIT_ENDPOINT ?? DEFAULT_PERMIT, params, env);
       if ('error' in r) return r.error;
-      const it = r.items[0] ?? {};
+      const it: any = r.items[0] ?? {};
+      // 진단: 실제 응답 필드 확인용 (?debug=1)
+      if (url.searchParams.get('debug')) {
+        return json({ debug: { count: r.items.length, keys: Object.keys(it) } }, env);
+      }
+      // 효능/용법/주의 문서 — 후보 필드명을 폭넓게 시도
+      const pick = (...names: string[]): string | undefined => {
+        for (const n of names) {
+          const v = stripDoc(it[n]);
+          if (v) return v;
+        }
+        return undefined;
+      };
       const norm = {
         itemSeq,
-        efcy: stripDoc(it.EE_DOC_DATA),
-        useMethod: stripDoc(it.UD_DOC_DATA),
-        atpn: stripDoc(it.NB_DOC_DATA),
+        efcy: pick('EE_DOC_DATA', 'EE_DOC', 'eeDocData', 'efcyQesitm'),
+        useMethod: pick('UD_DOC_DATA', 'UD_DOC', 'udDocData', 'useMethodQesitm'),
+        atpn: pick('NB_DOC_DATA', 'NB_DOC', 'nbDocData', 'atpnQesitm'),
       };
       return json({ body: { items: [norm] } }, env);
     }
