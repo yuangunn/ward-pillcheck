@@ -12,8 +12,11 @@ import { timingOrder } from '../constants/timing';
 export function sortMeds(meds: MedItem[], mode: SortMode): MedItem[] {
   if (mode === 'manual') return meds;
 
+  // 복용시점이 여러 개면 가장 이른 시점 기준으로 정렬
+  const earliestTiming = (m: MedItem) =>
+    m.timings.length ? Math.min(...m.timings.map(timingOrder)) : 99;
   const byFreq = (a: MedItem, b: MedItem) => frequencyOrder(a.frequency) - frequencyOrder(b.frequency);
-  const byTime = (a: MedItem, b: MedItem) => timingOrder(a.timing) - timingOrder(b.timing);
+  const byTime = (a: MedItem, b: MedItem) => earliestTiming(a) - earliestTiming(b);
 
   const comparator =
     mode === 'byFrequency'

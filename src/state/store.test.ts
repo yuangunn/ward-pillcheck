@@ -14,7 +14,7 @@ function sampleMed(id: string): MedItem {
     name: `약${id}`,
     tabletCount: 1,
     frequency: 'QD',
-    timing: '아침식후',
+    timings: ['아침식후'],
     createdAt: Date.now(),
   };
 }

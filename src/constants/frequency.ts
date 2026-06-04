@@ -24,3 +24,22 @@ const FREQ_ORDER = new Map(FREQUENCY_PRESETS.map((p) => [p.code, p.order]));
 export function frequencyOrder(code: FrequencyCode): number {
   return FREQ_ORDER.get(code) ?? 95;
 }
+
+/**
+ * 용법에 따른 복용시점 입력 칸 수.
+ * QD=1, BID=2, TID=3, QID=4. 그 외(HS/QOD/PRN/자유입력)는 1칸.
+ */
+export function timingSlotsForFrequency(code: FrequencyCode): number {
+  switch (code) {
+    case 'QD':
+      return 1;
+    case 'BID':
+      return 2;
+    case 'TID':
+      return 3;
+    case 'QID':
+      return 4;
+    default:
+      return 1;
+  }
+}

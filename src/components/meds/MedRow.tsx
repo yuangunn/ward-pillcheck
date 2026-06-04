@@ -38,7 +38,8 @@ export function MedRow({ med, draggable, onEdit }: Props) {
       )}
       <button type="button" className="med-line" onClick={() => onEdit(med)}>
         <div className="med-name">
-          {med.name} {formatTabletCount(med.tabletCount)}T {med.frequency} {med.timing}
+          {med.name} {formatTabletCount(med.tabletCount)}T {med.frequency}{' '}
+          {med.timings.join(',')}
         </div>
         {appearance && <div className="med-meta">{appearance}</div>}
       </button>

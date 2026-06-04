@@ -19,7 +19,7 @@ export function AddMedSheet({ pill, duplicate, onClose, onAdd }: Props) {
     name: pill.itemName,
     tabletCount: 1,
     frequency: 'QD',
-    timing: '아침식후',
+    timings: ['아침식후'],
     color: pill.colorClass1 ?? '',
     shape: pill.drugShape ?? '',
     marking: pill.printFront ?? '',
@@ -36,7 +36,7 @@ export function AddMedSheet({ pill, duplicate, onClose, onAdd }: Props) {
       marking: v.marking || undefined,
       tabletCount: v.tabletCount,
       frequency: v.frequency,
-      timing: v.timing,
+      timings: v.timings,
       createdAt: Date.now(),
     };
     onAdd(med);

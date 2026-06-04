@@ -2,15 +2,19 @@ import { describe, it, expect } from 'vitest';
 import { sortMeds } from './sort';
 import type { MedItem } from './models';
 
-function med(partial: Partial<MedItem> & { id: string }): MedItem {
+// timing 단일 문자열 단축 입력 허용 → timings 배열로 변환
+function med(
+  partial: Partial<Omit<MedItem, 'timings'>> & { id: string; timing?: string; timings?: string[] },
+): MedItem {
+  const { timing, timings, ...rest } = partial;
   return {
     itemSeq: partial.id,
     name: partial.name ?? `약${partial.id}`,
     tabletCount: 1,
     frequency: 'QD',
-    timing: '아침식후',
     createdAt: 0,
-    ...partial,
+    ...rest,
+    timings: timings ?? (timing ? [timing] : ['아침식후']),
   };
 }
 

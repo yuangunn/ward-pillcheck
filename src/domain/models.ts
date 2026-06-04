@@ -36,7 +36,7 @@ export interface MedItem {
   marking?: string; // 앞면 각인
   tabletCount: number; // 정제 수, 소수 허용(0.5 등) → 표시 시 "T"
   frequency: FrequencyCode;
-  timing: TimingCode;
+  timings: TimingCode[]; // 복용시점. 1일 투여횟수만큼(QD=1, BID=2, TID=3, QID=4)
   createdAt: number;
 }
 

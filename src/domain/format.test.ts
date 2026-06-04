@@ -8,7 +8,7 @@ const base: MedItem = {
   name: '아스피린장용정100mg',
   tabletCount: 1,
   frequency: 'QD',
-  timing: '아침식후',
+  timings: ['아침식후'],
   color: '흰',
   shape: '원형',
   marking: 'Bayer',
@@ -48,7 +48,7 @@ describe('formatMedLine', () => {
       ...base,
       name: '자나팜 0.25mg',
       tabletCount: 0.5,
-      timing: '자기전',
+      timings: ['자기전'],
       color: '흰',
       shape: '타원',
       marking: 'MYUNGIN 25',
@@ -59,13 +59,25 @@ describe('formatMedLine', () => {
     const med: MedItem = { ...base, color: undefined, shape: undefined, marking: undefined };
     expect(formatMedLine(med)).toBe('아스피린장용정100mg 1T QD 아침식후');
   });
+  it('복용시점이 여러 개면 콤마로 연결', () => {
+    const med: MedItem = {
+      ...base,
+      name: '메트포르민500mg',
+      frequency: 'BID',
+      timings: ['아침식후', '저녁식후'],
+      color: undefined,
+      shape: undefined,
+      marking: undefined,
+    };
+    expect(formatMedLine(med)).toBe('메트포르민500mg 1T BID 아침식후,저녁식후');
+  });
 });
 
 describe('buildListText', () => {
   it('환자 라벨 헤더 + 각 약물 한 줄', () => {
     const meds: MedItem[] = [
       base,
-      { ...base, id: '2', name: '노바스크정5mg', frequency: 'BID', timing: '저녁식후', color: '흰', shape: '팔각', marking: 'NOVASC 5' },
+      { ...base, id: '2', name: '노바스크정5mg', frequency: 'BID', timings: ['저녁식후'], color: '흰', shape: '팔각', marking: 'NOVASC 5' },
     ];
     expect(buildListText('환자1', meds)).toBe(
       '[환자1]\n아스피린장용정100mg 1T QD 아침식후 (흰/원형/Bayer)\n노바스크정5mg 1T BID 저녁식후 (흰/팔각/NOVASC 5)',

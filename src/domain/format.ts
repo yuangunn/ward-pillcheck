@@ -11,7 +11,8 @@ export function formatTabletCount(count: number): string {
  * 예) 아스피린장용정100mg 1T QD 아침식후 (흰/원형/Bayer)
  */
 export function formatMedLine(med: MedItem): string {
-  const head = `${med.name} ${formatTabletCount(med.tabletCount)}T ${med.frequency} ${med.timing}`;
+  const timing = med.timings.join(',');
+  const head = `${med.name} ${formatTabletCount(med.tabletCount)}T ${med.frequency} ${timing}`;
   const appearance = formatAppearance(med);
   return appearance ? `${head} ${appearance}` : head;
 }
