@@ -264,6 +264,12 @@ export async function getMarkOptions(): Promise<MarkOption[]> {
   return markOptions;
 }
 
+/** 번들 낱알 레코드의 실물사진 URL 목록(선택적 사진 다운로드용). 로드 보장 후. */
+export async function getPhotoUrls(): Promise<string[]> {
+  await ensureDataset();
+  return (records ?? []).map((r) => r.img).filter((u): u is string => !!u);
+}
+
 /** 로드 보장 후 검색 */
 export async function searchDataset(q: PillSearchQuery): Promise<PillResult[]> {
   const status = await ensureDataset();

@@ -1,7 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { BottomSheet, Btn } from './ui';
 import { Icon } from './Icon';
-import { detailsStatus, downloadDetails, clearDetails, durBundleStatus, downloadDur, clearDur } from '../api';
+import {
+  detailsStatus,
+  downloadDetails,
+  clearDetails,
+  durBundleStatus,
+  downloadDur,
+  clearDur,
+  downloadPhotos,
+  cachedPhotoCount,
+  clearPhotos,
+} from '../api';
 import { useDataset } from '../state/useDataset';
 
 // 오프라인/인트라넷용 설정: 검색 + 허가사항 상세 + DUR 룰셋을 기기에 받아두기.
@@ -28,10 +38,14 @@ export function SettingsSheet({ open, onClose, onFlash }: { open: boolean; onClo
   const [dur, setDur] = useState<Stat | null>(null);
   const [usage, setUsage] = useState('');
   const [busy, setBusy] = useState('');
+  const [photos, setPhotos] = useState(0);
+  const [photoProg, setPhotoProg] = useState<{ done: number; total: number } | null>(null);
+  const stopRef = useRef(false);
 
   const refresh = async () => {
     setDet(await detailsStatus());
     setDur(await durBundleStatus());
+    setPhotos(await cachedPhotoCount());
     try {
       const e = await navigator.storage?.estimate?.();
       if (e?.usage != null) setUsage(`${(e.usage / 1048576).toFixed(0)} MB`);
@@ -67,6 +81,20 @@ export function SettingsSheet({ open, onClose, onFlash }: { open: boolean; onClo
     onFlash?.('오프라인 상세·DUR 캐시를 비웠어요');
   };
 
+  const getPhotos = async () => {
+    stopRef.current = false;
+    setPhotoProg({ done: 0, total: 0 });
+    await downloadPhotos((p) => setPhotoProg(p), () => stopRef.current);
+    setPhotoProg(null);
+    await refresh();
+    onFlash?.(stopRef.current ? '사진 받기를 멈췄어요' : '실물사진 받기 완료');
+  };
+  const removePhotos = async () => {
+    await clearPhotos();
+    await refresh();
+    onFlash?.('실물사진 캐시를 비웠어요');
+  };
+
   return (
     <BottomSheet open={open} onClose={onClose} title="설정" maxH="90%">
       <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.4, marginBottom: 4 }}>오프라인 데이터</div>
@@ -99,6 +127,31 @@ export function SettingsSheet({ open, onClose, onFlash }: { open: boolean; onClo
       >
         오프라인 상세·DUR 캐시 비우기
       </button>
+
+      {/* 선택: 실물사진(대용량) */}
+      <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.4, margin: '24px 0 4px' }}>실물사진 (선택 · 대용량)</div>
+      <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--text-weak)', fontWeight: 600, lineHeight: 1.5 }}>
+        본 사진은 자동 저장돼요. 전부 미리 받으면 <b style={{ color: 'var(--text-strong)' }}>수 GB</b> 라 와이파이 권장. 식약처에서 폰으로 직접 받습니다.
+        <br />
+        <span style={{ color: 'var(--text-weaker)' }}>캐시된 사진 {photos.toLocaleString()}장</span>
+      </p>
+      {photoProg ? (
+        <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', height: 50, borderRadius: 'var(--r-btn)', background: 'var(--fill)', fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
+            받는 중 {photoProg.done.toLocaleString()}{photoProg.total ? ` / ${photoProg.total.toLocaleString()}` : ''}
+          </div>
+          <Btn variant="danger" onClick={() => (stopRef.current = true)} style={{ height: 50 }}>중단</Btn>
+        </div>
+      ) : (
+        <Btn variant="ghost" full icon="download" onClick={getPhotos} disabled={!!busy || !ds.enabled}>
+          실물사진 받기 (대용량)
+        </Btn>
+      )}
+      {photos > 0 && !photoProg && (
+        <button type="button" onClick={removePhotos} style={{ display: 'block', width: '100%', marginTop: 10, padding: '8px 0', background: 'none', border: 'none', color: 'var(--danger)', fontSize: 13.5, fontWeight: 700, cursor: 'pointer' }}>
+          실물사진 캐시 비우기
+        </button>
+      )}
 
       <div style={{ marginTop: 18, padding: '12px 14px', borderRadius: 'var(--r-card)', background: 'var(--primary-weak)', fontSize: 12.5, color: 'var(--primary-ink)', fontWeight: 600, lineHeight: 1.55 }}>
         💡 병동 인트라넷에서 쓰려면: 인터넷이 되는 곳에서 위 버튼으로 한 번 받아두면, 이후 폐쇄망/오프라인에서도 그대로 동작해요.
