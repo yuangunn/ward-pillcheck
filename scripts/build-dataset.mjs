@@ -7,6 +7,9 @@
 // 실행: SERVICE_KEY=<디코딩키> node scripts/build-dataset.mjs
 // - SERVICE_KEY 미설정 시: 경고만 내고 빈 데이터셋 생성(로컬/데모 빌드).
 // - GitHub Actions(배포/매일 cron)에서 Secret 으로 주입.
+// - MARKS_ONLY=1 SERVICE_KEY=<키> node scripts/build-dataset.mjs
+//     → 낱알(마크코드용)만 받고 마크 gif 만 번들(허가/상세/DUR 생략, ~3분).
+//       이미 받은 gif 는 재사용(existsSync), 없는 것만 추가 다운로드.
 
 import { writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
@@ -404,27 +407,35 @@ if (!KEY) {
 } else {
   console.log('낱알식별 수집…');
   const pills = await collect('낱알', PILL_ENDPOINT, compactPill, 600);
-  console.log('허가정보(주사·외용 + 성분) 전수 수집…');
-  const { injections, ingrBySeq } = await collectPermit();
-  // 낱알 레코드에 주성분 결합(품목기준코드 ITEM_SEQ 일치)
-  let joined = 0;
-  for (const p of pills) {
-    const ingr = ingrBySeq.get(p.seq);
-    if (ingr) {
-      p.ingr = ingr;
-      joined++;
+
+  // 마크만 빠르게 받기: 낱알(마크코드용)만 받고 마크 gif 만 다운로드, 나머지(허가/상세/DUR) 생략.
+  if (process.env.MARKS_ONLY) {
+    console.log('MARKS_ONLY — 마크 이미지만 번들(허가/상세/DUR 생략)…');
+    await buildMarks(pills);
+    console.log('완료(MARKS_ONLY) — public/data/marks/ 만 갱신했습니다. 이 폴더를 커밋하세요.');
+  } else {
+    console.log('허가정보(주사·외용 + 성분) 전수 수집…');
+    const { injections, ingrBySeq } = await collectPermit();
+    // 낱알 레코드에 주성분 결합(품목기준코드 ITEM_SEQ 일치)
+    let joined = 0;
+    for (const p of pills) {
+      const ingr = ingrBySeq.get(p.seq);
+      if (ingr) {
+        p.ingr = ingr;
+        joined++;
+      }
     }
+    console.log(`성분 결합: ${joined}/${pills.length}건`);
+    write('pills', pills);
+    console.log('마크 이미지 번들…');
+    await buildMarks(pills);
+    write('injections', injections);
+    console.log('허가사항 상세(Dtl06) 전수 수집…');
+    const details = await collectDetails();
+    console.log(`허가사항 상세 ${details.length}건(전문약 포함) → details.json.gz`);
+    writeGz('details', details);
+    // DUR 은 온라인(워커) 전용 — 병용금기만 81만건이라 전수 오프라인 번들이 비현실적.
+    // (오프라인에선 DUR 점검 생략, 온라인이면 /api/dur 품목별 점검)
+    writeGz('dur', {});
   }
-  console.log(`성분 결합: ${joined}/${pills.length}건`);
-  write('pills', pills);
-  console.log('마크 이미지 번들…');
-  await buildMarks(pills);
-  write('injections', injections);
-  console.log('허가사항 상세(Dtl06) 전수 수집…');
-  const details = await collectDetails();
-  console.log(`허가사항 상세 ${details.length}건(전문약 포함) → details.json.gz`);
-  writeGz('details', details);
-  // DUR 은 온라인(워커) 전용 — 병용금기만 81만건이라 전수 오프라인 번들이 비현실적.
-  // (오프라인에선 DUR 점검 생략, 온라인이면 /api/dur 품목별 점검)
-  writeGz('dur', {});
 }
