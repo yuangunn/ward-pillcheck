@@ -143,7 +143,8 @@ export function AddMedSheet({
       setTimings(['아침식후']);
       setColor(source.colorClass1 || '');
       setShape(source.drugShape || '');
-      setMarking([source.printFront, source.printBack].filter(Boolean).join(' / '));
+      // 글리프 가독성: 앞면 각인 우선(없으면 뒷면), 끝의 구분자는 제거
+      setMarking((source.printFront || source.printBack || '').replace(/^[\s/\-,]+|[\s/\-,]+$/g, ''));
     }
     setShowAppear(false);
     setShowCustom(false);

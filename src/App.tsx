@@ -101,6 +101,7 @@ export default function App() {
         onManage={() => setManageOpen(true)}
         onCopy={() => setCopyOpen(true)}
         onDur={() => setDurOpen(true)}
+        onZoom={(m) => setZoomPill({ itemName: m.name, color: m.color, drugShape: m.shape, marking: m.marking, imageUrl: m.imageUrl })}
       />
     );
   } else if (route.name === 'search' && activePatient) {
@@ -110,7 +111,7 @@ export default function App() {
         pickedMark={pickedMark}
         onOpenGallery={() => setGalleryOpen(true)}
         onClearMark={() => setPickedMark(null)}
-        onZoom={(pill) => setZoomPill({ itemName: pill.itemName, color: pill.colorClass1, drugShape: pill.drugShape, marking: pill.printFront })}
+        onZoom={(pill) => setZoomPill({ itemName: pill.itemName, color: pill.colorClass1, drugShape: pill.drugShape, marking: pill.printFront, imageUrl: pill.itemImage })}
         onBack={() => go({ name: 'patient', patientId: activePatient.id })}
         onPick={(pill) => setAddState({ open: true, source: { ...pill, __kind: 'pill' }, mode: 'add' })}
       />

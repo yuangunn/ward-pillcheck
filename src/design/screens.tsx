@@ -157,6 +157,7 @@ export function MedListScreen({
   onManage,
   onCopy,
   onDur,
+  onZoom,
 }: {
   patient: Patient;
   onBack: () => void;
@@ -166,6 +167,7 @@ export function MedListScreen({
   onManage: () => void;
   onCopy: () => void;
   onDur: () => void;
+  onZoom: (m: MedItem) => void;
 }) {
   const displayed = useMemo(() => sortMeds(patient.meds, patient.sortMode), [patient.meds, patient.sortMode]);
   return (
@@ -187,7 +189,7 @@ export function MedListScreen({
         <ul className="med-list" style={{ listStyle: 'none', margin: 0, display: 'flex', flexDirection: 'column', gap: 'var(--list-gap)', padding: '0 16px' }}>
           {displayed.map((m) => (
             <li key={m.id}>
-              <MedRow med={m} onClick={() => onEditMed(m)} />
+              <MedRow med={m} onClick={() => onEditMed(m)} onZoom={() => onZoom(m)} />
             </li>
           ))}
         </ul>
@@ -256,12 +258,10 @@ function EmptyMedState({ onAdd }: { onAdd: () => void }) {
   );
 }
 
-function MedRow({ med, onClick }: { med: MedItem; onClick: () => void }) {
+function MedRow({ med, onClick, onZoom }: { med: MedItem; onClick: () => void; onZoom: () => void }) {
   const fm = freqMeta(med.frequency);
   return (
-    <button
-      type="button"
-      onClick={onClick}
+    <div
       className="med-row"
       style={{
         display: 'flex',
@@ -272,14 +272,23 @@ function MedRow({ med, onClick }: { med: MedItem; onClick: () => void }) {
         background: 'var(--card)',
         border: '1px solid var(--border)',
         boxShadow: 'var(--shadow-sm)',
-        cursor: 'pointer',
-        textAlign: 'left',
         width: '100%',
-        WebkitTapHighlightColor: 'transparent',
+        boxSizing: 'border-box',
       }}
     >
-      <PillGlyph color={med.color} shape={med.shape} marking={med.marking} size={50} />
-      <div style={{ flex: 1, minWidth: 0 }}>
+      <button
+        type="button"
+        onClick={onZoom}
+        aria-label="이미지 확대"
+        style={{ border: 'none', background: 'transparent', padding: 0, cursor: 'zoom-in', flexShrink: 0, WebkitTapHighlightColor: 'transparent' }}
+      >
+        <PillGlyph color={med.color} shape={med.shape} marking={med.marking} size={50} />
+      </button>
+      <button
+        type="button"
+        onClick={onClick}
+        style={{ flex: 1, minWidth: 0, border: 'none', background: 'transparent', padding: 0, textAlign: 'left', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+      >
         <div
           className="med-name"
           style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
@@ -293,9 +302,9 @@ function MedRow({ med, onClick }: { med: MedItem; onClick: () => void }) {
             <Tag key={i}>{t}</Tag>
           ))}
         </div>
-      </div>
+      </button>
       <Icon name="chevron" size={18} style={{ color: 'var(--text-weaker)', flexShrink: 0 }} />
-    </button>
+    </div>
   );
 }
 

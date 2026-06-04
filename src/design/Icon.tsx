@@ -119,6 +119,15 @@ export function Icon({
 export function swatchFor(colorLabel?: string): string {
   return COLOR_OPTIONS.find((o) => o.label === colorLabel)?.swatch || '#e8eef0';
 }
+/** 글리프에 표시할 각인 라벨 정리: 양끝 구분자(/ - 공백) 제거 후 6자 */
+export function cleanMark(s?: string): string {
+  if (!s) return '';
+  return s
+    .trim()
+    .replace(/^[\s/\-,]+|[\s/\-,]+$/g, '')
+    .slice(0, 6);
+}
+
 export function isLightSwatch(hex: string): boolean {
   const h = hex.replace('#', '');
   if (h.length < 6) return true;
@@ -154,7 +163,7 @@ export function PillGlyph({
   } else if (shape === '기타' || shape === '반원형') {
     br = size * 0.3;
   }
-  const label = (marking || '').slice(0, 6);
+  const label = cleanMark(marking);
   return (
     <div
       style={{
