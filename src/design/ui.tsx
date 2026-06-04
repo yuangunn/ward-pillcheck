@@ -5,6 +5,7 @@ import {
   type ReactNode,
 } from 'react';
 import { Icon, PillGlyph } from './Icon';
+import { proxiedImg } from '../api';
 
 type BtnVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'line';
 
@@ -388,16 +389,21 @@ export interface ZoomPill {
   color?: string;
   drugShape?: string;
   marking?: string;
+  imageUrl?: string;
 }
 
 export function Lightbox({ pill, onClose }: { pill: ZoomPill | null; onClose: () => void }) {
   const [show, setShow] = useState(false);
+  const [imgFailed, setImgFailed] = useState(false);
   useEffect(() => {
-    if (pill) requestAnimationFrame(() => requestAnimationFrame(() => setShow(true)));
-    else setShow(false);
+    if (pill) {
+      setImgFailed(false);
+      requestAnimationFrame(() => requestAnimationFrame(() => setShow(true)));
+    } else setShow(false);
   }, [pill]);
   if (!pill) return null;
   const ap = [pill.color, pill.drugShape, pill.marking].filter(Boolean).join(' · ');
+  const realImg = pill.imageUrl && !imgFailed ? proxiedImg(pill.imageUrl) : undefined;
   return (
     <div
       onClick={onClose}
@@ -442,7 +448,16 @@ export function Lightbox({ pill, onClose }: { pill: ZoomPill | null; onClose: ()
         <Icon name="x" size={22} />
       </button>
       <div style={{ transform: show ? 'scale(1)' : 'scale(0.86)', transition: 'transform .26s cubic-bezier(.32,.72,0,1)' }}>
-        <PillGlyph color={pill.color} shape={pill.drugShape} marking={pill.marking} size={228} />
+        {realImg ? (
+          <img
+            src={realImg}
+            alt={pill.itemName}
+            onError={() => setImgFailed(true)}
+            style={{ width: 280, height: 280, maxWidth: '80vw', maxHeight: '50vh', objectFit: 'contain', borderRadius: 20, background: '#fff' }}
+          />
+        ) : (
+          <PillGlyph color={pill.color} shape={pill.drugShape} marking={pill.marking} size={228} />
+        )}
       </div>
       <div style={{ textAlign: 'center', color: '#fff' }}>
         <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: -0.4 }}>{pill.itemName}</div>
