@@ -4,6 +4,9 @@ import { buildTokens, useTheme } from './design/theme';
 import { HomeScreen, MedListScreen, SearchScreen, type PickedMark } from './design/screens';
 import { AddMedSheet, CopySheet, DurSheet, PatientManageSheet, MarkGallerySheet, DrawMarkSheet, DrugDetailSheet, type MedFormData } from './design/sheets';
 import { SettingsSheet } from './design/SettingsSheet';
+import { Onboarding } from './design/Onboarding';
+
+const ONBOARDED_KEY = 'ward-pillcheck:onboarded';
 import { Toast, Lightbox, type ZoomPill } from './design/ui';
 import { sortMeds } from './domain/sort';
 import type { MedItem, Patient, SortMode } from './domain/models';
@@ -41,6 +44,21 @@ export default function App() {
   const [topTab, setTopTab] = useState<'patients' | 'lookup'>('patients');
   const [detailPill, setDetailPill] = useState<PillResult | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [onboardOpen, setOnboardOpen] = useState(() => {
+    try {
+      return !localStorage.getItem(ONBOARDED_KEY);
+    } catch {
+      return false;
+    }
+  });
+  const closeOnboarding = () => {
+    try {
+      localStorage.setItem(ONBOARDED_KEY, '1');
+    } catch {
+      /* ignore */
+    }
+    setOnboardOpen(false);
+  };
 
   const patients = state.patients;
   const activePatient: Patient | null = patients.find((p) => p.id === route.patientId) ?? null;
@@ -231,7 +249,16 @@ export default function App() {
       <MarkGallerySheet open={galleryOpen} onClose={() => setGalleryOpen(false)} onPick={(m: MarkOption) => setPickedMark({ code: m.code, img: m.img })} />
       <DrawMarkSheet open={drawOpen} onClose={() => setDrawOpen(false)} onPick={(m: MarkOption) => setPickedMark({ code: m.code, img: m.img })} />
       <DrugDetailSheet open={!!detailPill} pill={detailPill} onClose={() => setDetailPill(null)} onZoom={(p) => setZoomPill(pillToZoom(p))} />
-      <SettingsSheet open={settingsOpen} onClose={() => setSettingsOpen(false)} onFlash={flash} />
+      <SettingsSheet
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onFlash={flash}
+        onShowGuide={() => {
+          setSettingsOpen(false);
+          setOnboardOpen(true);
+        }}
+      />
+      {onboardOpen && <Onboarding onClose={closeOnboarding} />}
       <Lightbox pill={zoomPill} onClose={() => setZoomPill(null)} />
 
       <Toast msg={toast} />

@@ -325,6 +325,17 @@ export function AddMedSheet({
   const entp = source.__kind === 'med' || source.__kind === 'manual' ? undefined : source.entpName;
   const slots = freqMeta(freq).slots;
 
+  // 약 상세 정보: 추가(편집X)이고 실제 itemSeq 가 있으면 표시 — 낱알뿐 아니라 주사·외용약도.
+  const detailPill: PillResult | null =
+    isEdit || !seq
+      ? null
+      : source.__kind === 'pill'
+        ? source
+        : source.__kind === 'manual'
+          ? { itemSeq: seq, itemName: source.itemName, entpName: '', itemImage: source.imageUrl }
+          : null;
+  const showDetail = !!detailPill;
+
   const changeFreq = (code: string) => {
     setFreq(code);
     setTimings((TIMING_DEFAULTS[freqMeta(code).slots] || ['필요시']).slice());
@@ -368,7 +379,7 @@ export function AddMedSheet({
           borderBottom: '1px solid var(--border)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: !isEdit && source.__kind === 'pill' ? '6px 0 12px' : '6px 0 2px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: showDetail ? '6px 0 12px' : '6px 0 2px' }}>
           <PillGlyph color={color} shape={shape} marking={marking} size={56} />
           <div style={{ flex: 1, minWidth: 0 }}>
             {isManual ? (
@@ -388,7 +399,7 @@ export function AddMedSheet({
             )}
           </div>
         </div>
-        {!isEdit && source.__kind === 'pill' && (
+        {showDetail && (
           <button
             type="button"
             onClick={() => setDetailOpen((v) => !v)}
@@ -408,7 +419,7 @@ export function AddMedSheet({
         </div>
       )}
 
-      {!isEdit && source.__kind === 'pill' && detailOpen && <DetailPanel seq={seq} pill={source} />}
+      {showDetail && detailOpen && detailPill && <DetailPanel seq={detailPill.itemSeq} pill={detailPill} />}
 
       <Section label="용량">
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
