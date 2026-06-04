@@ -5,7 +5,7 @@ import { COLOR_OPTIONS, SHAPE_OPTIONS } from '../constants/appearance';
 import { freqMeta } from '../constants/frequency';
 import { sortMeds } from '../domain/sort';
 import type { MedItem, Patient, SortMode } from '../domain/models';
-import { drugApi, proxiedImg, type PillResult, type PillSearchQuery } from '../api';
+import { drugApi, proxiedImg, searchInjections, type PermitDrug, type PillResult, type PillSearchQuery } from '../api';
 import { useDataset } from '../state/useDataset';
 
 function fmtDate(iso?: string): string {
@@ -387,6 +387,7 @@ export function SearchScreen({
   onBack,
   onPick,
   onManual,
+  onPickInjection,
 }: {
   existingSeqs: string[];
   pickedMark: PickedMark | null;
@@ -396,14 +397,17 @@ export function SearchScreen({
   onBack: () => void;
   onPick: (pill: PillResult) => void;
   onManual: () => void;
+  onPickInjection: (d: PermitDrug) => void;
 }) {
-  const [mode, setMode] = useState<'visual' | 'name'>('visual');
+  const [mode, setMode] = useState<'visual' | 'name' | 'injection'>('visual');
   const [color, setColor] = useState('');
   const [shape, setShape] = useState('');
   const [marking, setMarking] = useState('');
   const [name, setName] = useState('');
   const [results, setResults] = useState<PillResult[]>([]);
   const [loading, setLoading] = useState(false);
+  const [injResults, setInjResults] = useState<PermitDrug[]>([]);
+  const [injLoading, setInjLoading] = useState(false);
 
   const active = mode === 'visual' ? !!(color || shape || marking || pickedMark) : !!name.trim();
   const query: PillSearchQuery =
@@ -414,7 +418,7 @@ export function SearchScreen({
   const reqId = useRef(0);
   const key = JSON.stringify(query);
   useEffect(() => {
-    if (!active) {
+    if (mode === 'injection' || !active) {
       setResults([]);
       setLoading(false);
       return;
@@ -436,7 +440,24 @@ export function SearchScreen({
         }
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, active]);
+  }, [key, active, mode]);
+
+  // 주사제(허가정보 이름검색)
+  useEffect(() => {
+    if (mode !== 'injection' || !name.trim()) {
+      setInjResults([]);
+      setInjLoading(false);
+      return;
+    }
+    const id = ++reqId.current;
+    setInjLoading(true);
+    searchInjections(name).then((r) => {
+      if (id === reqId.current) {
+        setInjResults(r);
+        setInjLoading(false);
+      }
+    });
+  }, [mode, name]);
 
   const reset = () => {
     setColor('');
@@ -447,19 +468,50 @@ export function SearchScreen({
 
   return (
     <div style={{ paddingBottom: 30 }}>
-      <PageHeader title="약 검색" sub="색·모양·각인·마크로 거꾸로 찾아요" onBack={onBack} />
+      <PageHeader title="약 검색" sub="색·모양·각인·마크 / 주사제는 이름으로" onBack={onBack} />
       <div style={{ padding: '4px 20px 0' }}>
         <SegTabs
           tabs={[
             { value: 'visual', label: '실물 검색' },
             { value: 'name', label: '이름 검색' },
+            { value: 'injection', label: '주사제' },
           ]}
           value={mode}
           onChange={setMode}
         />
       </div>
 
-      {mode === 'visual' ? (
+      {mode === 'injection' ? (
+        <div style={{ padding: '20px 20px 8px' }}>
+          <FieldLabel>주사제 이름</FieldLabel>
+          <TextField value={name} onChange={setName} placeholder="예) 란투스, 휴마로그, 인슐린" aria-label="주사제 이름" autoFocus />
+          <p style={{ margin: '10px 2px 0', fontSize: 12.5, color: 'var(--text-weaker)', fontWeight: 600, lineHeight: 1.45 }}>
+            주사제는 색·모양·각인이 없어 이름으로 찾아요 (식약처 허가정보).
+          </p>
+          <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 'var(--list-gap)' }}>
+            {name.trim() && injLoading && (
+              <div style={{ textAlign: 'center', padding: '28px 0', color: 'var(--text-weak)', fontSize: 14.5, fontWeight: 600 }}>검색 중…</div>
+            )}
+            {name.trim() && !injLoading && injResults.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '28px 0', color: 'var(--text-weak)', fontSize: 14.5, fontWeight: 600 }}>
+                결과가 없어요. 이름을 바꿔보세요.
+              </div>
+            )}
+            {!injLoading &&
+              injResults.map((d) => (
+                <InjectionCard key={d.itemSeq} drug={d} added={existingSeqs.includes(d.itemSeq)} onClick={() => onPickInjection(d)} />
+              ))}
+          </div>
+          <button
+            type="button"
+            onClick={onManual}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', marginTop: 16, height: 50, borderRadius: 'var(--r-btn)', border: '1.5px dashed var(--border)', background: 'transparent', color: 'var(--text-weak)', fontSize: 14.5, fontWeight: 700, letterSpacing: -0.3, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+          >
+            <Icon name="edit" size={18} />
+            목록에 없으면 직접 입력
+          </button>
+        </div>
+      ) : mode === 'visual' ? (
         <div style={{ padding: '20px 20px 8px' }}>
           <FieldLabel>색상</FieldLabel>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 22 }}>
@@ -547,7 +599,7 @@ export function SearchScreen({
         </div>
       )}
 
-      <div style={{ padding: '8px 16px 0' }}>
+      <div style={{ padding: '8px 16px 0', display: mode === 'injection' ? 'none' : 'block' }}>
         {active && !loading && (
           <div style={{ padding: '0 4px 12px', fontSize: 13.5, fontWeight: 700, color: 'var(--text-weaker)' }}>{results.length}개 찾음</div>
         )}
@@ -727,6 +779,72 @@ function ResultCard({
         aria-label="추가"
         style={{ border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', flexShrink: 0, WebkitTapHighlightColor: 'transparent' }}
       >
+        {added ? (
+          <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--primary-ink)', background: 'var(--primary-weak)', padding: '4px 9px', borderRadius: 8 }}>추가됨</span>
+        ) : (
+          <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--primary-weak)', color: 'var(--primary-ink)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name="plus" size={20} />
+          </div>
+        )}
+      </button>
+    </div>
+  );
+}
+
+// 주사제 결과 카드 (제품이미지 + 성분)
+function InjectionCard({ drug, added, onClick }: { drug: PermitDrug; added: boolean; onClick: () => void }) {
+  const img = proxiedImg(drug.itemImage);
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 13,
+        padding: 'var(--card-py) 16px',
+        borderRadius: 'var(--r-card)',
+        background: 'var(--card)',
+        border: '1px solid var(--border)',
+        boxShadow: 'var(--shadow-sm)',
+        width: '100%',
+        boxSizing: 'border-box',
+      }}
+    >
+      <div
+        style={{
+          width: 52,
+          height: 52,
+          borderRadius: 14,
+          flexShrink: 0,
+          background: 'var(--fill)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'hidden',
+          color: 'var(--text-weaker)',
+        }}
+      >
+        {img ? (
+          <img src={img} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+        ) : (
+          <Icon name="pill" size={26} />
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={onClick}
+        style={{ flex: 1, minWidth: 0, border: 'none', background: 'transparent', padding: 0, textAlign: 'left', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+      >
+        <div className="med-name" style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {drug.itemName}
+        </div>
+        <div style={{ fontSize: 13.5, color: 'var(--text-weak)', fontWeight: 600, marginTop: 2 }}>{drug.entpName}</div>
+        {drug.ingredient && (
+          <div style={{ fontSize: 12.5, color: 'var(--text-weaker)', fontWeight: 600, marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {drug.ingredient}
+          </div>
+        )}
+      </button>
+      <button type="button" onClick={onClick} aria-label="추가" style={{ border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', flexShrink: 0, WebkitTapHighlightColor: 'transparent' }}>
         {added ? (
           <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--primary-ink)', background: 'var(--primary-weak)', padding: '4px 9px', borderRadius: 8 }}>추가됨</span>
         ) : (

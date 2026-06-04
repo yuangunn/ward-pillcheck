@@ -12,6 +12,7 @@ export interface Env {
   PILL_ENDPOINT?: string;
   DETAIL_ENDPOINT?: string;
   PERMIT_ENDPOINT?: string;
+  PERMIT_LIST_ENDPOINT?: string;
   DUR_BASE?: string;
   ALLOW_ORIGIN?: string; // 기본 '*'. 운영 시 GitHub Pages 도메인으로 제한 권장.
 }
@@ -28,6 +29,9 @@ const PERMIT_CANDIDATES = [
   'https://apis.data.go.kr/1471000/DrugPrdtPrmsnInfoService06/getDrugPrdtPrmsnDtlInq06',
 ];
 // DUR 품목정보(15059486) — 병용금기/임부/노인/연령/효능군중복 점검
+// 허가정보 목록(이름검색) — 주사제 포함 전 품목
+const DEFAULT_PERMIT_LIST =
+  'https://apis.data.go.kr/1471000/DrugPrdtPrmsnInfoService07/getDrugPrdtPrmsnInq07';
 const DEFAULT_DUR_BASE = 'https://apis.data.go.kr/1471000/DURPrdlstInfoService03';
 const DUR_OPS = {
   combo: 'getUsjntTabooInfoList03', // 병용금기
@@ -294,7 +298,33 @@ export default {
       return durForItem(itemSeq, env);
     }
 
-    // 이미지 프록시(마크/낱알 이미지). nedrug 가 charset 붙은 content-type·크로스사이트로
+    // 의약품 허가정보 이름검색(주사제 등 낱알식별에 없는 약). inj=1 시 주사제 위주 필터.
+    if (url.pathname === '/api/drugsearch') {
+      const name = url.searchParams.get('item_name');
+      if (!name) return json({ body: { items: [] } }, env);
+      const inj = url.searchParams.get('inj') === '1';
+      const params = new URLSearchParams({ item_name: name, itemName: name, pageNo: '1', numOfRows: '30' });
+      const r = await fetchItems(env.PERMIT_LIST_ENDPOINT ?? DEFAULT_PERMIT_LIST, params, env);
+      if ('error' in r) return r.error;
+      let items = r.items
+        .map((it: any) => ({
+          itemSeq: it.ITEM_SEQ ?? '',
+          itemName: it.ITEM_NAME ?? '',
+          entpName: it.ENTP_NAME ?? '',
+          ingredient: it.ITEM_INGR_NAME || undefined,
+          etcOtcName: it.SPCLTY_PBLC || undefined,
+          itemImage: it.BIG_PRDT_IMG_URL || undefined,
+        }))
+        .filter((x: { itemSeq: string }) => x.itemSeq);
+      if (inj) {
+        const re = /(주사|주입|펜|카트리지|바이알|키트|프리필드|주사액|주사제|인슐린|플렉스|퀵펜|주\)|주$)/;
+        const filtered = items.filter((x: { itemName: string }) => re.test(x.itemName));
+        if (filtered.length) items = filtered;
+      }
+      return json({ body: { items } }, env);
+    }
+
+    // 이미지 프록시(마크/낱알/제품 이미지). nedrug 가 charset 붙은 content-type·크로스사이트로
     // 모바일 브라우저에서 안 뜨는 문제 → 헤더 정리 + CORS 부여해 중계.
     if (url.pathname === '/api/img') {
       const u = url.searchParams.get('u');
