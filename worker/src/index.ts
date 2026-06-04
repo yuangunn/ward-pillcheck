@@ -20,9 +20,16 @@ const DEFAULT_PILL =
   'https://apis.data.go.kr/1471000/MdcinGrnIdntfcInfoService03/getMdcinGrnIdntfcInfoList03';
 const DEFAULT_DETAIL =
   'https://apis.data.go.kr/1471000/DrbEasyDrugInfoService/getDrbEasyDrugList';
-// 의약품 제품 허가정보(15095677) — e약은요에 없는 약(전문약 등) 상세 폴백용
-const DEFAULT_PERMIT =
-  'https://apis.data.go.kr/1471000/DrugPrdtPrmsnInfoService07/getDrugPrdtPrmsnInq07';
+// 의약품 제품 허가정보(15095677) — e약은요에 없는 약(전문약 등) 상세 폴백용.
+// 효능/용법/주의 문서(EE/UD/NB_DOC_DATA)는 "상세(Dtl)" 오퍼레이션에 있고
+// 서비스 버전이 환경마다 달라, 후보를 순서대로 시도해 문서가 나오는 것을 선택.
+const PERMIT_CANDIDATES = [
+  'https://apis.data.go.kr/1471000/DrugPrdtPrmsnInfoService07/getDrugPrdtPrmsnDtlInq07',
+  'https://apis.data.go.kr/1471000/DrugPrdtPrmsnInfoService06/getDrugPrdtPrmsnDtlInq05',
+  'https://apis.data.go.kr/1471000/DrugPrdtPrmsnInfoService05/getDrugPrdtPrmsnDtlInq04',
+  'https://apis.data.go.kr/1471000/DrugPrdtPrmsnInfoService04/getDrugPrdtPrmsnDtlInq03',
+  'https://apis.data.go.kr/1471000/DrugPrdtPrmsnInfoService03/getDrugPrdtPrmsnDtlInq03',
+];
 // DUR 품목정보(15059486) — 병용금기/임부/노인/연령/효능군중복 점검
 const DEFAULT_DUR_BASE = 'https://apis.data.go.kr/1471000/DURPrdlstInfoService03';
 const DUR_OPS = {
@@ -248,28 +255,39 @@ export default {
         pageNo: '1',
         numOfRows: '1',
       });
-      const r = await fetchItems(env.PERMIT_ENDPOINT ?? DEFAULT_PERMIT, params, env);
-      if ('error' in r) return r.error;
-      const it: any = r.items[0] ?? {};
-      // 진단: 실제 응답 필드 확인용 (?debug=1)
-      if (url.searchParams.get('debug')) {
-        return json({ debug: { count: r.items.length, keys: Object.keys(it) } }, env);
-      }
-      // 효능/용법/주의 문서 — 후보 필드명을 폭넓게 시도
-      const pick = (...names: string[]): string | undefined => {
+      const pick = (it: any, ...names: string[]): string | undefined => {
         for (const n of names) {
           const v = stripDoc(it[n]);
           if (v) return v;
         }
         return undefined;
       };
-      const norm = {
-        itemSeq,
-        efcy: pick('EE_DOC_DATA', 'EE_DOC', 'eeDocData', 'efcyQesitm'),
-        useMethod: pick('UD_DOC_DATA', 'UD_DOC', 'udDocData', 'useMethodQesitm'),
-        atpn: pick('NB_DOC_DATA', 'NB_DOC', 'nbDocData', 'atpnQesitm'),
-      };
-      return json({ body: { items: [norm] } }, env);
+      const candidates = env.PERMIT_ENDPOINT ? [env.PERMIT_ENDPOINT] : PERMIT_CANDIDATES;
+      const debug = url.searchParams.get('debug');
+      const tried: unknown[] = [];
+
+      // 후보 상세 엔드포인트를 순서대로 시도해 문서가 나오는 것을 채택
+      for (const ep of candidates) {
+        const r = await fetchItems(ep, new URLSearchParams(params), env);
+        if ('error' in r) {
+          if (debug) tried.push({ ep, error: true });
+          continue;
+        }
+        const it: any = r.items[0] ?? {};
+        const norm = {
+          itemSeq,
+          efcy: pick(it, 'EE_DOC_DATA', 'EE_DOC', 'eeDocData', 'efcyQesitm'),
+          useMethod: pick(it, 'UD_DOC_DATA', 'UD_DOC', 'udDocData', 'useMethodQesitm'),
+          atpn: pick(it, 'NB_DOC_DATA', 'NB_DOC', 'nbDocData', 'atpnQesitm'),
+        };
+        if (debug) tried.push({ ep, count: r.items.length, keys: Object.keys(it) });
+        if (norm.efcy || norm.useMethod || norm.atpn) {
+          return debug ? json({ debug: { tried, hit: ep } }, env) : json({ body: { items: [norm] } }, env);
+        }
+      }
+      return debug
+        ? json({ debug: { tried, hit: null } }, env)
+        : json({ body: { items: [{ itemSeq }] } }, env);
     }
 
     // DUR 점검: 병용금기/임부/노인/연령/효능군중복 (한 품목)
