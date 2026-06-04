@@ -12,6 +12,7 @@ export interface Env {
   PILL_ENDPOINT?: string;
   DETAIL_ENDPOINT?: string;
   PERMIT_ENDPOINT?: string;
+  DUR_BASE?: string;
   ALLOW_ORIGIN?: string; // 기본 '*'. 운영 시 GitHub Pages 도메인으로 제한 권장.
 }
 
@@ -22,6 +23,15 @@ const DEFAULT_DETAIL =
 // 의약품 제품 허가정보(15095677) — e약은요에 없는 약(전문약 등) 상세 폴백용
 const DEFAULT_PERMIT =
   'https://apis.data.go.kr/1471000/DrugPrdtPrmsnInfoService06/getDrugPrdtPrmsnDtlInq05';
+// DUR 품목정보(15059486) — 병용금기/임부/노인/연령/효능군중복 점검
+const DEFAULT_DUR_BASE = 'https://apis.data.go.kr/1471000/DURPrdlstInfoService03';
+const DUR_OPS = {
+  combo: 'getUsjntTabooInfoList03', // 병용금기
+  pregnancy: 'getPwnmTabooInfoList03', // 임부금기
+  elderly: 'getOdsnAtentInfoList03', // 노인주의
+  age: 'getSpcifyAgrdeTabooInfoList03', // 특정연령대금기
+  dup: 'getEfcyDplctInfoList03', // 효능군중복
+} as const;
 
 function cors(env: Env): Record<string, string> {
   return {
@@ -156,6 +166,39 @@ async function searchPills(q: PillQuery, env: Env): Promise<Response> {
   return json({ body: { items: matches.slice(0, q.numOfRows) } }, env);
 }
 
+/** DUR 한 품목 점검 — 5개 카테고리를 동시 조회해 정규화 */
+async function durForItem(itemSeq: string, env: Env): Promise<Response> {
+  const base = (env.DUR_BASE ?? DEFAULT_DUR_BASE).replace(/\/$/, '');
+  const params = () => new URLSearchParams({ item_seq: itemSeq, itemSeq, pageNo: '1', numOfRows: '100' });
+
+  const cats = Object.entries(DUR_OPS) as [keyof typeof DUR_OPS, string][];
+  const results = await Promise.allSettled(
+    cats.map(([, op]) => fetchItems(`${base}/${op}`, params(), env)),
+  );
+
+  const text = (it: any): string | undefined =>
+    stripDoc(it.PROHBT_CONTENT ?? it.REMARK ?? it.NB_DOC_DATA ?? it.TYPE_NAME);
+
+  const dur: Record<string, unknown[]> = {};
+  results.forEach((res, i) => {
+    const key = cats[i][0];
+    const items = res.status === 'fulfilled' && 'items' in res.value ? res.value.items : [];
+    if (key === 'combo') {
+      dur.combo = items
+        .map((it: any) => ({
+          seq: it.MIXTURE_ITEM_SEQ ?? '',
+          name: it.MIXTURE_ITEM_NAME ?? '',
+          content: text(it),
+        }))
+        .filter((x: any) => x.seq || x.name);
+    } else {
+      dur[key] = items.map((it: any) => ({ content: text(it), name: it.ITEM_NAME })).filter((x: any) => x.content);
+    }
+  });
+
+  return json({ body: { itemSeq, dur } }, env);
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     if (request.method === 'OPTIONS') {
@@ -208,6 +251,13 @@ export default {
         atpn: stripDoc(it.NB_DOC_DATA),
       };
       return json({ body: { items: [norm] } }, env);
+    }
+
+    // DUR 점검: 병용금기/임부/노인/연령/효능군중복 (한 품목)
+    if (url.pathname === '/api/dur') {
+      const itemSeq = url.searchParams.get('itemSeq');
+      if (!itemSeq) return json({ error: 'itemSeq 필요', dur: {} }, env, 400);
+      return durForItem(itemSeq, env);
     }
 
     if (url.pathname === '/' || url.pathname === '/health') {

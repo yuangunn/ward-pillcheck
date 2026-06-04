@@ -41,6 +41,7 @@
 | 정렬 | 드래그 수동정렬 + 자동정렬(용법순·복용시점순). 모드는 환자별 저장 |
 | 편집/삭제 | 저장 항목 탭 → 수정·삭제 |
 | 리스트 복사/공유 | 복약 리스트를 인계용 텍스트로 클립보드 복사(지원 시 시스템 공유) |
+| 금기·중복 점검 (DUR) | 환자 리스트에 대해 **병용금기 쌍 + 임부·노인·연령 금기 + 효능군 중복** 자동 점검(식약처 DUR) |
 | 다크 모드 | 헤더 🌙/☀️ 토글, 기기 설정 자동 감지·localStorage 저장 |
 
 저장 항목 표시 포맷(한 줄):
@@ -148,6 +149,7 @@ curl "https://<worker-url>/api/detail?itemSeq=195700020"
 | `GET /api/pills?item_name=&entp_name=&drug_shape=&color_class1=&print_front=&pageNo=&numOfRows=` | 낱알식별 `getMdcinGrnIdntfcInfoList03` |
 | `GET /api/detail?itemSeq=` | e약은요 `getDrbEasyDrugList` |
 | `GET /api/permit?itemSeq=` | 제품 허가정보 `getDrugPrdtPrmsnDtlInq` (효능/용법/주의 폴백) |
+| `GET /api/dur?itemSeq=` | DUR 품목정보 `DURPrdlstInfoService03/*` (병용금기·임부·노인·연령·효능군중복) |
 
 ## 3. GitHub Pages 배포
 
