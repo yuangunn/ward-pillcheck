@@ -42,3 +42,14 @@ export const SHAPE_OPTIONS: string[] = [
   '반원형',
   '기타',
 ];
+
+/** 제형 칩: label = 화면표시, match = FORM_CODE_NAME 부분일치 키워드 */
+export interface FormOption {
+  label: string;
+  match: string;
+}
+export const FORM_OPTIONS: FormOption[] = [
+  { label: '정제', match: '정' },
+  { label: '경질캡슐', match: '경질' },
+  { label: '연질캡슐', match: '연질' },
+];

@@ -167,6 +167,8 @@ function matches(p: PillResult, q: PillSearchQuery): boolean {
   if (q.entpName && !includesCI(p.entpName, q.entpName)) return false;
   if (q.drugShape && p.drugShape !== q.drugShape) return false;
   if (q.colorClass1 && p.colorClass1 !== q.colorClass1) return false;
+  if (q.colors?.length && !q.colors.some((c) => (p.colorClass1 ?? '').includes(c))) return false;
+  if (q.forms?.length && !q.forms.some((f) => (p.formCodeName ?? '').includes(f))) return false;
   if (q.printFront && !includesCI(p.printFront, q.printFront)) return false;
   return true;
 }

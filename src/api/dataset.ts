@@ -183,6 +183,8 @@ export function filterRecords(
   const entp = q.entpName?.trim();
   const shape = q.drugShape?.trim();
   const color = q.colorClass1?.trim();
+  const colors = (q.colors ?? []).map((c) => c.trim()).filter(Boolean);
+  const forms = (q.forms ?? []).map((f) => f.trim()).filter(Boolean);
   const print = q.printFront?.trim().toUpperCase();
   const markCode = q.markCode?.trim();
 
@@ -192,6 +194,14 @@ export function filterRecords(
     if (entp && !r.entp.includes(entp)) continue;
     if (shape && r.shape !== shape) continue;
     if (color && !(r.color ?? '').includes(color) && !(r.color2 ?? '').includes(color)) continue;
+    if (colors.length) {
+      const hay = `${r.color ?? ''} ${r.color2 ?? ''}`;
+      if (!colors.some((c) => hay.includes(c))) continue;
+    }
+    if (forms.length) {
+      const f = r.form ?? '';
+      if (!forms.some((k) => f.includes(k))) continue;
+    }
     if (print) {
       // 각인은 실제 인쇄된 각인(앞/뒤)만 검색한다.
       // 마크(그림) 속 글자/로고는 별도의 "마크로 찾기/그려서 찾기"가 담당하므로

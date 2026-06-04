@@ -13,7 +13,9 @@ worker/.dev.vars
 *.tsbuildinfo
 
 # 빌드시 생성되는 번들 데이터셋(커밋하지 않음 — CI에서 생성)
-public/data/
+# 단, 마크 이미지(marks/)는 nedrug 차단 회피용으로 레포에 커밋 가능(CI가 existsSync 로 재사용)
+public/data/*
+!public/data/marks/
 
 # playwright
 test-results/

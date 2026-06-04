@@ -74,13 +74,14 @@ export async function searchInjections(name: string): Promise<PermitDrug[]> {
   const q = name.trim();
   if (!q) return [];
 
-  // 1) 번들 우선
+  // 1) 번들 우선 — 결과가 있으면 사용. 없으면(번들 누락 약, 예: 뮤코미스트액) 워커로 폴백.
   const b = await loadBundle();
   if (b.length) {
-    return b.filter((d) => includesCI(d.itemName, q) || includesCI(d.ingredient || '', q)).slice(0, 50);
+    const hit = b.filter((d) => includesCI(d.itemName, q) || includesCI(d.ingredient || '', q)).slice(0, 50);
+    if (hit.length) return hit;
   }
 
-  // 2) 워커 라이브
+  // 2) 워커 라이브 (전 품목 이름검색 — 번들에 없는 약도 온라인이면 검색됨)
   if (apiBase) {
     try {
       const res = await fetch(
