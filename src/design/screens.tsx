@@ -1,12 +1,17 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Icon, PillGlyph, MarkGlyph } from './Icon';
-import { Btn, Chip, ColorChip, SegTabs, FieldLabel, TextField, Tag, PageHeader, IconBtn } from './ui';
+import { Btn, Chip, ColorChip, SegTabs, FieldLabel, TextField, Tag, PageHeader, IconBtn, STATUS_TOP } from './ui';
 import { COLOR_OPTIONS, SHAPE_OPTIONS } from '../constants/appearance';
 import { freqMeta } from '../constants/frequency';
 import { sortMeds } from '../domain/sort';
 import type { MedItem, Patient, SortMode } from '../domain/models';
-import { drugApi, proxiedImg, searchInjections, type PermitDrug, type PillResult, type PillSearchQuery } from '../api';
+import { drugApi, proxiedImg, searchInjections, isInjectionName, type PermitDrug, type PillResult, type PillSearchQuery } from '../api';
 import { useDataset } from '../state/useDataset';
+
+/** PermitDrug(주사제·외용약) → 상세보기용 PillResult 형태 매핑 */
+export function permitToPill(d: PermitDrug): PillResult {
+  return { itemSeq: d.itemSeq, itemName: d.itemName, entpName: d.entpName, itemImage: d.itemImage, etcOtcName: d.etcOtcName, ingredient: d.ingredient };
+}
 
 function fmtDate(iso?: string): string {
   if (!iso) return '—';
@@ -21,16 +26,22 @@ const avatarTint = (i: number) => AVATAR_TINTS[i % AVATAR_TINTS.length];
 export function HomeScreen({
   patients,
   dark,
+  topTab,
+  onTopTab,
   onOpenPatient,
   onNewPatient,
   onToggleTheme,
+  onOpenDetail,
   onFlash,
 }: {
   patients: Patient[];
   dark: boolean;
+  topTab: 'patients' | 'lookup';
+  onTopTab: (t: 'patients' | 'lookup') => void;
   onOpenPatient: (id: string) => void;
   onNewPatient: () => void;
   onToggleTheme: () => void;
+  onOpenDetail: (pill: PillResult) => void;
   onFlash?: (m: string) => void;
 }) {
   const totalMeds = patients.reduce((s, p) => s + p.meds.length, 0);
@@ -41,7 +52,54 @@ export function HomeScreen({
   };
   return (
     <div style={{ paddingBottom: 120 }}>
-      <PageHeader title="지참약 식별" right={<IconBtn name={dark ? 'sun' : 'moon'} label="테마 전환" onClick={onToggleTheme} />} />
+      {/* 상단: [지참약 식별 | 의약품 검색] 탭 + 테마 토글(같은 줄에 정렬) */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: `calc(${STATUS_TOP} + 8px) 16px 14px` }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <SegTabs
+            tabs={[
+              { value: 'patients', label: '지참약 식별' },
+              { value: 'lookup', label: '의약품 검색' },
+            ]}
+            value={topTab}
+            onChange={onTopTab}
+          />
+        </div>
+        <IconBtn name={dark ? 'sun' : 'moon'} label="테마 전환" onClick={onToggleTheme} />
+      </div>
+
+      {topTab === 'lookup' ? (
+        <LookupBody onOpenDetail={onOpenDetail} />
+      ) : (
+        <PatientsBody
+          patients={patients}
+          totalMeds={totalMeds}
+          ds={ds}
+          runUpdate={runUpdate}
+          onOpenPatient={onOpenPatient}
+          onNewPatient={onNewPatient}
+        />
+      )}
+    </div>
+  );
+}
+
+function PatientsBody({
+  patients,
+  totalMeds,
+  ds,
+  runUpdate,
+  onOpenPatient,
+  onNewPatient,
+}: {
+  patients: Patient[];
+  totalMeds: number;
+  ds: ReturnType<typeof useDataset>;
+  runUpdate: () => void;
+  onOpenPatient: (id: string) => void;
+  onNewPatient: () => void;
+}) {
+  return (
+    <>
       <div
         style={{
           margin: '4px 20px 22px',
@@ -180,7 +238,7 @@ export function HomeScreen({
       </div>
 
       <FloatingCTA icon="plus" label="새 환자 추가" onClick={onNewPatient} />
-    </div>
+    </>
   );
 }
 
@@ -204,6 +262,107 @@ function FloatingCTA({ label, icon, onClick }: { label: string; icon: string; on
   );
 }
 
+// ── 의약품 검색(읽기 전용): 경구약 / 주사제 / 외용약 ──────────────
+function LookupCentered({ children }: { children: ReactNode }) {
+  return <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text-weak)', fontSize: 14.5, fontWeight: 600 }}>{children}</div>;
+}
+
+function LookupRow({ name, sub, meta, glyph, img, onClick }: { name: string; sub?: string; meta?: string; glyph?: ReactNode; img?: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{ display: 'flex', alignItems: 'center', gap: 13, padding: 'var(--card-py) 16px', borderRadius: 'var(--r-card)', background: 'var(--card)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)', width: '100%', textAlign: 'left', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+    >
+      {glyph ?? (
+        <div style={{ width: 48, height: 48, flexShrink: 0, borderRadius: 14, background: 'var(--fill)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', color: 'var(--text-weaker)' }}>
+          {img ? <img src={img} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <Icon name="pill" size={24} />}
+        </div>
+      )}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+        {sub && <div style={{ fontSize: 13.5, color: 'var(--text-weak)', fontWeight: 600, marginTop: 2 }}>{sub}</div>}
+        {meta && <div style={{ fontSize: 12.5, color: 'var(--text-weaker)', fontWeight: 600, marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{meta}</div>}
+      </div>
+      <Icon name="chevron" size={18} style={{ color: 'var(--text-weaker)', flexShrink: 0 }} />
+    </button>
+  );
+}
+
+function LookupBody({ onOpenDetail }: { onOpenDetail: (pill: PillResult) => void }) {
+  const [tab, setTab] = useState<'oral' | 'injection' | 'external'>('oral');
+  const [name, setName] = useState('');
+  const [pills, setPills] = useState<PillResult[]>([]);
+  const [perm, setPerm] = useState<PermitDrug[]>([]);
+  const [loading, setLoading] = useState(false);
+  const reqId = useRef(0);
+
+  useEffect(() => {
+    const q = name.trim();
+    if (!q) {
+      setPills([]);
+      setPerm([]);
+      setLoading(false);
+      return;
+    }
+    const id = ++reqId.current;
+    setLoading(true);
+    if (tab === 'oral') {
+      drugApi
+        .searchPills({ itemName: q })
+        .then((r) => id === reqId.current && (setPills(r), setLoading(false)))
+        .catch(() => id === reqId.current && (setPills([]), setLoading(false)));
+    } else {
+      searchInjections(q).then((r) => {
+        if (id !== reqId.current) return;
+        setPerm(r.filter((d) => (tab === 'injection') === isInjectionName(d.itemName)));
+        setLoading(false);
+      });
+    }
+  }, [name, tab]);
+
+  const placeholder = tab === 'oral' ? '예) 타이레놀, 노바스크' : tab === 'injection' ? '예) 란투스, 인슐린' : '예) 벤토린, 둘코락스좌약';
+  const empty = tab === 'oral' ? pills.length === 0 : perm.length === 0;
+
+  return (
+    <div style={{ padding: '0 20px 28px' }}>
+      <SegTabs
+        tabs={[
+          { value: 'oral', label: '경구약' },
+          { value: 'injection', label: '주사제' },
+          { value: 'external', label: '외용약' },
+        ]}
+        value={tab}
+        onChange={setTab}
+      />
+      <div style={{ height: 16 }} />
+      <TextField value={name} onChange={setName} placeholder={placeholder} aria-label="의약품 이름 검색" />
+      <p style={{ margin: '10px 2px 0', fontSize: 12.5, color: 'var(--text-weaker)', fontWeight: 600, lineHeight: 1.45 }}>
+        이름으로 검색하고 약을 누르면 상세 정보를 볼 수 있어요.
+      </p>
+      <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 'var(--list-gap)' }}>
+        {name.trim() && loading && <LookupCentered>검색 중…</LookupCentered>}
+        {name.trim() && !loading && empty && <LookupCentered>결과가 없어요. 이름을 바꿔보세요.</LookupCentered>}
+        {!loading && tab === 'oral' &&
+          pills.map((p) => (
+            <LookupRow
+              key={p.itemSeq}
+              name={p.itemName}
+              sub={p.entpName}
+              meta={[p.colorClass1, p.drugShape, p.formCodeName].filter(Boolean).join(' · ')}
+              glyph={<PillGlyph color={p.colorClass1} shape={p.drugShape} marking={p.printFront} size={48} />}
+              onClick={() => onOpenDetail(p)}
+            />
+          ))}
+        {!loading && tab !== 'oral' &&
+          perm.map((d) => (
+            <LookupRow key={d.itemSeq} name={d.itemName} sub={d.entpName} meta={d.ingredient} img={proxiedImg(d.itemImage)} onClick={() => onOpenDetail(permitToPill(d))} />
+          ))}
+      </div>
+    </div>
+  );
+}
+
 // ── 복약 리스트 ──────────────────────────────────────────────
 const SORT_TABS: { value: SortMode; label: string }[] = [
   { value: 'manual', label: '기본순' },
@@ -220,7 +379,7 @@ export function MedListScreen({
   onManage,
   onCopy,
   onDur,
-  onZoom,
+  onDetail,
 }: {
   patient: Patient;
   onBack: () => void;
@@ -230,7 +389,7 @@ export function MedListScreen({
   onManage: () => void;
   onCopy: () => void;
   onDur: () => void;
-  onZoom: (m: MedItem) => void;
+  onDetail: (m: MedItem) => void;
 }) {
   const displayed = useMemo(() => sortMeds(patient.meds, patient.sortMode), [patient.meds, patient.sortMode]);
   return (
@@ -253,7 +412,7 @@ export function MedListScreen({
         <ul className="med-list" style={{ listStyle: 'none', margin: 0, display: 'flex', flexDirection: 'column', gap: 'var(--list-gap)', padding: '0 16px' }}>
           {displayed.map((m) => (
             <li key={m.id}>
-              <MedRow med={m} onClick={() => onEditMed(m)} onZoom={() => onZoom(m)} />
+              <MedRow med={m} onClick={() => onEditMed(m)} onDetail={() => onDetail(m)} />
             </li>
           ))}
         </ul>
@@ -322,7 +481,7 @@ function EmptyMedState({ onAdd }: { onAdd: () => void }) {
   );
 }
 
-function MedRow({ med, onClick, onZoom }: { med: MedItem; onClick: () => void; onZoom: () => void }) {
+function MedRow({ med, onClick, onDetail }: { med: MedItem; onClick: () => void; onDetail: () => void }) {
   const fm = freqMeta(med.frequency);
   return (
     <div
@@ -342,9 +501,9 @@ function MedRow({ med, onClick, onZoom }: { med: MedItem; onClick: () => void; o
     >
       <button
         type="button"
-        onClick={onZoom}
-        aria-label="이미지 확대"
-        style={{ border: 'none', background: 'transparent', padding: 0, cursor: 'zoom-in', flexShrink: 0, WebkitTapHighlightColor: 'transparent' }}
+        onClick={onDetail}
+        aria-label="약 상세 정보"
+        style={{ border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', flexShrink: 0, WebkitTapHighlightColor: 'transparent' }}
       >
         <PillGlyph color={med.color} shape={med.shape} marking={med.marking} size={50} />
       </button>

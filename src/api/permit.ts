@@ -30,6 +30,12 @@ function includesCI(h: string, n: string) {
   return h.toLowerCase().includes(n.toLowerCase());
 }
 
+// 주사제(비경구 주입) 판별 — 나머지(흡입/좌약/연고/점안 등)는 외용약으로 분류
+const INJECTION_RE = /(주사|주입|주사액|주사제|펜|카트리지|바이알|키트|프리필드|플렉스|퀵펜|인슐린|주\)|주$)/;
+export function isInjectionName(name: string): boolean {
+  return INJECTION_RE.test(name || '');
+}
+
 // 번들 주사제 데이터(컴팩트 → PermitDrug) 1회 로드 캐시
 let bundle: PermitDrug[] | null = null;
 let bundleLoaded = false;

@@ -464,13 +464,13 @@ export function Lightbox({ pill, onClose }: { pill: ZoomPill | null; onClose: ()
         {ap && <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.65)', fontWeight: 600, marginTop: 6 }}>{ap}</div>}
         {pill.imageUrl && (
           <a
-            href={pill.imageUrl}
+            href={proxiedImg(pill.imageUrl)}
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
             style={{ display: 'inline-block', marginTop: 12, color: '#fff', fontSize: 13, fontWeight: 700, textDecoration: 'underline', opacity: 0.9 }}
           >
-            실물 사진 원본 열기 ↗
+            실물 사진 새 탭에서 보기 ↗
           </a>
         )}
         <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.4)', fontWeight: 600, marginTop: 14 }}>
@@ -541,7 +541,7 @@ export function Tag({ children, tone }: { children: ReactNode; tone?: 'primary' 
   );
 }
 
-const STATUS_TOP = 'max(20px, env(safe-area-inset-top))';
+export const STATUS_TOP = 'max(20px, env(safe-area-inset-top))';
 
 export function PageHeader({
   title,

@@ -2,11 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { useStore, uid } from './state/store';
 import { buildTokens, useTheme } from './design/theme';
 import { HomeScreen, MedListScreen, SearchScreen, type PickedMark } from './design/screens';
-import { AddMedSheet, CopySheet, DurSheet, PatientManageSheet, MarkGallerySheet, DrawMarkSheet, type MedFormData } from './design/sheets';
+import { AddMedSheet, CopySheet, DurSheet, PatientManageSheet, MarkGallerySheet, DrawMarkSheet, DrugDetailSheet, type MedFormData } from './design/sheets';
 import { Toast, Lightbox, type ZoomPill } from './design/ui';
 import { sortMeds } from './domain/sort';
 import type { MedItem, Patient, SortMode } from './domain/models';
 import type { MarkOption, PillResult } from './api';
+
+const pillToZoom = (p: PillResult): ZoomPill => ({ itemName: p.itemName, color: p.colorClass1, drugShape: p.drugShape, marking: p.printFront, imageUrl: p.itemImage });
+const medToPill = (m: MedItem): PillResult => ({ itemSeq: m.itemSeq, itemName: m.name, entpName: '', colorClass1: m.color, drugShape: m.shape, printFront: m.marking, itemImage: m.imageUrl });
 
 type Route = { name: 'home' | 'patient' | 'search'; patientId: string | null };
 const DEPTH: Record<Route['name'], number> = { home: 0, patient: 1, search: 2 };
@@ -34,6 +37,8 @@ export default function App() {
   const [drawOpen, setDrawOpen] = useState(false);
   const [pickedMark, setPickedMark] = useState<PickedMark | null>(null);
   const [zoomPill, setZoomPill] = useState<ZoomPill | null>(null);
+  const [topTab, setTopTab] = useState<'patients' | 'lookup'>('patients');
+  const [detailPill, setDetailPill] = useState<PillResult | null>(null);
 
   const patients = state.patients;
   const activePatient: Patient | null = patients.find((p) => p.id === route.patientId) ?? null;
@@ -49,6 +54,7 @@ export default function App() {
       setGalleryOpen(false);
       setDrawOpen(false);
     }
+    setDetailPill(null);
     setRoute(next);
   };
 
@@ -90,9 +96,12 @@ export default function App() {
       <HomeScreen
         patients={patients}
         dark={dark}
+        topTab={topTab}
+        onTopTab={setTopTab}
         onOpenPatient={(id) => go({ name: 'patient', patientId: id })}
         onNewPatient={newPatient}
         onToggleTheme={toggle}
+        onOpenDetail={(pill) => setDetailPill(pill)}
         onFlash={flash}
       />
     );
@@ -107,7 +116,7 @@ export default function App() {
         onManage={() => setManageOpen(true)}
         onCopy={() => setCopyOpen(true)}
         onDur={() => setDurOpen(true)}
-        onZoom={(m) => setZoomPill({ itemName: m.name, color: m.color, drugShape: m.shape, marking: m.marking, imageUrl: m.imageUrl })}
+        onDetail={(m) => setDetailPill(medToPill(m))}
       />
     );
   } else if (route.name === 'search' && activePatient) {
@@ -137,9 +146,12 @@ export default function App() {
       <HomeScreen
         patients={patients}
         dark={dark}
+        topTab={topTab}
+        onTopTab={setTopTab}
         onOpenPatient={(id) => go({ name: 'patient', patientId: id })}
         onNewPatient={newPatient}
         onToggleTheme={toggle}
+        onOpenDetail={(pill) => setDetailPill(pill)}
         onFlash={flash}
       />
     );
@@ -214,6 +226,7 @@ export default function App() {
       />
       <MarkGallerySheet open={galleryOpen} onClose={() => setGalleryOpen(false)} onPick={(m: MarkOption) => setPickedMark({ code: m.code, img: m.img })} />
       <DrawMarkSheet open={drawOpen} onClose={() => setDrawOpen(false)} onPick={(m: MarkOption) => setPickedMark({ code: m.code, img: m.img })} />
+      <DrugDetailSheet open={!!detailPill} pill={detailPill} onClose={() => setDetailPill(null)} onZoom={(p) => setZoomPill(pillToZoom(p))} />
       <Lightbox pill={zoomPill} onClose={() => setZoomPill(null)} />
 
       <Toast msg={toast} />

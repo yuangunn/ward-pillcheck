@@ -59,7 +59,7 @@ function frontBack(front?: string, back?: string): string {
 }
 
 /** 상세 정보 본문(펼침 상태에서만 마운트 → 마운트 시 1회 로드). 토글 버튼은 상위 고정 헤더에. */
-function DetailPanel({ seq, pill }: { seq: string; pill: PillResult }) {
+function DetailPanel({ seq, pill, onZoom }: { seq: string; pill: PillResult; onZoom?: () => void }) {
   const [detail, setDetail] = useState<DrugDetail | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [imgFail, setImgFail] = useState(false);
@@ -108,18 +108,24 @@ function DetailPanel({ seq, pill }: { seq: string; pill: PillResult }) {
     <div style={{ padding: '14px 4px 4px' }}>
       {/* 실물 사진 + 외형/분류 요약 (항상 표시) */}
       <div style={{ display: 'flex', gap: 14, marginBottom: 16 }}>
-            <div
+            <button
+              type="button"
+              onClick={onZoom}
+              aria-label={onZoom ? '사진 크게 보기' : undefined}
               style={{
                 width: 84,
                 height: 84,
                 flexShrink: 0,
                 borderRadius: 16,
+                padding: 0,
                 background: '#fff',
                 border: '1px solid var(--border)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 overflow: 'hidden',
+                cursor: onZoom ? 'zoom-in' : 'default',
+                WebkitTapHighlightColor: 'transparent',
               }}
             >
               {photo && !imgFail ? (
@@ -127,7 +133,7 @@ function DetailPanel({ seq, pill }: { seq: string; pill: PillResult }) {
               ) : (
                 <PillGlyph color={pill.colorClass1} shape={pill.drugShape} marking={pill.printFront} size={72} />
               )}
-            </div>
+            </button>
             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
               {ingredient && (
                 <div style={{ display: 'flex', gap: 8, fontSize: 13, lineHeight: 1.4 }}>
@@ -156,14 +162,14 @@ function DetailPanel({ seq, pill }: { seq: string; pill: PillResult }) {
             </div>
           </div>
 
-          {pill.itemImage && (
+          {photo && (
             <a
-              href={pill.itemImage}
+              href={photo}
               target="_blank"
               rel="noreferrer"
               style={{ display: 'inline-block', marginBottom: 14, fontSize: 12.5, fontWeight: 700, color: 'var(--primary-ink)', textDecoration: 'none' }}
             >
-              실물 사진 원본 열기 ↗
+              {onZoom ? '사진 크게 보기 (또는 사진 탭) ↗' : '실물 사진 새 탭에서 보기 ↗'}
             </a>
           )}
 
@@ -194,6 +200,36 @@ function DetailPanel({ seq, pill }: { seq: string; pill: PillResult }) {
             </div>
           )}
         </div>
+  );
+}
+
+/** 읽기 전용 약 상세 보기 시트 (의약품 검색 결과·환자 약 그림 탭). 사진 탭 시 onZoom 으로 확대. */
+export function DrugDetailSheet({
+  open,
+  pill,
+  onClose,
+  onZoom,
+}: {
+  open: boolean;
+  pill: PillResult | null;
+  onClose: () => void;
+  onZoom: (p: PillResult) => void;
+}) {
+  return (
+    <BottomSheet open={open} onClose={onClose} title="약 상세 정보" maxH="92%">
+      {pill && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '2px 0 8px' }}>
+            <PillGlyph color={pill.colorClass1} shape={pill.drugShape} marking={pill.printFront} size={52} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.4 }}>{pill.itemName}</div>
+              {pill.entpName && <div style={{ fontSize: 13.5, color: 'var(--text-weak)', fontWeight: 600, marginTop: 2 }}>{pill.entpName}</div>}
+            </div>
+          </div>
+          <DetailPanel seq={pill.itemSeq} pill={pill} onZoom={() => onZoom(pill)} />
+        </>
+      )}
+    </BottomSheet>
   );
 }
 
