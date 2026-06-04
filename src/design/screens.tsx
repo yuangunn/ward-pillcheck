@@ -32,6 +32,7 @@ export function HomeScreen({
   onNewPatient,
   onToggleTheme,
   onOpenDetail,
+  onOpenSettings,
   onFlash,
 }: {
   patients: Patient[];
@@ -42,6 +43,7 @@ export function HomeScreen({
   onNewPatient: () => void;
   onToggleTheme: () => void;
   onOpenDetail: (pill: PillResult) => void;
+  onOpenSettings: () => void;
   onFlash?: (m: string) => void;
 }) {
   const totalMeds = patients.reduce((s, p) => s + p.meds.length, 0);
@@ -64,6 +66,7 @@ export function HomeScreen({
             onChange={onTopTab}
           />
         </div>
+        <IconBtn name="settings" label="설정" onClick={onOpenSettings} />
         <IconBtn name={dark ? 'sun' : 'moon'} label="테마 전환" onClick={onToggleTheme} />
       </div>
 

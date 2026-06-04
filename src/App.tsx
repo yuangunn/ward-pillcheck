@@ -3,6 +3,7 @@ import { useStore, uid } from './state/store';
 import { buildTokens, useTheme } from './design/theme';
 import { HomeScreen, MedListScreen, SearchScreen, type PickedMark } from './design/screens';
 import { AddMedSheet, CopySheet, DurSheet, PatientManageSheet, MarkGallerySheet, DrawMarkSheet, DrugDetailSheet, type MedFormData } from './design/sheets';
+import { SettingsSheet } from './design/SettingsSheet';
 import { Toast, Lightbox, type ZoomPill } from './design/ui';
 import { sortMeds } from './domain/sort';
 import type { MedItem, Patient, SortMode } from './domain/models';
@@ -39,6 +40,7 @@ export default function App() {
   const [zoomPill, setZoomPill] = useState<ZoomPill | null>(null);
   const [topTab, setTopTab] = useState<'patients' | 'lookup'>('patients');
   const [detailPill, setDetailPill] = useState<PillResult | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const patients = state.patients;
   const activePatient: Patient | null = patients.find((p) => p.id === route.patientId) ?? null;
@@ -102,6 +104,7 @@ export default function App() {
         onNewPatient={newPatient}
         onToggleTheme={toggle}
         onOpenDetail={(pill) => setDetailPill(pill)}
+        onOpenSettings={() => setSettingsOpen(true)}
         onFlash={flash}
       />
     );
@@ -152,6 +155,7 @@ export default function App() {
         onNewPatient={newPatient}
         onToggleTheme={toggle}
         onOpenDetail={(pill) => setDetailPill(pill)}
+        onOpenSettings={() => setSettingsOpen(true)}
         onFlash={flash}
       />
     );
@@ -227,6 +231,7 @@ export default function App() {
       <MarkGallerySheet open={galleryOpen} onClose={() => setGalleryOpen(false)} onPick={(m: MarkOption) => setPickedMark({ code: m.code, img: m.img })} />
       <DrawMarkSheet open={drawOpen} onClose={() => setDrawOpen(false)} onPick={(m: MarkOption) => setPickedMark({ code: m.code, img: m.img })} />
       <DrugDetailSheet open={!!detailPill} pill={detailPill} onClose={() => setDetailPill(null)} onZoom={(p) => setZoomPill(pillToZoom(p))} />
+      <SettingsSheet open={settingsOpen} onClose={() => setSettingsOpen(false)} onFlash={flash} />
       <Lightbox pill={zoomPill} onClose={() => setZoomPill(null)} />
 
       <Toast msg={toast} />

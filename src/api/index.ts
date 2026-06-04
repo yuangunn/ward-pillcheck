@@ -20,6 +20,9 @@ export const usesDataset = !!apiBase;
 
 export { getMarkOptions, proxiedImg, type MarkOption } from './dataset';
 export { searchInjections, isInjectionName, type PermitDrug } from './permit';
+export { downloadDetails, getBundledDetail, detailsStatus, clearDetails, type DetailRecord } from './details';
+export { downloadDur, durBundleStatus, clearDur } from './durBundle';
+export { downloadPhotos, cachedPhotoCount, clearPhotos, type PhotoProgress } from './photoCache';
 export {
   ensureMarkFeatures,
   featureFromCanvas,
