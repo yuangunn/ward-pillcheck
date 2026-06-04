@@ -107,6 +107,20 @@ export function Icon({
         <path d="M8 11V8a4 4 0 018 0v3" {...p} />
       </>
     ),
+    download: (
+      <>
+        <path d="M12 3v12M7 11l5 5 5-5" {...p} />
+        <path d="M5 20h14" {...p} />
+      </>
+    ),
+    settings: (
+      <>
+        <path d="M4 7h8M16 7h4M4 12h4M12 12h8M4 17h12M18 17h2" {...p} />
+        <circle cx="14" cy="7" r="2.2" {...p} />
+        <circle cx="9" cy="12" r="2.2" {...p} />
+        <circle cx="15" cy="17" r="2.2" {...p} />
+      </>
+    ),
   };
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" style={style} aria-hidden>

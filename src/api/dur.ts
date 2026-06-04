@@ -1,7 +1,8 @@
 import type { MedItem } from '../domain/models';
+import { getBundledDurMap } from './durBundle';
 
 // DUR(의약품안전사용서비스) 점검: 병용금기/임부금기/노인주의/연령금기/효능군중복.
-// Worker /api/dur?itemSeq= 가 품목별로 정규화해 준다.
+// 받아둔 DUR 번들(오프라인) 우선, 없으면 Worker /api/dur?itemSeq= 품목별 조회.
 
 export interface DurCombo {
   seq: string;
@@ -54,9 +55,11 @@ export async function fetchDur(itemSeq: string): Promise<DurInfo> {
   }
 }
 
-/** 리스트의 모든 품목 DUR 동시 조회 (itemSeq 중복 제거) */
+/** 리스트의 모든 품목 DUR 조회 — 받아둔 번들(오프라인) 우선, 없으면 워커 품목별 조회 */
 export async function fetchDurMap(meds: Pick<MedItem, 'itemSeq'>[]): Promise<Map<string, DurInfo>> {
   const seqs = [...new Set(meds.map((m) => m.itemSeq).filter(Boolean))];
+  const bundled = await getBundledDurMap(seqs);
+  if (bundled) return bundled; // 다운로드됨 → 오프라인 매칭
   const infos = await Promise.all(seqs.map(fetchDur));
   return new Map(infos.map((i) => [i.itemSeq, i]));
 }

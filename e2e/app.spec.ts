@@ -104,6 +104,15 @@ test('환자 약 그림 탭 → 상세 보기', async ({ page }) => {
   await expect(page.getByRole('dialog', { name: '약 상세 정보' })).toBeVisible();
 });
 
+test('설정: 오프라인 데이터 화면 열림', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '설정' }).click();
+  const sheet = page.getByRole('dialog', { name: '설정' });
+  await expect(sheet.getByText('오프라인 데이터')).toBeVisible();
+  await expect(sheet.getByText(/허가사항 상세/)).toBeVisible();
+  await expect(sheet.getByText(/금기점검\(DUR\)/)).toBeVisible();
+});
+
 test('다크 모드 토글', async ({ page }) => {
   await page.goto('/');
   const before = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);

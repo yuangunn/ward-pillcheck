@@ -25,6 +25,15 @@ const PILL_ENDPOINT =
 const PERMIT_LIST_ENDPOINT =
   process.env.PERMIT_LIST_ENDPOINT ??
   'https://apis.data.go.kr/1471000/DrugPrdtPrmsnInfoService07/getDrugPrdtPrmsnInq07';
+const DUR_BASE = process.env.DUR_BASE ?? 'https://apis.data.go.kr/1471000/DURPrdlstInfoService03';
+// DUR 5종: 병용금기/임부금기/노인주의/특정연령대금기/효능군중복
+const DUR_OPS = {
+  combo: 'getUsjntTabooInfoList03',
+  pregnancy: 'getPwnmTabooInfoList03',
+  elderly: 'getOdsnAtentInfoList03',
+  age: 'getSpcifyAgrdeTabooInfoList03',
+  dup: 'getEfcyDplctInfoList03',
+};
 
 // 외용약·주사제 판별(품목명 기준) — 낱알식별에 없는(모양 없는) 비경구 약을 추림.
 // 주사제 + 흡입제 + 좌약/질정 + 연고/크림/겔/로션/패치 + 점안/점이/점비 + 스프레이/분무 등.
@@ -173,6 +182,49 @@ async function collectPermit() {
   return { injections, ingrBySeq, details };
 }
 
+/** DUR 룰셋 전수 수집 → seq별 컴팩트 맵 { c:[{s,n,t}], p,e,a,d }. 오프라인 금기점검용 */
+function durText(it) {
+  return stripDoc(it.PROHBT_CONTENT ?? it.REMARK ?? it.TYPE_NAME) ?? '';
+}
+function addDur(map, cat, row) {
+  const seq = row.ITEM_SEQ ?? '';
+  if (!seq) return;
+  const e = (map[seq] ??= {});
+  if (cat === 'combo') {
+    const s = row.MIXTURE_ITEM_SEQ ?? '';
+    const n = row.MIXTURE_ITEM_NAME ?? '';
+    if (s || n) (e.c ??= []).push({ s, n, t: durText(row) });
+  } else {
+    const key = cat === 'pregnancy' ? 'p' : cat === 'elderly' ? 'e' : cat === 'age' ? 'a' : 'd';
+    if (!e[key]) e[key] = durText(row);
+  }
+}
+async function collectDur() {
+  const map = {};
+  for (const [cat, op] of Object.entries(DUR_OPS)) {
+    const ep = `${DUR_BASE}/${op}`;
+    let total = 0;
+    let pages = 1;
+    try {
+      const first = await fetchPayload(ep, 1);
+      total = totalCountOf(first);
+      pages = total ? Math.ceil(total / NUM) : 1;
+      extractItems(first).forEach((row) => addDur(map, cat, row));
+    } catch (e) {
+      console.warn(`  [DUR:${cat}] page1 실패: ${e.message}`);
+      continue;
+    }
+    console.log(`  [DUR:${cat}] 총 ${total} / ${pages}페이지`);
+    for (let start = 2; start <= pages; start += CONCURRENCY) {
+      const batch = [];
+      for (let p = start; p < start + CONCURRENCY && p <= pages; p++) batch.push(p);
+      const res = await Promise.allSettled(batch.map((p) => fetchItems(ep, p)));
+      for (const r of res) if (r.status === 'fulfilled') r.value.forEach((row) => addDur(map, cat, row));
+    }
+  }
+  return map;
+}
+
 /** 낱알식별 등 일반 endpoint 페이징 수집(컴팩트가 null이면 제외) */
 async function collect(label, endpoint, compactFn, maxPages) {
   const all = [];
@@ -208,13 +260,14 @@ function write(name, records) {
   console.log(`작성됨: ${name}.json (${records.length}건)`);
 }
 
-/** 용량이 큰 번들은 gzip 으로 저장(클라이언트가 DecompressionStream 으로 해제) */
-function writeGz(name, records) {
-  const meta = { builtAt: new Date().toISOString(), version: 1, count: records.length };
-  const gz = gzipSync(Buffer.from(JSON.stringify(records)));
+/** 용량이 큰 번들은 gzip 으로 저장(클라이언트가 DecompressionStream 으로 해제). 배열·객체 모두 허용 */
+function writeGz(name, data) {
+  const count = Array.isArray(data) ? data.length : Object.keys(data).length;
+  const meta = { builtAt: new Date().toISOString(), version: 1, count };
+  const gz = gzipSync(Buffer.from(JSON.stringify(data)));
   writeFileSync(`${OUT}/${name}.json.gz`, gz);
   writeFileSync(`${OUT}/${name}-meta.json`, JSON.stringify(meta));
-  console.log(`작성됨: ${name}.json.gz (${records.length}건, ${(gz.length / 1048576).toFixed(1)}MB gz)`);
+  console.log(`작성됨: ${name}.json.gz (${count}건, ${(gz.length / 1048576).toFixed(1)}MB gz)`);
 }
 
 const IMG_HEADERS = {
@@ -280,6 +333,7 @@ if (!KEY) {
   write('injections', []);
   write('marks', []);
   writeGz('details', []);
+  writeGz('dur', {});
 } else {
   console.log('낱알식별 수집…');
   const pills = await collect('낱알', PILL_ENDPOINT, compactPill, 600);
@@ -301,4 +355,8 @@ if (!KEY) {
   write('injections', injections);
   console.log(`허가사항 상세 ${details.length}건(전문약 포함) → details.json.gz`);
   writeGz('details', details);
+  console.log('DUR 룰셋 전수 수집…');
+  const dur = await collectDur();
+  console.log(`DUR 대상 ${Object.keys(dur).length}품목 → dur.json.gz`);
+  writeGz('dur', dur);
 }
