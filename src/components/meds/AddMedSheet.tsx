@@ -22,7 +22,8 @@ export function AddMedSheet({ pill, duplicate, onClose, onAdd }: Props) {
     timings: ['아침식후'],
     color: pill.colorClass1 ?? '',
     shape: pill.drugShape ?? '',
-    marking: pill.printFront ?? '',
+    // 앞/뒤 각인을 모두 채움 (뒷면에만 글자가 있는 약 대응)
+    marking: [pill.printFront, pill.printBack].filter(Boolean).join(' / '),
   };
 
   const handleSubmit = (v: MedFormValue) => {

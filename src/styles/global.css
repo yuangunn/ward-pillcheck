@@ -492,6 +492,17 @@ h3 {
   font-size: 13px;
   color: var(--text-muted);
 }
+.result-sub .hl {
+  background: #ffe08a;
+  color: #5a3d00;
+  border-radius: 3px;
+  padding: 0 2px;
+  font-weight: 700;
+}
+:root[data-theme='dark'] .result-sub .hl {
+  background: #6b5a16;
+  color: #ffe9a8;
+}
 .result-detail {
   border-top: 1px solid var(--border);
   padding: 12px;
