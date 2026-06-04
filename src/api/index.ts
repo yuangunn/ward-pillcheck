@@ -15,5 +15,7 @@ export const drugApi: DrugApi = apiBase ? createBundledClient(apiBase) : createM
 
 /** 현재 목 모드인지 (UI 안내 배너용) */
 export const isMockMode = !apiBase;
-/** 검색에 번들 데이터셋을 쓰는지 (데이터 업데이트 UI 노출용) */
+/** 검색에 번들 데이터셋을 쓰는지 (데이터 업데이트·마크 갤러리 노출용) */
 export const usesDataset = !!apiBase;
+
+export { getMarkOptions, type MarkOption } from './dataset';

@@ -9,6 +9,7 @@ export interface PillSearchQuery {
   drugShape?: string; // 모양 (drug_shape)
   colorClass1?: string; // 색 (color_class1)
   printFront?: string; // 앞면 각인 (print_front)
+  markCode?: string; // 마크 코드(갤러리 선택) — 번들 데이터셋 전용
   formCodeName?: string; // 제형
   pageNo?: number;
   numOfRows?: number;
