@@ -2,11 +2,11 @@
     <defs>
       <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3b78ff"></stop><stop offset="1" stop-color="#2360ee"></stop></linearGradient>
       <linearGradient id="cap" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff"></stop><stop offset="1" stop-color="#dbe7ff"></stop></linearGradient>
-      <clipPath id="c"><path d="M 92.2,0 L 419.8,0 C 473.3,0 512,38.7 512,92.2 L 512,419.8 C 512,473.3 473.3,512 419.8,512 L 92.2,512 C 38.7,512 0,473.3 0,419.8 L 0,92.2 C 0,38.7 38.7,0 92.2,0 Z"></path></clipPath>
+      
     </defs>
-    <g clip-path="url(#c)">
+    <g>
       <rect width="512" height="512" fill="url(#bg)"></rect>
-      <g transform="translate(256,244) scale(1) translate(-256,-244)">
+      <g transform="translate(256,244) scale(0.78) translate(-256,-244)">
         <line x1="332.4" y1="324.4" x2="387.6" y2="379.6" stroke="#fff" stroke-width="46" stroke-linecap="round"></line>
         <circle cx="232" cy="224" r="112" fill="#fff"></circle>
         <g transform="rotate(-38 232 224)">
