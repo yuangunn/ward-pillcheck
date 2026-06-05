@@ -15,6 +15,7 @@ import { writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { stripDoc } from './strip-doc.mjs';
 
 const OUT = resolve(dirname(fileURLToPath(import.meta.url)), '../public/data');
 const KEY = process.env.SERVICE_KEY?.trim();
@@ -59,19 +60,7 @@ function totalCountOf(payload) {
   return Number(payload?.body?.totalCount ?? payload?.response?.body?.totalCount ?? 0) || 0;
 }
 
-/** 허가사항 문서(XML/HTML) → 평문화. 빈/무의미 값은 undefined */
-function stripDoc(s) {
-  if (typeof s !== 'string' || !s.trim()) return undefined;
-  const text = s
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&amp;/g, '&')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  return text || undefined;
-}
+// stripDoc 은 ./strip-doc.mjs 에서 import (테스트와 공유)
 
 /** 낱알식별 컴팩트 레코드 */
 function compactPill(r) {

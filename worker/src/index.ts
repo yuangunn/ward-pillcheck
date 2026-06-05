@@ -56,16 +56,25 @@ function json(body: unknown, env: Env, status = 200): Response {
   });
 }
 
-/** 허가정보 효능/용법/주의 필드는 XML 문서 문자열 — 태그 제거 후 평문화 */
+/** 허가사항 문서(XML/CDATA) → 가독 평문화. 표·문단은 줄바꿈 보존. */
 function stripDoc(s: unknown): string | undefined {
   if (typeof s !== 'string' || !s.trim()) return undefined;
   const text = s
-    .replace(/<[^>]+>/g, ' ') // 태그 제거
+    .replace(/<!\[CDATA\[/gi, '')
+    .replace(/\]\]>/g, '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(?:article|section|paragraph|title|table|tr|tbody|thead|li|p|div)\s*>/gi, '\n')
+    .replace(/<\/(?:td|th)\s*>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&amp;/g, '&')
     .replace(/&nbsp;/g, ' ')
-    .replace(/\s+/g, ' ')
+    .replace(/&middot;/g, '·')
+    .replace(/&#x?[0-9a-fA-F]+;/g, ' ')
+    .replace(/[ \t ]+/g, ' ')
+    .replace(/ *\n */g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
   return text || undefined;
 }
