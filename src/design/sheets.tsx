@@ -16,7 +16,7 @@ import type { MedItem, Patient } from '../domain/models';
 import { drugApi, getMarkOptions, proxiedImg, type DrugDetail, type MarkOption, type PillResult } from '../api';
 import { ensureMarkFeatures, featuresFromCanvas, rankFeaturesMulti, type RankedMark } from '../api';
 import { analyzeInteractions, fetchDurMap, type InteractionResult } from '../api/dur';
-import { getTeamsTarget, teamsDeepLink } from '../state/teamsTarget';
+import { getTeamsTarget, setTeamsTarget, teamsDeepLink } from '../state/teamsTarget';
 
 const TIMING_DEFAULTS: Record<number, string[]> = {
   1: ['아침식후'],
@@ -700,21 +700,91 @@ export function AddMedSheet({
   );
 }
 
+/** Teams 대상(공용계정/본인) 이메일 입력 팝업 — 미지정 상태로 보내기 시도 시 노출 */
+function TeamsTargetPrompt({
+  onSave,
+  onSkip,
+  onCancel,
+}: {
+  onSave: (email: string) => void;
+  onSkip: () => void;
+  onCancel: () => void;
+}) {
+  const [val, setVal] = useState('');
+  const ok = val.trim().includes('@');
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Teams 대상 입력"
+      style={{ position: 'absolute', inset: 0, zIndex: 260, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+    >
+      <div onClick={onCancel} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }} />
+      <div style={{ position: 'relative', width: '100%', maxWidth: 360, background: 'var(--bg)', borderRadius: 20, padding: 20, boxShadow: '0 12px 44px rgba(0,0,0,0.32)' }}>
+        <h3 style={{ margin: '0 0 6px', fontSize: 18, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.4 }}>
+          어디로 보낼까요?
+        </h3>
+        <p style={{ margin: '0 0 14px', fontSize: 13, color: 'var(--text-weak)', fontWeight: 600, letterSpacing: -0.3, lineHeight: 1.5 }}>
+          우리 <b style={{ color: 'var(--text-strong)' }}>병동 공용 Teams 계정</b>이나 <b style={{ color: 'var(--text-strong)' }}>본인 Teams 이메일</b>을 입력하면 그 대화방이 열려요. (설정 ⚙️에서 언제든 바꿀 수 있어요)
+        </p>
+        <TextField
+          value={val}
+          onChange={setVal}
+          placeholder="예) ward7@hospital.org"
+          autoFocus
+          type="email"
+          inputMode="email"
+          aria-label="Teams 대상 이메일"
+          onKeyDown={(e: React.KeyboardEvent) => {
+            if (e.key === 'Enter' && ok) onSave(val.trim());
+          }}
+        />
+        <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+          <Btn variant="ghost" full onClick={onSkip}>
+            새 채팅으로 열기
+          </Btn>
+          <Btn variant="primary" full onClick={() => onSave(val.trim())} disabled={!ok} style={{ background: '#5b5fc7' }}>
+            저장하고 보내기
+          </Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function CopySheet({ open, onClose, label, meds }: { open: boolean; onClose: () => void; label: string; meds: MedItem[] }) {
   const [copied, setCopied] = useState(false);
+  const [teamsTarget, setTeamsTargetState] = useState('');
+  const [teamsPrompt, setTeamsPrompt] = useState(false);
   const text = useMemo(() => buildListText(label, meds), [label, meds]);
   useEffect(() => {
-    if (!open) setCopied(false);
+    if (open) setTeamsTargetState(getTeamsTarget());
+    else {
+      setCopied(false);
+      setTeamsPrompt(false);
+    }
   }, [open]);
   const canShare = typeof navigator !== 'undefined' && !!navigator.share;
-  const teamsTarget = getTeamsTarget();
-  const openTeams = () => {
-    const url = teamsDeepLink(text);
+  const launchTeams = (target?: string) => {
+    const url = teamsDeepLink(text, target);
     try {
       window.open(url, '_blank', 'noopener');
     } catch {
       window.location.href = url;
     }
+  };
+  const openTeams = () => {
+    if (!getTeamsTarget()) {
+      setTeamsPrompt(true); // 대상 미지정 → 입력 팝업
+      return;
+    }
+    launchTeams();
+  };
+  const saveTeamsTarget = (email: string) => {
+    setTeamsTarget(email);
+    setTeamsTargetState(email);
+    setTeamsPrompt(false);
+    launchTeams(email);
   };
   const doCopy = async () => {
     try {
@@ -733,6 +803,7 @@ export function CopySheet({ open, onClose, label, meds }: { open: boolean; onClo
     }
   };
   return (
+    <>
     <BottomSheet open={open} onClose={onClose} title="인계용 텍스트" maxH="78%">
       <p style={{ margin: '0 0 14px', fontSize: 14, color: 'var(--text-weak)', fontWeight: 600, letterSpacing: -0.3 }}>그대로 복사해 인계 메모/메신저에 붙여넣으세요.</p>
       <pre style={{ margin: 0, padding: 16, borderRadius: 'var(--r-card)', background: 'var(--fill)', color: 'var(--text)', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 280, overflowY: 'auto' }}>
@@ -750,9 +821,20 @@ export function CopySheet({ open, onClose, label, meds }: { open: boolean; onClo
       <p style={{ margin: '8px 2px 0', fontSize: 12, color: 'var(--text-weaker)', fontWeight: 600, lineHeight: 1.45 }}>
         {teamsTarget
           ? `대상: ${teamsTarget} — Teams가 열리고 내용이 입력돼요(보내기만 탭).`
-          : '설정 ⚙️에서 “Teams 대상”을 지정하면 그 방으로 바로 가요. (미지정 시 새 채팅에 내용만 채워짐)'}
+          : '“Teams로 보내기”를 누르면 보낼 대상을 물어봐요. (설정 ⚙️에서도 지정 가능)'}
       </p>
     </BottomSheet>
+    {teamsPrompt && (
+      <TeamsTargetPrompt
+        onSave={saveTeamsTarget}
+        onSkip={() => {
+          setTeamsPrompt(false);
+          launchTeams(''); // 대상 없이 새 채팅으로
+        }}
+        onCancel={() => setTeamsPrompt(false)}
+      />
+    )}
+    </>
   );
 }
 

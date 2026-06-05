@@ -5,6 +5,7 @@ import { HomeScreen, MedListScreen, SearchScreen, type PickedMark } from './desi
 import { AddMedSheet, CopySheet, DurSheet, PatientManageSheet, MarkGallerySheet, DrawMarkSheet, DrugDetailSheet, type MedFormData } from './design/sheets';
 import { SettingsSheet } from './design/SettingsSheet';
 import { Onboarding } from './design/Onboarding';
+import { GuideBanner, GuideDone, type TourStep } from './design/GuideBanner';
 
 const ONBOARDED_KEY = 'ward-pillcheck:onboarded';
 import { Toast, Lightbox, type ZoomPill } from './design/ui';
@@ -52,6 +53,8 @@ export default function App() {
       return false;
     }
   });
+  const [tour, setTour] = useState(false); // 직접 해보기 가이드 진행 중
+  const [tourDone, setTourDone] = useState(false); // 완료 배너 표시
   const closeOnboarding = () => {
     try {
       localStorage.setItem(ONBOARDED_KEY, '1');
@@ -59,6 +62,12 @@ export default function App() {
       /* ignore */
     }
     setOnboardOpen(false);
+  };
+  const startTour = () => {
+    closeOnboarding();
+    setTourDone(false);
+    setTour(true);
+    go({ name: 'home', patientId: null });
   };
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showTop, setShowTop] = useState(false);
@@ -95,6 +104,14 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navNew, state.activePatientId]);
 
+  // 가이드 마지막 단계(Teams 내보내기 시트를 열면) 완료 처리
+  useEffect(() => {
+    if (tour && copyOpen) {
+      setTour(false);
+      setTourDone(true);
+    }
+  }, [tour, copyOpen]);
+
   const existingSeqs = activePatient ? activePatient.meds.map((m) => m.itemSeq) : [];
   // 직접입력 약은 itemSeq 가 빈 문자열 → 빈 seq 끼리 중복으로 오판하지 않도록 truthy 가드
   const isDup = !!(addState.source && addState.mode === 'add' && addState.source.itemSeq && existingSeqs.includes(addState.source.itemSeq));
@@ -115,6 +132,21 @@ export default function App() {
     setAddState({ open: false, source: null, mode: 'add' });
     if (route.name === 'search') go({ name: 'patient', patientId: pid });
   };
+
+  // 현재 가이드 단계는 실제 앱 상태에서 파생(별도 진행 버튼 없이 자동 진행)
+  const tourStep: TourStep | null = !tour
+    ? null
+    : addState.open
+      ? 'add'
+      : route.name === 'home'
+        ? 'patient'
+        : route.name === 'search'
+          ? 'pick'
+          : route.name === 'patient'
+            ? activePatient && activePatient.meds.length > 0
+              ? 'export'
+              : 'search'
+            : null;
 
   let screen = null;
   if (route.name === 'home') {
@@ -294,8 +326,11 @@ export default function App() {
           setOnboardOpen(true);
         }}
       />
-      {onboardOpen && <Onboarding onClose={closeOnboarding} />}
+      {onboardOpen && <Onboarding onClose={closeOnboarding} onStartTour={startTour} />}
       <Lightbox pill={zoomPill} onClose={() => setZoomPill(null)} />
+
+      {tourStep && <GuideBanner step={tourStep} onSkip={() => setTour(false)} />}
+      {tourDone && <GuideDone onClose={() => setTourDone(false)} />}
 
       <Toast msg={toast} />
     </div>
