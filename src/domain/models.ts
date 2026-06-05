@@ -50,6 +50,7 @@ export interface Patient {
   label: string; // "환자1" 등 익명 라벨. 실명 금지.
   meds: MedItem[]; // manual 모드의 사용자 지정 순서를 보존
   sortMode: SortMode;
+  updatedAt?: number; // 지참약을 마지막으로 추가/수정/삭제한 시각(ms). 목록 최신순 정렬·표시용
 }
 
 /** 앱 전체 영속 상태 */

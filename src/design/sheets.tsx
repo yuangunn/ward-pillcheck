@@ -2,7 +2,14 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Icon, PillGlyph, MarkGlyph, ShapeOutline, type MarkOpt } from './Icon';
 import { Btn, Chip, BottomSheet, FieldLabel, TextField, Stepper } from './ui';
 import { COLOR_OPTIONS, SHAPE_OPTIONS } from '../constants/appearance';
-import { FREQUENCY_PRESETS, freqMeta } from '../constants/frequency';
+import {
+  FREQUENCY_PRESETS,
+  freqMeta,
+  FREQ_DETAIL_CODES,
+  FREQ_DETAIL_DEFAULT,
+  freqDetailFamily,
+  isFreqChipSelected,
+} from '../constants/frequency';
 import { TIMING_PRESETS, timingOrder } from '../constants/timing';
 import { buildListText } from '../domain/format';
 import type { MedItem, Patient } from '../domain/models';
@@ -62,6 +69,64 @@ function Section({ label, children }: { label: string; children: ReactNode }) {
     <div style={{ padding: '14px 0', borderTop: '1px solid var(--border)' }}>
       <div style={{ fontSize: 14.5, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.4, marginBottom: 12 }}>{label}</div>
       {children}
+    </div>
+  );
+}
+
+const FREQ_MODAL_TITLE: Record<string, string> = {
+  QW: '주 1회 — 상세 입력',
+  QOD: '격일 — 상세 입력',
+  PRN: '필요시 — 상세 입력',
+  ETC: '기타 용법 입력',
+};
+
+/** 비정형 용법(주1회·격일·필요시·기타)의 자유 텍스트 입력 모달 */
+function FreqDetailModal({
+  code,
+  initial,
+  onCancel,
+  onConfirm,
+}: {
+  code: string;
+  initial: string;
+  onCancel: () => void;
+  onConfirm: (text: string) => void;
+}) {
+  const [val, setVal] = useState(initial);
+  useEffect(() => setVal(initial), [initial]);
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={FREQ_MODAL_TITLE[code] || '용법 입력'}
+      style={{ position: 'absolute', inset: 0, zIndex: 260, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+    >
+      <div onClick={onCancel} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }} />
+      <div style={{ position: 'relative', width: '100%', maxWidth: 340, background: 'var(--bg)', borderRadius: 20, padding: 20, boxShadow: '0 12px 44px rgba(0,0,0,0.32)' }}>
+        <h3 style={{ margin: '0 0 6px', fontSize: 18, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.4 }}>
+          {FREQ_MODAL_TITLE[code] || '용법 입력'}
+        </h3>
+        <p style={{ margin: '0 0 14px', fontSize: 13, color: 'var(--text-weak)', fontWeight: 600, letterSpacing: -0.3, lineHeight: 1.45 }}>
+          인계문에 그대로 표시돼요. 자세히 적을수록 좋아요.
+        </p>
+        <TextField
+          value={val}
+          onChange={setVal}
+          placeholder={code === 'PRN' ? '예) 필요시 (통증 시)' : code === 'QW' ? '예) 매주 월요일' : code === 'QOD' ? '예) 격일 저녁' : '예) 5일 복용 2일 휴약'}
+          autoFocus
+          onKeyDown={(e: React.KeyboardEvent) => {
+            if (e.key === 'Enter' && val.trim()) onConfirm(val.trim());
+          }}
+        />
+        <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+          <Btn variant="ghost" full onClick={onCancel}>
+            취소
+          </Btn>
+          <Btn variant="primary" full onClick={() => onConfirm(val.trim())} disabled={!val.trim()}>
+            확인
+          </Btn>
+        </div>
+      </div>
     </div>
   );
 }
@@ -282,6 +347,7 @@ export function AddMedSheet({
   const [customInput, setCustomInput] = useState('');
   const [showCustom, setShowCustom] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [freqModal, setFreqModal] = useState<{ code: string; initial: string } | null>(null);
 
   useEffect(() => {
     if (!open || !source) return;
@@ -341,6 +407,21 @@ export function AddMedSheet({
     setFreq(code);
     setTimings((TIMING_DEFAULTS[freqMeta(code).slots] || ['필요시']).slice());
   };
+  // 비정형 용법(주1회·격일·필요시·기타) 칩은 바로 적용하지 않고 상세 입력 모달을 띄운다.
+  const onFreqChip = (code: string) => {
+    if (FREQ_DETAIL_CODES.has(code)) {
+      const initial = freqDetailFamily(freq) === code ? freq : FREQ_DETAIL_DEFAULT[code];
+      setFreqModal({ code, initial });
+    } else {
+      changeFreq(code);
+    }
+  };
+  const confirmFreqModal = (text: string) => {
+    const v = text.trim() || FREQ_DETAIL_DEFAULT[freqModal?.code ?? 'ETC'] || '기타';
+    setFreq(v);
+    setTimings((TIMING_DEFAULTS[1] || ['필요시']).slice()); // 비정형은 시점 1칸
+    setFreqModal(null);
+  };
   const toggleTiming = (code: string) =>
     setTimings((ts) => (ts.includes(code) ? ts.filter((c) => c !== code) : [...ts, code]).sort((a, b) => timingOrder(a) - timingOrder(b)));
   const addCustomTiming = () => {
@@ -367,6 +448,7 @@ export function AddMedSheet({
   };
 
   return (
+    <>
     <BottomSheet open={open} onClose={onClose} title={isManual ? '직접 입력' : isEdit ? '약 수정' : '리스트에 추가'}>
       {/* 약명·제약사·상세버튼은 상단 고정 — 상세를 펼쳐 길어져도 무슨 약인지 유지 */}
       <div
@@ -482,15 +564,15 @@ export function AddMedSheet({
       <Section label="용법">
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           {FREQUENCY_PRESETS.map((f) => (
-            <Chip key={f.code} selected={freq === f.code} onClick={() => changeFreq(f.code)}>
+            <Chip key={f.code} selected={isFreqChipSelected(f.code, freq)} onClick={() => onFreqChip(f.code)}>
               {f.label}
-              <span style={{ opacity: 0.6, marginLeft: 5, fontSize: 12.5 }}>{f.sub}</span>
+              {f.sub && <span style={{ opacity: 0.6, marginLeft: 5, fontSize: 12.5 }}>{f.sub}</span>}
             </Chip>
           ))}
         </div>
       </Section>
 
-      <Section label="복용시점">
+      <Section label="투약시점">
         <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-weaker)', margin: '-4px 0 12px', lineHeight: 1.45 }}>
           {freqMeta(freq).label} 기준 보통 {slots}회 · 해당하는 시점을 모두 선택하세요
         </div>
@@ -606,6 +688,15 @@ export function AddMedSheet({
         )}
       </div>
     </BottomSheet>
+    {freqModal && (
+      <FreqDetailModal
+        code={freqModal.code}
+        initial={freqModal.initial}
+        onCancel={() => setFreqModal(null)}
+        onConfirm={confirmFreqModal}
+      />
+    )}
+    </>
   );
 }
 
