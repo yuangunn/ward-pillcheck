@@ -455,10 +455,11 @@ export function AddMedSheet({
         style={{
           position: 'sticky',
           top: 0,
-          zIndex: 5,
+          zIndex: 10,
           background: 'var(--bg)',
-          margin: '0 -20px',
-          padding: '2px 20px 12px',
+          // 스크롤 컨테이너의 상단 패딩(6px) 위로 끌어올려 그 틈으로 콘텐츠가 비치지 않게(iOS sticky)
+          margin: '-6px -20px 0',
+          padding: '8px 20px 12px',
           borderBottom: '1px solid var(--border)',
         }}
       >
