@@ -14,7 +14,7 @@ import { TIMING_PRESETS, timingOrder } from '../constants/timing';
 import { buildListText } from '../domain/format';
 import type { MedItem, Patient } from '../domain/models';
 import { drugApi, getMarkOptions, proxiedImg, type DrugDetail, type MarkOption, type PillResult } from '../api';
-import { ensureMarkFeatures, featureFromCanvas, rankFeatures, type RankedMark } from '../api';
+import { ensureMarkFeatures, featuresFromCanvas, rankFeaturesMulti, type RankedMark } from '../api';
 import { analyzeInteractions, fetchDurMap, type InteractionResult } from '../api/dur';
 import { getTeamsTarget, teamsDeepLink } from '../state/teamsTarget';
 
@@ -996,14 +996,14 @@ export function DrawMarkSheet({ open, onPick, onClose }: { open: boolean; onPick
   const runSearch = async () => {
     const c = canvasRef.current;
     if (!c) return;
-    const q = featureFromCanvas(c);
+    const q = featuresFromCanvas(c);
     if (!q) {
       setResults([]);
       return;
     }
     setBusy(true);
     const feats = await ensureMarkFeatures();
-    setResults(rankFeatures(q, feats, 16));
+    setResults(rankFeaturesMulti(q, feats, 16));
     setBusy(false);
   };
 
