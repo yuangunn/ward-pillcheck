@@ -28,4 +28,11 @@ describe('teamsTarget', () => {
     setTeamsTarget('');
     expect(getTeamsTarget()).toBe('');
   });
+
+  it('공백은 +가 아니라 %20으로 인코딩 (Teams 띄어쓰기 깨짐 방지)', () => {
+    const url = teamsDeepLink('아스피린 1T QD 아침식후');
+    const query = url.split('?')[1];
+    expect(query).toContain('%20');
+    expect(query).not.toContain('+');
+  });
 });

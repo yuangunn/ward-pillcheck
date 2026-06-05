@@ -28,8 +28,11 @@ export function setTeamsTarget(v: string): void {
  */
 export function teamsDeepLink(text: string, target?: string): string {
   const users = (target ?? getTeamsTarget()).trim();
-  const params = new URLSearchParams();
-  if (users) params.set('users', users);
-  params.set('message', text);
-  return `https://teams.microsoft.com/l/chat/0/0?${params.toString()}`;
+  // URLSearchParams는 공백을 '+'로 인코딩하는데, Teams 딥링크는 '+'를 리터럴 문자로
+  // 받아 인계문의 띄어쓰기가 전부 '+'로 깨진다. encodeURIComponent는 공백을 %20으로
+  // 인코딩하므로 직접 쿼리스트링을 조립한다.
+  const parts: string[] = [];
+  if (users) parts.push(`users=${encodeURIComponent(users)}`);
+  parts.push(`message=${encodeURIComponent(text)}`);
+  return `https://teams.microsoft.com/l/chat/0/0?${parts.join('&')}`;
 }

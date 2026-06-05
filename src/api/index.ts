@@ -26,8 +26,11 @@ export { downloadPhotos, cachedPhotoCount, clearPhotos, type PhotoProgress } fro
 export {
   ensureMarkFeatures,
   featureFromCanvas,
+  featuresFromCanvas,
   rankFeatures,
+  rankFeaturesMulti,
   extractFeature,
+  extractFeatureVariants,
   cosineSim,
   type RankedMark,
   type MarkFeature,

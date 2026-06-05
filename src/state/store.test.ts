@@ -32,6 +32,30 @@ describe('seedState', () => {
   });
 });
 
+describe('updatedAt(마지막 수정 시각)', () => {
+  it('ADD_MED 가 updatedAt 을 갱신', () => {
+    const seeded = seedState(initialState);
+    const pid = seeded.patients[0].id;
+    const before = seeded.patients[0].updatedAt ?? 0;
+    const s = run({ ...seeded, patients: [{ ...seeded.patients[0], updatedAt: 1 }] }, {
+      type: 'ADD_MED',
+      patientId: pid,
+      med: sampleMed('a'),
+    });
+    expect(s.patients[0].updatedAt).toBeGreaterThan(1);
+    expect(before).toBeGreaterThan(0); // createPatient 가 초기 updatedAt 부여
+  });
+
+  it('REMOVE_MED 도 updatedAt 을 갱신', () => {
+    const seeded = seedState(initialState);
+    const pid = seeded.patients[0].id;
+    const withMed = run(seeded, { type: 'ADD_MED', patientId: pid, med: sampleMed('a') });
+    const stamped = { ...withMed, patients: [{ ...withMed.patients[0], updatedAt: 1 }] };
+    const s = run(stamped, { type: 'REMOVE_MED', patientId: pid, medId: 'a' });
+    expect(s.patients[0].updatedAt).toBeGreaterThan(1);
+  });
+});
+
 describe('환자 관리', () => {
   it('ADD_PATIENT 은 빈 번호를 채워 라벨 증가', () => {
     const s = run(initialState, { type: 'ADD_PATIENT' }, { type: 'ADD_PATIENT' });

@@ -22,7 +22,7 @@ const STEPS: { icon: string; tint: string; title: string; body: string }[] = [
     icon: 'shield',
     tint: '#7c5cff',
     title: '인계까지 한 번에',
-    body: '복약 리스트를 한 줄 포맷으로 복사·공유하고, 병용금기·중복을 자동 점검(DUR)해요. 용법·복용시점·용량 단위(정·캡슐·시린지 등)도 함께 기록합니다.',
+    body: '복약 리스트를 한 줄 포맷으로 복사·공유하고, 병용금기·중복을 자동 점검(DUR)해요. 용법·투약시점·용량 단위(정·캡슐·시린지 등)도 함께 기록합니다.',
   },
   {
     icon: 'download',

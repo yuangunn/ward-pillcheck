@@ -87,6 +87,22 @@ test('직접 입력으로 주사약 추가', async ({ page }) => {
   await expect(page.locator('ul.med-list .med-name')).toContainText('란투스주');
 });
 
+test('용법 필요시 → 상세 입력 모달 → 확인', async ({ page }) => {
+  await page.goto('/');
+  await page.getByText('환자1').click();
+  await page.getByRole('button', { name: '약 검색해서 추가' }).click();
+  await page.getByLabel('각인').fill('Bayer');
+  await page.getByText('아스피린장용정100mg').click();
+  const sheet = page.getByRole('dialog', { name: '리스트에 추가' });
+  // 용법 '필요시' 칩(서브라벨 PRN 으로 식별) → 상세 입력 모달
+  await sheet.getByRole('button', { name: /PRN/ }).click();
+  const modal = page.getByRole('dialog', { name: '필요시 — 상세 입력' });
+  await expect(modal).toBeVisible();
+  await modal.getByRole('textbox').fill('필요시 (통증 시)');
+  await modal.getByRole('button', { name: '확인' }).click();
+  await expect(modal).not.toBeVisible();
+});
+
 test('그려서 마크 찾기 시트 열림', async ({ page }) => {
   await page.goto('/');
   await page.getByText('환자1').click();

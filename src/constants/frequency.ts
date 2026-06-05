@@ -15,9 +15,43 @@ export const FREQUENCY_PRESETS: FrequencyPreset[] = [
   { code: 'TID', label: '1일 3회', sub: 'TID', order: 3, slots: 3 },
   { code: 'QID', label: '1일 4회', sub: 'QID', order: 4, slots: 4 },
   { code: 'HS', label: '취침전', sub: 'HS', order: 90, slots: 1 },
-  { code: 'QOD', label: '격일', sub: 'QOD', order: 91, slots: 1 },
+  { code: 'QW', label: '주 1회', sub: 'QW', order: 91, slots: 1 },
+  { code: 'QOD', label: '격일', sub: 'QOD', order: 92, slots: 1 },
   { code: 'PRN', label: '필요시', sub: 'PRN', order: 99, slots: 1 },
+  { code: 'ETC', label: '기타', sub: '', order: 100, slots: 1 },
 ];
+
+/** 탭하면 상세 텍스트 입력 모달을 띄우는 비정형 용법 칩 */
+export const FREQ_DETAIL_CODES = new Set(['QW', 'QOD', 'PRN', 'ETC']);
+
+/** 모달 기본값(편집 진입 시 프리필) */
+export const FREQ_DETAIL_DEFAULT: Record<string, string> = {
+  QW: '주 1회',
+  QOD: '격일',
+  PRN: '필요시',
+  ETC: '',
+};
+
+/** 표준 용법 코드(정형, 직접 입력 모달 없이 바로 선택) */
+const STANDARD_FREQ = new Set(['QD', 'BID', 'TID', 'QID', 'HS']);
+
+/**
+ * 저장된 용법 문자열이 어느 비정형 칩 계열인지 판정.
+ * 자유 텍스트("필요시 통증시" 등)도 접두로 매칭해 칩 하이라이트를 유지한다.
+ */
+export function freqDetailFamily(freq: string): string | null {
+  if (STANDARD_FREQ.has(freq)) return null;
+  if (freq === 'QW' || freq.startsWith('주 1회') || freq.startsWith('QW')) return 'QW';
+  if (freq === 'QOD' || freq.startsWith('격일')) return 'QOD';
+  if (freq === 'PRN' || freq.startsWith('필요시')) return 'PRN';
+  return freq ? 'ETC' : null; // 그 외 비표준 텍스트는 '기타'
+}
+
+/** 용법 칩의 선택 표시 여부 */
+export function isFreqChipSelected(code: string, freq: string): boolean {
+  if (STANDARD_FREQ.has(code)) return freq === code;
+  return freqDetailFamily(freq) === code;
+}
 
 /** 용법 코드의 메타(없으면 기본값) */
 export function freqMeta(code: FrequencyCode): FrequencyPreset {

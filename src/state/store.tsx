@@ -48,7 +48,13 @@ function createPatient(existing: Patient[]): Patient {
     label: nextPatientLabel(existing),
     meds: [],
     sortMode: 'manual',
+    updatedAt: Date.now(),
   };
+}
+
+/** 지참약 변경 시각 갱신(목록 최신순 정렬용) */
+function touch(p: Patient): Patient {
+  return { ...p, updatedAt: Date.now() };
 }
 
 function mapPatient(
@@ -99,27 +105,22 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, activePatientId: action.patientId };
     case 'ADD_MED':
       // 새 항목 추가 시 수동 순서 흐트러짐 방지를 위해 끝에 append만 함
-      return mapPatient(state, action.patientId, (p) => ({
-        ...p,
-        meds: [...p.meds, action.med],
-      }));
+      return mapPatient(state, action.patientId, (p) =>
+        touch({ ...p, meds: [...p.meds, action.med] }),
+      );
     case 'UPDATE_MED':
-      return mapPatient(state, action.patientId, (p) => ({
-        ...p,
-        meds: p.meds.map((m) => (m.id === action.med.id ? action.med : m)),
-      }));
+      return mapPatient(state, action.patientId, (p) =>
+        touch({ ...p, meds: p.meds.map((m) => (m.id === action.med.id ? action.med : m)) }),
+      );
     case 'REMOVE_MED':
-      return mapPatient(state, action.patientId, (p) => ({
-        ...p,
-        meds: p.meds.filter((m) => m.id !== action.medId),
-      }));
+      return mapPatient(state, action.patientId, (p) =>
+        touch({ ...p, meds: p.meds.filter((m) => m.id !== action.medId) }),
+      );
     case 'REORDER_MEDS':
       // 드래그로 순서 변경 → 수동 정렬 모드로 고정
-      return mapPatient(state, action.patientId, (p) => ({
-        ...p,
-        meds: action.meds,
-        sortMode: 'manual',
-      }));
+      return mapPatient(state, action.patientId, (p) =>
+        touch({ ...p, meds: action.meds, sortMode: 'manual' }),
+      );
     case 'SET_SORT_MODE':
       return mapPatient(state, action.patientId, (p) => ({
         ...p,

@@ -9,15 +9,18 @@ export const SCHEMA_VERSION = 2;
 function migrate(state: AppState): AppState {
   return {
     ...state,
-    patients: (state.patients ?? []).map((p) => ({
-      ...p,
-      meds: (p.meds ?? []).map((m) => {
+    patients: (state.patients ?? []).map((p) => {
+      const meds = (p.meds ?? []).map((m) => {
         const legacy = m as unknown as { timing?: string; timings?: string[] };
         if (Array.isArray(legacy.timings)) return m;
         const { timing, ...rest } = legacy;
         return { ...(rest as object), timings: timing ? [timing] : [] } as typeof m;
-      }),
-    })),
+      });
+      // updatedAt 미보유(구버전) 환자는 보유 약 중 가장 최근 createdAt 으로 backfill
+      const updatedAt =
+        p.updatedAt ?? (meds.length ? Math.max(...meds.map((m) => m.createdAt || 0)) : 0);
+      return { ...p, meds, updatedAt };
+    }),
   };
 }
 

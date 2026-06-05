@@ -22,6 +22,25 @@ function fmtDate(iso?: string): string {
 const AVATAR_TINTS = ['#2f6bff', '#11b386', '#7c5cff', '#ff7a3d', '#e84393', '#0fa3b1'];
 const avatarTint = (i: number) => AVATAR_TINTS[i % AVATAR_TINTS.length];
 
+/** 환자 색은 정렬 순서가 바뀌어도 고정되도록 라벨 숫자 기반으로 부여 */
+function avatarTintFor(p: Patient): string {
+  const n = Number(p.label.replace(/[^0-9]/g, ''));
+  return avatarTint(Number.isFinite(n) && n > 0 ? n - 1 : 0);
+}
+
+/** "마지막 수정" 상대 날짜 표기: 오늘/어제/N일 전/M월 D일 */
+function fmtRelative(ts?: number): string {
+  if (!ts) return '';
+  const now = new Date();
+  const then = new Date(ts);
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const days = Math.round((startOfDay(now) - startOfDay(then)) / 86400000);
+  if (days <= 0) return '오늘';
+  if (days === 1) return '어제';
+  if (days < 7) return `${days}일 전`;
+  return `${then.getMonth() + 1}월 ${then.getDate()}일`;
+}
+
 // ── 홈 / 환자 목록 ───────────────────────────────────────────
 export function HomeScreen({
   patients,
@@ -101,6 +120,14 @@ function PatientsBody({
   onOpenPatient: (id: string) => void;
   onNewPatient: () => void;
 }) {
+  // 가장 최근에 지참약을 수정한 환자가 위로. updatedAt 동률은 라벨 순.
+  const sortedPatients = useMemo(
+    () =>
+      [...patients].sort(
+        (a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0) || a.label.localeCompare(b.label, 'ko'),
+      ),
+    [patients],
+  );
   return (
     <>
       <div
@@ -193,51 +220,58 @@ function PatientsBody({
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--list-gap)', padding: '0 16px' }}>
-        {patients.map((p, i) => (
-          <button
-            key={p.id}
-            type="button"
-            onClick={() => onOpenPatient(p.id)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 14,
-              padding: 'var(--card-py) 16px',
-              borderRadius: 'var(--r-card)',
-              background: 'var(--card)',
-              border: '1px solid var(--border)',
-              boxShadow: 'var(--shadow-sm)',
-              cursor: 'pointer',
-              textAlign: 'left',
-              WebkitTapHighlightColor: 'transparent',
-            }}
-          >
-            <div
+        {sortedPatients.map((p) => {
+          const tint = avatarTintFor(p);
+          const modified = fmtRelative(p.updatedAt);
+          return (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => onOpenPatient(p.id)}
               style={{
-                width: 48,
-                height: 48,
-                borderRadius: 14,
-                flexShrink: 0,
-                background: avatarTint(i) + '22',
-                color: avatarTint(i),
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 18,
-                fontWeight: 800,
+                gap: 14,
+                padding: 'var(--card-py) 16px',
+                borderRadius: 'var(--r-card)',
+                background: 'var(--card)',
+                border: '1px solid var(--border)',
+                boxShadow: 'var(--shadow-sm)',
+                cursor: 'pointer',
+                textAlign: 'left',
+                WebkitTapHighlightColor: 'transparent',
               }}
             >
-              {p.label.replace(/[^0-9]/g, '') || p.label.slice(0, 2)}
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.4 }}>{p.label}</div>
-              <div style={{ fontSize: 14, color: 'var(--text-weak)', fontWeight: 600, marginTop: 2 }}>
-                {p.meds.length === 0 ? '등록된 약 없음' : `지참약 ${p.meds.length}건`}
+              <div
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 14,
+                  flexShrink: 0,
+                  background: tint + '22',
+                  color: tint,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 18,
+                  fontWeight: 800,
+                }}
+              >
+                {p.label.replace(/[^0-9]/g, '') || p.label.slice(0, 2)}
               </div>
-            </div>
-            <Icon name="chevron" size={20} style={{ color: 'var(--text-weaker)' }} />
-          </button>
-        ))}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.4 }}>{p.label}</div>
+                <div style={{ fontSize: 14, color: 'var(--text-weak)', fontWeight: 600, marginTop: 2 }}>
+                  {p.meds.length === 0 ? '등록된 약 없음' : `지참약 ${p.meds.length}건`}
+                  {modified && (
+                    <span style={{ color: 'var(--text-weaker)' }}> · {modified} 수정</span>
+                  )}
+                </div>
+              </div>
+              <Icon name="chevron" size={20} style={{ color: 'var(--text-weaker)' }} />
+            </button>
+          );
+        })}
       </div>
 
       <FloatingCTA icon="plus" label="새 환자 추가" onClick={onNewPatient} />
