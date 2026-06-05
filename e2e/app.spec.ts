@@ -15,6 +15,41 @@ test('첫 실행: 온보딩 가이드 → 건너뛰기', async ({ page }) => {
   await expect(page.getByText('환자1')).toBeVisible();
 });
 
+test('온보딩 → 직접 해보기 가이드 단계 진행', async ({ page }) => {
+  await page.addInitScript(() => localStorage.removeItem('ward-pillcheck:onboarded'));
+  await page.goto('/');
+  await expect(page.getByRole('dialog', { name: '사용 가이드' })).toBeVisible();
+  for (let k = 0; k < 3; k++) await page.getByRole('button', { name: '다음' }).click();
+  await page.getByRole('button', { name: '직접 해보기' }).click();
+  // 1단계: 환자 추가 안내 배너(제목 정확 일치로 버튼과 구분)
+  await expect(page.getByText('환자 추가', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: '새 환자 추가' }).click();
+  // 2단계: 지참약 식별(약 검색)로 자동 진행
+  await expect(page.getByText('지참약 식별', { exact: true })).toBeVisible();
+  // 그만하기 → 배너 사라짐
+  await page.getByRole('button', { name: '가이드 그만하기' }).click();
+  await expect(page.getByText('지참약 식별', { exact: true })).toHaveCount(0);
+});
+
+test('Teams 보내기: 대상 미지정 시 입력 팝업', async ({ page }) => {
+  await page.goto('/');
+  await page.getByText('환자1').click();
+  // 약 1건 추가
+  await page.getByRole('button', { name: '약 검색해서 추가' }).click();
+  await page.getByLabel('각인').fill('Bayer');
+  await page.getByText('아스피린장용정100mg').click();
+  await page.getByRole('dialog', { name: '리스트에 추가' }).getByRole('button', { name: '환자 리스트에 추가' }).click();
+  // 인계 복사 → Teams로 보내기 → 대상 미지정이라 입력 팝업
+  await page.getByRole('button', { name: '인계 복사' }).click();
+  await page.getByRole('button', { name: 'Teams로 보내기' }).click();
+  const prompt = page.getByRole('dialog', { name: 'Teams 대상 입력' });
+  await expect(prompt).toBeVisible();
+  await expect(prompt.getByLabel('Teams 대상 이메일')).toBeVisible();
+  await expect(prompt.getByRole('button', { name: '저장하고 보내기' })).toBeDisabled();
+  await prompt.getByLabel('Teams 대상 이메일').fill('ward7@hospital.org');
+  await expect(prompt.getByRole('button', { name: '저장하고 보내기' })).toBeEnabled();
+});
+
 test('홈: 제목 + 기본 환자 카드', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('tab', { name: '지참약 식별' })).toBeVisible();

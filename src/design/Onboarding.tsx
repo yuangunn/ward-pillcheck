@@ -32,7 +32,7 @@ const STEPS: { icon: string; tint: string; title: string; body: string }[] = [
   },
 ];
 
-export function Onboarding({ onClose }: { onClose: () => void }) {
+export function Onboarding({ onClose, onStartTour }: { onClose: () => void; onStartTour?: () => void }) {
   const [i, setI] = useState(0);
   const last = i === STEPS.length - 1;
   const s = STEPS[i];
@@ -87,9 +87,24 @@ export function Onboarding({ onClose }: { onClose: () => void }) {
         ))}
       </div>
 
-      <Btn variant="primary" full icon={last ? 'check' : undefined} onClick={() => (last ? onClose() : setI((v) => v + 1))}>
-        {last ? '시작하기' : '다음'}
-      </Btn>
+      {last ? (
+        <>
+          <Btn variant="primary" full icon="check" onClick={() => (onStartTour ? onStartTour() : onClose())}>
+            직접 해보기
+          </Btn>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{ marginTop: 10, width: '100%', background: 'none', border: 'none', color: 'var(--text-weaker)', fontSize: 14.5, fontWeight: 700, cursor: 'pointer', padding: 8, WebkitTapHighlightColor: 'transparent' }}
+          >
+            바로 시작
+          </button>
+        </>
+      ) : (
+        <Btn variant="primary" full onClick={() => setI((v) => v + 1)}>
+          다음
+        </Btn>
+      )}
     </div>
   );
 }
