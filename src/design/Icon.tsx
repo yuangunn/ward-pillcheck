@@ -1,4 +1,4 @@
-import { useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { COLOR_OPTIONS } from '../constants/appearance';
 
 // 라인 SVG 아이콘 세트.
@@ -232,6 +232,7 @@ export interface MarkOpt {
 /** 마크(그림 식별표시). 실데이터는 이미지 URL, 없으면 코드 글자 폴백. */
 export function MarkGlyph({ option, size = 44, plain }: { option?: MarkOpt | null; size?: number; plain?: boolean }) {
   const [imgFailed, setImgFailed] = useState(false);
+  useEffect(() => setImgFailed(false), [option?.img]); // img 바뀌면 실패상태 초기화
   if (!option) return null;
   const letter = (
     <span style={{ fontSize: size * 0.36, fontWeight: 800, color: 'var(--text)', letterSpacing: -0.5 }}>

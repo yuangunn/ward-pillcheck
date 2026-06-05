@@ -96,13 +96,15 @@ export default function App() {
   }, [navNew, state.activePatientId]);
 
   const existingSeqs = activePatient ? activePatient.meds.map((m) => m.itemSeq) : [];
-  const isDup = !!(addState.source && addState.mode === 'add' && existingSeqs.includes(addState.source.itemSeq));
+  // 직접입력 약은 itemSeq 가 빈 문자열 → 빈 seq 끼리 중복으로 오판하지 않도록 truthy 가드
+  const isDup = !!(addState.source && addState.mode === 'add' && addState.source.itemSeq && existingSeqs.includes(addState.source.itemSeq));
 
   const submitMed = (data: MedFormData) => {
     const pid = route.patientId;
     if (!pid) return;
     if (addState.mode === 'edit' && addState.source?.__kind === 'med') {
       const med: MedItem = { ...(addState.source as MedItem), ...data };
+      delete (med as { __kind?: unknown }).__kind; // 편집 소스의 판별 태그 제거(영속 상태 오염 방지)
       dispatch({ type: 'UPDATE_MED', patientId: pid, med });
       flash('수정했어요');
     } else {

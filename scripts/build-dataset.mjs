@@ -15,6 +15,7 @@ import { writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { stripDoc } from './strip-doc.mjs';
 
 const OUT = resolve(dirname(fileURLToPath(import.meta.url)), '../public/data');
 const KEY = process.env.SERVICE_KEY?.trim();
@@ -59,19 +60,7 @@ function totalCountOf(payload) {
   return Number(payload?.body?.totalCount ?? payload?.response?.body?.totalCount ?? 0) || 0;
 }
 
-/** 허가사항 문서(XML/HTML) → 평문화. 빈/무의미 값은 undefined */
-function stripDoc(s) {
-  if (typeof s !== 'string' || !s.trim()) return undefined;
-  const text = s
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&amp;/g, '&')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  return text || undefined;
-}
+// stripDoc 은 ./strip-doc.mjs 에서 import (테스트와 공유)
 
 /** 낱알식별 컴팩트 레코드 */
 function compactPill(r) {
@@ -282,30 +271,34 @@ async function collectDur() {
   return map;
 }
 
-/** 낱알식별 등 일반 endpoint 페이징 수집(컴팩트가 null이면 제외) */
+/** 낱알식별 등 일반 endpoint 를 totalCount 기준 전수 페이징(컴팩트가 null이면 제외).
+ *  병렬 배치 중 한 페이지가 짧게 와도 멈추지 않음(조기종료로 인한 데이터 누락 방지). */
 async function collect(label, endpoint, compactFn, maxPages) {
   const all = [];
   const seen = new Set();
-  let done = false;
-  for (let start = 1; start <= maxPages && !done; start += CONCURRENCY) {
-    const batch = [];
-    for (let p = start; p < start + CONCURRENCY && p <= maxPages; p++) batch.push(p);
-    const results = await Promise.allSettled(batch.map((p) => fetchItems(endpoint, p)));
-    for (const r of results) {
-      if (r.status === 'fulfilled') {
-        for (const row of r.value) {
-          const c = compactFn(row);
-          if (c && c.seq && !seen.has(c.seq)) {
-            seen.add(c.seq);
-            all.push(c);
-          }
-        }
-        if (r.value.length < NUM) done = true;
-      } else {
-        console.warn(`  [${label}] 페이지 실패: ${r.reason?.message ?? r.reason}`);
+  const add = (rows) => {
+    for (const row of rows) {
+      const c = compactFn(row);
+      if (c && c.seq && !seen.has(c.seq)) {
+        seen.add(c.seq);
+        all.push(c);
       }
     }
-    console.log(`  [${label}] ...${all.length}건 (page ~${start + CONCURRENCY - 1})`);
+  };
+  const first = await fetchPayload(endpoint, 1);
+  const total = totalCountOf(first);
+  const pages = Math.min(total ? Math.ceil(total / NUM) : maxPages, maxPages);
+  console.log(`  [${label}] 총 ${total} / ${pages}페이지`);
+  add(extractItems(first));
+  for (let start = 2; start <= pages; start += CONCURRENCY) {
+    const batch = [];
+    for (let p = start; p < start + CONCURRENCY && p <= pages; p++) batch.push(p);
+    const results = await Promise.allSettled(batch.map((p) => fetchItems(endpoint, p)));
+    for (const r of results) {
+      if (r.status === 'fulfilled') add(r.value);
+      else console.warn(`  [${label}] 페이지 실패: ${r.reason?.message ?? r.reason}`);
+    }
+    console.log(`  [${label}] ...${all.length}건 (page ~${Math.min(start + CONCURRENCY - 1, pages)}/${pages})`);
   }
   return all;
 }

@@ -429,7 +429,11 @@ export function AddMedSheet({
               onChange={(e) => {
                 const u = e.target.value;
                 setDoseUnit(u);
-                if (!HALF_STEP_UNITS.has(u) && !Number.isInteger(count)) setCount(Math.round(count));
+                // 단위에 맞춰 수량 정규화: 정수화(반정 허용 단위 제외) + 새 단위 상한으로 클램프
+                const max = u === 'mL' ? 1000 : u === 'T' ? 20 : 200;
+                let next = HALF_STEP_UNITS.has(u) ? count : Math.round(count);
+                next = Math.min(Math.max(next, HALF_STEP_UNITS.has(u) ? 0.5 : 1), max);
+                if (next !== count) setCount(next);
               }}
               aria-label="용량 단위"
               style={{
