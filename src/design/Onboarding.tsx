@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Icon } from './Icon';
 import { Btn } from './ui';
 
@@ -34,13 +34,38 @@ const STEPS: { icon: string; tint: string; title: string; body: string }[] = [
 
 export function Onboarding({ onClose, onStartTour }: { onClose: () => void; onStartTour?: () => void }) {
   const [i, setI] = useState(0);
+  const [dir, setDir] = useState<'fwd' | 'back'>('fwd');
+  const start = useRef<{ x: number; y: number } | null>(null);
   const last = i === STEPS.length - 1;
   const s = STEPS[i];
+
+  const go = (delta: number) => {
+    const next = i + delta;
+    if (next < 0 || next > STEPS.length - 1) return;
+    setDir(delta > 0 ? 'fwd' : 'back');
+    setI(next);
+  };
+  // 좌우 스와이프로 카드 넘김. 상하 드래그는 touchAction:'none' 으로 차단.
+  const onDown = (e: React.PointerEvent) => {
+    start.current = { x: e.clientX, y: e.clientY };
+  };
+  const onUp = (e: React.PointerEvent) => {
+    const s0 = start.current;
+    start.current = null;
+    if (!s0) return;
+    const dx = e.clientX - s0.x;
+    const dy = e.clientY - s0.y;
+    if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.3) go(dx < 0 ? 1 : -1);
+  };
+
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-label="사용 가이드"
+      onPointerDown={onDown}
+      onPointerUp={onUp}
+      onPointerCancel={() => (start.current = null)}
       style={{
         position: 'absolute',
         inset: 0,
@@ -50,6 +75,7 @@ export function Onboarding({ onClose, onStartTour }: { onClose: () => void; onSt
         flexDirection: 'column',
         padding: 'calc(env(safe-area-inset-top, 0px) + 16px) 24px calc(env(safe-area-inset-bottom, 0px) + 24px)',
         animation: 'slideFwd .3s cubic-bezier(.32,.72,0,1)',
+        touchAction: 'none', // 상하 스크롤/고무줄 차단, 좌우는 직접 처리
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
@@ -62,7 +88,19 @@ export function Onboarding({ onClose, onStartTour }: { onClose: () => void; onSt
         </button>
       </div>
 
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: 24 }}>
+      <div
+        key={i}
+        style={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          textAlign: 'center',
+          gap: 24,
+          animation: `${dir === 'fwd' ? 'slideFwd' : 'slideBack'} .26s cubic-bezier(.32,.72,0,1)`,
+        }}
+      >
         <div style={{ width: 96, height: 96, borderRadius: 28, background: s.tint + '1f', color: s.tint, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Icon name={s.icon} size={48} />
         </div>
@@ -74,14 +112,21 @@ export function Onboarding({ onClose, onStartTour }: { onClose: () => void; onSt
 
       <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 22 }}>
         {STEPS.map((_, idx) => (
-          <span
+          <button
             key={idx}
+            type="button"
+            aria-label={`${idx + 1}번째 카드`}
+            onClick={() => go(idx - i)}
             style={{
               width: idx === i ? 22 : 8,
               height: 8,
+              border: 'none',
+              padding: 0,
               borderRadius: 99,
+              cursor: 'pointer',
               background: idx === i ? 'var(--primary)' : 'var(--border)',
               transition: 'all .2s ease',
+              WebkitTapHighlightColor: 'transparent',
             }}
           />
         ))}
