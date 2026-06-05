@@ -9,6 +9,7 @@ import type { MedItem, Patient } from '../domain/models';
 import { drugApi, getMarkOptions, proxiedImg, type DrugDetail, type MarkOption, type PillResult } from '../api';
 import { ensureMarkFeatures, featureFromCanvas, rankFeatures, type RankedMark } from '../api';
 import { analyzeInteractions, fetchDurMap, type InteractionResult } from '../api/dur';
+import { getTeamsTarget, teamsDeepLink } from '../state/teamsTarget';
 
 const TIMING_DEFAULTS: Record<number, string[]> = {
   1: ['아침식후'],
@@ -609,6 +610,15 @@ export function CopySheet({ open, onClose, label, meds }: { open: boolean; onClo
     if (!open) setCopied(false);
   }, [open]);
   const canShare = typeof navigator !== 'undefined' && !!navigator.share;
+  const teamsTarget = getTeamsTarget();
+  const openTeams = () => {
+    const url = teamsDeepLink(text);
+    try {
+      window.open(url, '_blank', 'noopener');
+    } catch {
+      window.location.href = url;
+    }
+  };
   const doCopy = async () => {
     try {
       await navigator.clipboard.writeText(text);
@@ -637,6 +647,14 @@ export function CopySheet({ open, onClose, label, meds }: { open: boolean; onClo
           {copied ? '복사됐어요' : '복사하기'}
         </Btn>
       </div>
+      <Btn variant="primary" full icon="send" onClick={openTeams} style={{ marginTop: 8, background: '#5b5fc7' }}>
+        Teams로 보내기
+      </Btn>
+      <p style={{ margin: '8px 2px 0', fontSize: 12, color: 'var(--text-weaker)', fontWeight: 600, lineHeight: 1.45 }}>
+        {teamsTarget
+          ? `대상: ${teamsTarget} — Teams가 열리고 내용이 입력돼요(보내기만 탭).`
+          : '설정 ⚙️에서 “Teams 대상”을 지정하면 그 방으로 바로 가요. (미지정 시 새 채팅에 내용만 채워짐)'}
+      </p>
     </BottomSheet>
   );
 }

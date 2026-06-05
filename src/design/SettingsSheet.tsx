@@ -10,6 +10,7 @@ import {
   clearPhotos,
 } from '../api';
 import { useDataset } from '../state/useDataset';
+import { getTeamsTarget, setTeamsTarget } from '../state/teamsTarget';
 
 // 오프라인/인트라넷용 설정: 검색 + 허가사항 상세 + DUR 룰셋을 기기에 받아두기.
 // 받아두면 워커(공용 인터넷) 없이도 검색·상세·금기점검이 동작한다.
@@ -36,6 +37,7 @@ export function SettingsSheet({ open, onClose, onFlash, onShowGuide }: { open: b
   const [busy, setBusy] = useState('');
   const [photos, setPhotos] = useState(0);
   const [photoProg, setPhotoProg] = useState<{ done: number; total: number } | null>(null);
+  const [teams, setTeams] = useState(getTeamsTarget());
   const stopRef = useRef(false);
 
   const refresh = async () => {
@@ -144,6 +146,24 @@ export function SettingsSheet({ open, onClose, onFlash, onShowGuide }: { open: b
           실물사진 캐시 비우기
         </button>
       )}
+
+      {/* Teams 인계 보내기 대상(병동별) */}
+      <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.4, margin: '24px 0 4px' }}>Teams 인계 보내기</div>
+      <p style={{ margin: '0 0 10px', fontSize: 13, color: 'var(--text-weak)', fontWeight: 600, lineHeight: 1.5 }}>
+        인계 “Teams로 보내기”가 열 <b style={{ color: 'var(--text-strong)' }}>대상 이메일</b>(공용계정/그룹채팅). 병동마다 바꿀 수 있어요.
+      </p>
+      <input
+        type="email"
+        inputMode="email"
+        value={teams}
+        onChange={(e) => {
+          setTeams(e.target.value);
+          setTeamsTarget(e.target.value);
+        }}
+        placeholder="예) ward3-handover@hospital.org"
+        aria-label="Teams 대상 이메일"
+        style={{ width: '100%', boxSizing: 'border-box', height: 48, padding: '0 14px', borderRadius: 'var(--r-btn)', border: '1.5px solid var(--border)', background: 'var(--fill)', color: 'var(--text)', fontSize: 15, fontFamily: 'inherit', fontWeight: 600, letterSpacing: -0.3, outline: 'none' }}
+      />
 
       <div style={{ marginTop: 18, padding: '12px 14px', borderRadius: 'var(--r-card)', background: 'var(--primary-weak)', fontSize: 12.5, color: 'var(--primary-ink)', fontWeight: 600, lineHeight: 1.55 }}>
         💡 병동 인트라넷에서 쓰려면: 인터넷이 되는 곳에서 위 버튼으로 한 번 받아두면, 이후 폐쇄망/오프라인에서도 그대로 동작해요.
