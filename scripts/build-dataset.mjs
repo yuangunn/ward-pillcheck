@@ -375,14 +375,18 @@ async function buildMarks(pills) {
           return;
         }
         attempts++;
-        try {
-          const res = await fetch(v.img, { headers: IMG_HEADERS, signal: AbortSignal.timeout(MARK_TIMEOUT) });
-          if (!res.ok) throw new Error(`mark ${res.status}`);
-          writeFileSync(path, Buffer.from(await res.arrayBuffer()));
-          downloaded.add(id);
-          out.push({ code, file, count: v.count });
-        } catch {
-          /* 실패 — 아래 조기중단 판정 */
+        // 간헐 타임아웃 대비 재시도(최대 3회). 배치 내 8개는 병렬이라 차단 시에도 ~24초로 바운드.
+        for (let a = 0; a < 3; a++) {
+          try {
+            const res = await fetch(v.img, { headers: IMG_HEADERS, signal: AbortSignal.timeout(MARK_TIMEOUT) });
+            if (!res.ok) throw new Error(`mark ${res.status}`);
+            writeFileSync(path, Buffer.from(await res.arrayBuffer()));
+            downloaded.add(id);
+            out.push({ code, file, count: v.count });
+            break;
+          } catch {
+            if (a < 2) await new Promise((r) => setTimeout(r, 600 * (a + 1)));
+          }
         }
       }),
     );
