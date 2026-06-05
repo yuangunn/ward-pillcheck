@@ -15,6 +15,28 @@ test('첫 실행: 온보딩 가이드 → 건너뛰기', async ({ page }) => {
   await expect(page.getByText('환자1')).toBeVisible();
 });
 
+test('온보딩: 좌우 스와이프로 카드 넘김', async ({ page }) => {
+  await page.addInitScript(() => localStorage.removeItem('ward-pillcheck:onboarded'));
+  await page.goto('/');
+  const dialog = page.getByRole('dialog', { name: '사용 가이드' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText('병동 지참약 식별')).toBeVisible(); // 1번째 카드
+  const box = (await dialog.boundingBox())!;
+  const my = box.y + box.height * 0.5;
+  // 왼쪽으로 드래그 → 다음 카드
+  await page.mouse.move(box.x + box.width * 0.8, my);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.2, my, { steps: 8 });
+  await page.mouse.up();
+  await expect(dialog.getByText('이렇게 찾아요')).toBeVisible(); // 2번째 카드
+  // 오른쪽으로 드래그 → 이전 카드
+  await page.mouse.move(box.x + box.width * 0.2, my);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.8, my, { steps: 8 });
+  await page.mouse.up();
+  await expect(dialog.getByText('병동 지참약 식별')).toBeVisible();
+});
+
 test('온보딩 → 직접 해보기 가이드 단계 진행', async ({ page }) => {
   await page.addInitScript(() => localStorage.removeItem('ward-pillcheck:onboarded'));
   await page.goto('/');
