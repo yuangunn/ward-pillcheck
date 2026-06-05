@@ -127,6 +127,7 @@ test('설정: 오프라인 데이터 화면 열림', async ({ page }) => {
   await expect(sheet.getByText(/허가사항 상세/)).toBeVisible();
   await expect(sheet.getByText(/금기점검\(DUR\)/)).toBeVisible();
   await expect(sheet.getByText(/실물사진 \(선택/)).toBeVisible();
+  await expect(sheet.getByLabel('Teams 대상 이메일')).toBeVisible();
 });
 
 test('다크 모드 토글', async ({ page }) => {

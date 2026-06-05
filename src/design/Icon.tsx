@@ -121,6 +121,7 @@ export function Icon({
         <circle cx="15" cy="17" r="2.2" {...p} />
       </>
     ),
+    send: <path d="M21 4L3 11l6 2 2 6 10-15z M9 13l4-4" {...p} />,
   };
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" style={style} aria-hidden>
