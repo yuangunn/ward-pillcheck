@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Icon, PillGlyph, MarkGlyph } from './Icon';
+import { Icon, PillGlyph, MarkGlyph, ShapeOutline } from './Icon';
 import { Btn, Chip, ColorChip, SegTabs, FieldLabel, TextField, Tag, PageHeader, IconBtn, STATUS_TOP } from './ui';
 import { COLOR_OPTIONS, SHAPE_OPTIONS, FORM_OPTIONS } from '../constants/appearance';
 import { freqMeta } from '../constants/frequency';
@@ -697,7 +697,13 @@ export function SearchScreen({
           <FieldLabel>모양</FieldLabel>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 22 }}>
             {SHAPE_OPTIONS.map((s) => (
-              <Chip key={s} selected={shape === s} onClick={() => setShape(shape === s ? '' : s)}>
+              <Chip
+                key={s}
+                selected={shape === s}
+                onClick={() => setShape(shape === s ? '' : s)}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                <ShapeOutline shape={s} size={18} sw={7} />
                 {s}
               </Chip>
             ))}

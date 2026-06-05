@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Icon, PillGlyph, MarkGlyph, type MarkOpt } from './Icon';
+import { Icon, PillGlyph, MarkGlyph, ShapeOutline, type MarkOpt } from './Icon';
 import { Btn, Chip, BottomSheet, FieldLabel, TextField, Stepper } from './ui';
 import { COLOR_OPTIONS, SHAPE_OPTIONS } from '../constants/appearance';
 import { FREQUENCY_PRESETS, freqMeta } from '../constants/frequency';
@@ -577,7 +577,13 @@ export function AddMedSheet({
           <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-weaker)', margin: '14px 0 8px' }}>모양</div>
           <div className="screen-scroll" style={{ display: 'flex', gap: 7, overflowX: 'auto', paddingBottom: 4 }}>
             {SHAPE_OPTIONS.map((s) => (
-              <Chip key={s} selected={shape === s} onClick={() => setShape(shape === s ? '' : s)} style={{ flexShrink: 0, padding: '8px 13px', fontSize: 14 }}>
+              <Chip
+                key={s}
+                selected={shape === s}
+                onClick={() => setShape(shape === s ? '' : s)}
+                style={{ flexShrink: 0, padding: '8px 13px', fontSize: 14, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                <ShapeOutline shape={s} size={17} sw={7} />
                 {s}
               </Chip>
             ))}
