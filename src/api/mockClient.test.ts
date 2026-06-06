@@ -30,6 +30,16 @@ describe('mockClient.searchPills', () => {
     expect(res.length).toBeGreaterThan(1);
     expect(res.every((r) => r.colorClass1 === '하양')).toBe(true);
   });
+
+  it('분할선(일자) 필터 — 분할선 있는 약만', async () => {
+    const res = await api.searchPills({ lines: ['single'] });
+    expect(res.map((r) => r.itemName)).toEqual(['타이레놀정500mg']);
+  });
+
+  it('분할선(십자) 필터 — 해당 없음', async () => {
+    const res = await api.searchPills({ lines: ['cross'] });
+    expect(res).toEqual([]);
+  });
 });
 
 describe('mockClient.getDetail', () => {

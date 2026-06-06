@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Icon, PillGlyph, MarkGlyph, ShapeOutline } from './Icon';
+import { Icon, PillGlyph, MarkGlyph, ShapeOutline, SplitLineGlyph } from './Icon';
 import { Btn, Chip, ColorChip, SegTabs, FieldLabel, TextField, PageHeader, IconBtn, STATUS_TOP, ScrollArea } from './ui';
 import { COLOR_OPTIONS, SHAPE_OPTIONS, FORM_OPTIONS } from '../constants/appearance';
 import { shapeLabel } from '../domain/shape';
+import { splitLineKind, SPLIT_LINE_OPTIONS, SPLIT_LINE_LABEL, SPLIT_LINE_SYMBOL, type SplitLineKind } from '../domain/splitLine';
 import { groupMedsByTiming, stripIngredient, type TimingGroup } from '../domain/format';
 import type { MedItem, Patient } from '../domain/models';
 import { drugApi, proxiedImg, searchInjections, isInjectionName, type PermitDrug, type PillResult, type PillSearchQuery } from '../api';
@@ -607,6 +608,7 @@ export function SearchScreen({
   const [colors, setColors] = useState<string[]>([]);
   const [shape, setShape] = useState('');
   const [forms, setForms] = useState<string[]>([]);
+  const [lines, setLines] = useState<SplitLineKind[]>([]);
   const [marking, setMarking] = useState('');
   const [name, setName] = useState('');
   const [results, setResults] = useState<PillResult[]>([]);
@@ -616,14 +618,19 @@ export function SearchScreen({
 
   const toggleColor = (c: string) => setColors((cs) => (cs.includes(c) ? cs.filter((x) => x !== c) : [...cs, c]));
   const toggleForm = (f: string) => setForms((fs) => (fs.includes(f) ? fs.filter((x) => x !== f) : [...fs, f]));
+  const toggleLine = (l: SplitLineKind) => setLines((ls) => (ls.includes(l) ? ls.filter((x) => x !== l) : [...ls, l]));
 
-  const active = mode === 'visual' ? !!(colors.length || shape || forms.length || marking || pickedMark) : !!name.trim();
+  const active =
+    mode === 'visual'
+      ? !!(colors.length || shape || forms.length || lines.length || marking || pickedMark)
+      : !!name.trim();
   const query: PillSearchQuery =
     mode === 'visual'
       ? {
           colors: colors.length ? colors : undefined,
           drugShape: shape || undefined,
           forms: forms.length ? forms : undefined,
+          lines: lines.length ? lines : undefined,
           printFront: marking || undefined,
           markCode: pickedMark?.code,
         }
@@ -677,6 +684,7 @@ export function SearchScreen({
     setColors([]);
     setShape('');
     setForms([]);
+    setLines([]);
     setMarking('');
     onClearMark();
   };
@@ -754,6 +762,20 @@ export function SearchScreen({
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 22 }}>
             {FORM_OPTIONS.map((o) => (
               <Chip key={o.match} selected={forms.includes(o.match)} onClick={() => toggleForm(o.match)}>
+                {o.label}
+              </Chip>
+            ))}
+          </div>
+          <FieldLabel>분할선 <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-weaker)' }}>(여러 개 선택 가능)</span></FieldLabel>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 22 }}>
+            {SPLIT_LINE_OPTIONS.map((o) => (
+              <Chip
+                key={o.value}
+                selected={lines.includes(o.value)}
+                onClick={() => toggleLine(o.value)}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                <SplitLineGlyph kind={o.value} size={18} />
                 {o.label}
               </Chip>
             ))}
@@ -935,17 +957,9 @@ function Highlighted({ text, term }: { text?: string; term?: string }): ReactNod
 }
 
 function lineText(front?: string, back?: string): string | null {
-  const norm = (v?: string) => {
-    const x = (v || '').trim();
-    return x && x !== '-' && x !== '없음' ? x : '';
-  };
-  const f = norm(front);
-  const b = norm(back);
-  if (!f && !b) return null;
-  const parts: string[] = [];
-  if (f) parts.push(`앞 ${f}`);
-  if (b) parts.push(`뒤 ${b}`);
-  return `분할선 ${parts.join(' / ')}`;
+  const kind = splitLineKind(front, back);
+  if (kind === 'none') return null;
+  return `분할선 ${SPLIT_LINE_SYMBOL[kind]} ${SPLIT_LINE_LABEL[kind]}`;
 }
 
 function ResultCard({
