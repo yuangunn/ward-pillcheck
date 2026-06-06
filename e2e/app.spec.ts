@@ -36,7 +36,11 @@ test('환자 많아도 스크롤되고, 하단 액션바는 스크롤 영역 밖
 });
 
 test('첫 실행: 온보딩 가이드 → 건너뛰기', async ({ page }) => {
-  await page.addInitScript(() => localStorage.removeItem('ward-pillcheck:onboarded'));
+  await page.addInitScript(() => {
+    localStorage.removeItem('ward-pillcheck:onboarded');
+    // 설치형(standalone)에선 기능 온보딩이 인트로로 뜬다(미설치 브라우저는 설치 가이드가 인트로).
+    Object.defineProperty(window.navigator, 'standalone', { value: true, configurable: true });
+  });
   await page.goto('/');
   await expect(page.getByRole('dialog', { name: '사용 가이드' })).toBeVisible();
   await page.getByRole('button', { name: '건너뛰기' }).click();
@@ -44,7 +48,11 @@ test('첫 실행: 온보딩 가이드 → 건너뛰기', async ({ page }) => {
 });
 
 test('온보딩: 10장 카드 진행 → 시작하기', async ({ page }) => {
-  await page.addInitScript(() => localStorage.removeItem('ward-pillcheck:onboarded'));
+  await page.addInitScript(() => {
+    localStorage.removeItem('ward-pillcheck:onboarded');
+    // 설치형(standalone)에선 기능 온보딩이 인트로로 뜬다(미설치 브라우저는 설치 가이드가 인트로).
+    Object.defineProperty(window.navigator, 'standalone', { value: true, configurable: true });
+  });
   await page.goto('/');
   const dialog = page.getByRole('dialog', { name: '사용 가이드' });
   await expect(dialog).toBeVisible();
@@ -56,12 +64,23 @@ test('온보딩: 10장 카드 진행 → 시작하기', async ({ page }) => {
 });
 
 test('온보딩: 점(dot)으로 특정 카드 이동', async ({ page }) => {
-  await page.addInitScript(() => localStorage.removeItem('ward-pillcheck:onboarded'));
+  await page.addInitScript(() => {
+    localStorage.removeItem('ward-pillcheck:onboarded');
+    // 설치형(standalone)에선 기능 온보딩이 인트로로 뜬다(미설치 브라우저는 설치 가이드가 인트로).
+    Object.defineProperty(window.navigator, 'standalone', { value: true, configurable: true });
+  });
   await page.goto('/');
   const dialog = page.getByRole('dialog', { name: '사용 가이드' });
   await expect(dialog).toBeVisible();
   await dialog.getByRole('button', { name: '5번째 카드' }).click();
   await expect(dialog.getByText('05 / 10')).toBeVisible();
+});
+
+test('첫 실행(미설치 브라우저): 설치 가이드가 인트로로', async ({ page }) => {
+  // standalone 이 아니고 인앱도 아닌 일반 브라우저 첫 실행 → 온보딩 대신 설치 가이드가 인트로.
+  await page.addInitScript(() => localStorage.removeItem('ward-pillcheck:onboarded'));
+  await page.goto('/');
+  await expect(page.getByRole('dialog', { name: '앱 설치 가이드' })).toBeVisible();
 });
 
 test('설치 배너 → 설치 가이드 열림 + 브라우저 전환', async ({ page }) => {
@@ -137,7 +156,7 @@ test('환자 열기 → 검색 → 추가 → 리스트에 표시', async ({ pag
   await sheet.getByRole('button', { name: '환자 리스트에 추가' }).click();
 
   // 환자 화면으로 돌아와 약 행 표시
-  await expect(page.locator('ul.med-list .med-name')).toContainText('아스피린장용정100mg');
+  await expect(page.locator('.med-list .med-name')).toContainText('아스피린장용정100mg');
 });
 
 test('이름 검색 탭 전환', async ({ page }) => {
@@ -168,7 +187,7 @@ test('외용·주사제 탭: 이름검색 → 추가', async ({ page }) => {
   // 주사·외용약도 약 상세 정보 버튼 노출(itemSeq 보유)
   await expect(sheet.getByRole('button', { name: '약 상세 정보' })).toBeVisible();
   await sheet.getByRole('button', { name: '환자 리스트에 추가' }).click();
-  await expect(page.locator('ul.med-list .med-name')).toContainText('란투스주솔로스타펜');
+  await expect(page.locator('.med-list .med-name')).toContainText('란투스주솔로스타펜');
 });
 
 test('직접 입력으로 주사약 추가', async ({ page }) => {
@@ -180,7 +199,7 @@ test('직접 입력으로 주사약 추가', async ({ page }) => {
   await sheet.getByLabel('약 이름').fill('란투스주');
   await sheet.getByLabel('용량 단위').selectOption('U');
   await sheet.getByRole('button', { name: '환자 리스트에 추가' }).click();
-  await expect(page.locator('ul.med-list .med-name')).toContainText('란투스주');
+  await expect(page.locator('.med-list .med-name')).toContainText('란투스주');
 });
 
 test('용법 필요시 → 사유 입력 모달 → 투약시점에 필요시 자동 체크', async ({ page }) => {
@@ -251,16 +270,16 @@ test('의약품 검색 탭: 경구약 검색 → 상세 보기', async ({ page }
   await expect(sheet.getByText('타이레놀정500mg')).toBeVisible();
 });
 
-test('환자 약 그림 탭 → 상세 보기', async ({ page }) => {
+test('환자 약 행 탭 → 수정 시트', async ({ page }) => {
   await page.goto('/');
   await page.getByText('환자1').click();
   await page.getByRole('button', { name: '약 검색해서 추가' }).click();
   await page.getByLabel('각인').fill('Bayer');
   await page.getByText('아스피린장용정100mg').click();
   await page.getByRole('dialog', { name: '리스트에 추가' }).getByRole('button', { name: '환자 리스트에 추가' }).click();
-  // 리스트의 약 그림 탭 → 상세 시트
-  await page.locator('ul.med-list button[aria-label="약 상세 정보"]').first().click();
-  await expect(page.getByRole('dialog', { name: '약 상세 정보' })).toBeVisible();
+  // 텍스트(인계형) 뷰의 약 행을 탭하면 수정 시트가 열린다(상세는 검색·DB 탭에서 확인).
+  await page.locator('.med-list button').first().click();
+  await expect(page.getByRole('dialog', { name: '약 수정' })).toBeVisible();
 });
 
 test('설정: 오프라인 데이터 화면 열림', async ({ page }) => {
