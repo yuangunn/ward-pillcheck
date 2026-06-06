@@ -119,6 +119,29 @@ describe('buildListText (블라인드 + 시점 범주화)', () => {
     expect(buildListText('환자2', [])).toBe('[환*2]');
   });
 
+  it('옵션: 성분명 포함 / 겉모습 제외', () => {
+    const med: MedItem = {
+      ...base,
+      name: '트라젠타정(리나글립틴)',
+      timings: ['아침식후'],
+      color: '분홍',
+      shape: '원형',
+      marking: '마크',
+    };
+    // 기본(성분 제외·겉모습 포함)
+    expect(buildListText('환자1', [med])).toBe('[환*1]\n<8am>\n트라젠타정 1T (분홍/원형/마크)');
+    // 성분명 ON
+    expect(buildListText('환자1', [med], { ingredient: true })).toBe(
+      '[환*1]\n<8am>\n트라젠타정(리나글립틴) 1T (분홍/원형/마크)',
+    );
+    // 겉모습 OFF
+    expect(buildListText('환자1', [med], { appearance: false })).toBe('[환*1]\n<8am>\n트라젠타정 1T');
+    // 둘 다: 성분 ON + 겉모습 OFF
+    expect(buildListText('환자1', [med], { ingredient: true, appearance: false })).toBe(
+      '[환*1]\n<8am>\n트라젠타정(리나글립틴) 1T',
+    );
+  });
+
   it('명세 예시와 일치: 시점 패턴별 그룹·시간순 정렬', () => {
     const mk = (
       id: string,

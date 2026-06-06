@@ -17,6 +17,7 @@ import { drugApi, getMarkOptions, proxiedImg, type DrugDetail, type MarkOption, 
 import { ensureMarkFeatures, featuresFromCanvas, rankFeaturesMulti, type RankedMark } from '../api';
 import { analyzeInteractions, fetchDurMap, type InteractionResult } from '../api/dur';
 import { getTeamsTarget, setTeamsTarget, teamsDeepLink } from '../state/teamsTarget';
+import { getShareOptions, setShareOptions, type ShareOptions } from '../state/shareOptions';
 
 const TIMING_DEFAULTS: Record<number, string[]> = {
   1: ['아침식후'],
@@ -767,18 +768,63 @@ function TeamsTargetPrompt({
   );
 }
 
+/** 공유 상세설정의 토글 행(체크박스 스타일) */
+function ShareToggle({ label, hint, on, onToggle }: { label: string; hint: string; on: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      onClick={onToggle}
+      style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '10px 12px', borderRadius: 'var(--r-card)', background: 'var(--fill)', border: 'none', cursor: 'pointer', textAlign: 'left', WebkitTapHighlightColor: 'transparent' }}
+    >
+      <span
+        style={{
+          flexShrink: 0,
+          width: 22,
+          height: 22,
+          borderRadius: 7,
+          border: on ? 'none' : '1.5px solid var(--border)',
+          background: on ? 'var(--primary)' : 'transparent',
+          color: '#fff',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        {on && <Icon name="check" size={15} stroke="#fff" sw={2.6} />}
+      </span>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ display: 'block', fontSize: 14, fontWeight: 700, color: 'var(--text)', letterSpacing: -0.3 }}>{label}</span>
+        <span style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-weaker)', letterSpacing: -0.2, marginTop: 1 }}>{hint}</span>
+      </span>
+    </button>
+  );
+}
+
 export function CopySheet({ open, onClose, label, meds }: { open: boolean; onClose: () => void; label: string; meds: MedItem[] }) {
   const [copied, setCopied] = useState(false);
   const [teamsTarget, setTeamsTargetState] = useState('');
   const [teamsPrompt, setTeamsPrompt] = useState(false);
-  const text = useMemo(() => buildListText(label, meds), [label, meds]);
+  const [opts, setOpts] = useState<ShareOptions>(getShareOptions);
+  const [optsOpen, setOptsOpen] = useState(false);
+  const text = useMemo(() => buildListText(label, meds, opts), [label, meds, opts]);
   useEffect(() => {
-    if (open) setTeamsTargetState(getTeamsTarget());
-    else {
+    if (open) {
+      setTeamsTargetState(getTeamsTarget());
+      setOpts(getShareOptions());
+    } else {
       setCopied(false);
       setTeamsPrompt(false);
+      setOptsOpen(false);
     }
   }, [open]);
+  const toggleOpt = (key: keyof ShareOptions) => {
+    const next = { ...opts, [key]: !opts[key] };
+    setOpts(next);
+    setShareOptions(next);
+  };
   const canShare = typeof navigator !== 'undefined' && !!navigator.share;
   const launchTeams = (target?: string) => {
     const url = teamsDeepLink(text, target);
@@ -824,7 +870,27 @@ export function CopySheet({ open, onClose, label, meds }: { open: boolean; onClo
       <pre style={{ margin: 0, padding: 16, borderRadius: 'var(--r-card)', background: 'var(--fill)', color: 'var(--text)', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 280, overflowY: 'auto' }}>
         {text}
       </pre>
-      <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+
+      <button
+        type="button"
+        onClick={() => setOptsOpen((v) => !v)}
+        aria-expanded={optsOpen}
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginTop: 12, padding: '10px 0', background: 'none', border: 'none', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+      >
+        <span style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.3 }}>공유 상세설정</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, color: 'var(--text-weaker)' }}>
+          {[opts.ingredient && '성분명', opts.appearance && '겉모습'].filter(Boolean).join('·') || '기본'}
+          <Icon name={optsOpen ? 'chevDown' : 'chevron'} size={16} />
+        </span>
+      </button>
+      {optsOpen && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 4 }}>
+          <ShareToggle label="성분명 표시" hint="예) 트라젠타정(리나글립틴)" on={opts.ingredient} onToggle={() => toggleOpt('ingredient')} />
+          <ShareToggle label="겉모습 표시" hint="색·모양·각인 예) (하양/원형/Bayer)" on={opts.appearance} onToggle={() => toggleOpt('appearance')} />
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
         {canShare && <Btn variant="ghost" icon="share" onClick={doShare} style={{ flex: '0 0 auto', width: 54, padding: 0 }} />}
         <Btn variant="primary" full icon={copied ? 'check' : 'copy'} onClick={doCopy}>
           {copied ? '복사됐어요' : '복사하기'}
