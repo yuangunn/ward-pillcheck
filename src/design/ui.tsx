@@ -1,10 +1,60 @@
 import {
   useEffect,
+  useRef,
   useState,
   type CSSProperties,
   type ReactNode,
 } from 'react';
 import { Icon, PillGlyph } from './Icon';
+
+/**
+ * 화면별 스크롤 영역. 헤더는 바깥(고정)에 두고 이 안의 리스트만 스크롤되게 한다.
+ * (flex:1 영역을 채우는 단일 스크롤러 + 내장 "맨 위로" 버튼)
+ * bottomGap: 하단 고정 액션바 높이만큼 "맨 위로" 버튼을 띄움.
+ */
+export function ScrollArea({ children, bottomGap = 16 }: { children: ReactNode; bottomGap?: number }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [showTop, setShowTop] = useState(false);
+  return (
+    <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
+      <div
+        ref={ref}
+        className="screen-scroll"
+        onScroll={(e) => setShowTop((e.currentTarget as HTMLDivElement).scrollTop > 500)}
+        style={{ position: 'absolute', inset: 0, overflowY: 'auto', overscrollBehavior: 'contain' }}
+      >
+        {children}
+      </div>
+      {showTop && (
+        <button
+          type="button"
+          aria-label="맨 위로"
+          onClick={() => ref.current?.scrollTo({ top: 0, behavior: 'smooth' })}
+          style={{
+            position: 'absolute',
+            right: 16,
+            bottom: bottomGap,
+            zIndex: 55,
+            width: 44,
+            height: 44,
+            borderRadius: '50%',
+            border: '1px solid var(--border)',
+            background: 'var(--card)',
+            color: 'var(--text)',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            WebkitTapHighlightColor: 'transparent',
+          }}
+        >
+          <Icon name="chevDown" size={22} style={{ transform: 'rotate(180deg)' }} />
+        </button>
+      )}
+    </div>
+  );
+}
 import { proxiedImg } from '../api';
 
 type BtnVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'line';

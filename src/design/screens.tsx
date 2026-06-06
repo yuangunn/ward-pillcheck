@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Icon, PillGlyph, MarkGlyph, ShapeOutline } from './Icon';
-import { Btn, Chip, ColorChip, SegTabs, FieldLabel, TextField, Tag, PageHeader, IconBtn, STATUS_TOP } from './ui';
+import { Btn, Chip, ColorChip, SegTabs, FieldLabel, TextField, Tag, PageHeader, IconBtn, STATUS_TOP, ScrollArea } from './ui';
 import { COLOR_OPTIONS, SHAPE_OPTIONS, FORM_OPTIONS } from '../constants/appearance';
 import { freqMeta } from '../constants/frequency';
 import { sortMeds } from '../domain/sort';
@@ -71,59 +71,52 @@ export function HomeScreen({
     onFlash?.(s === 'ready' ? '약품 데이터 최신화 완료' : '업데이트에 실패했어요');
   };
   return (
-    <div style={{ paddingBottom: 100 }}>
-      {/* 상단: [지참약 식별 | 의약품 검색] 탭 + 테마 토글(같은 줄에 정렬) */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: `calc(${STATUS_TOP} + 8px) 16px 14px` }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <SegTabs
-            tabs={[
-              { value: 'patients', label: '지참약 식별' },
-              { value: 'lookup', label: '의약품 검색' },
-            ]}
-            value={topTab}
-            onChange={onTopTab}
-          />
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      {/* 고정 헤더: 탭(+환자탭이면 안내·DB·카운트). 아래 리스트만 스크롤 */}
+      <div style={{ flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: `calc(${STATUS_TOP} + 8px) 16px 14px` }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <SegTabs
+              tabs={[
+                { value: 'patients', label: '지참약 식별' },
+                { value: 'lookup', label: '의약품 검색' },
+              ]}
+              value={topTab}
+              onChange={onTopTab}
+            />
+          </div>
+          <IconBtn name="settings" label="설정" onClick={onOpenSettings} />
+          <IconBtn name={dark ? 'sun' : 'moon'} label="테마 전환" onClick={onToggleTheme} />
         </div>
-        <IconBtn name="settings" label="설정" onClick={onOpenSettings} />
-        <IconBtn name={dark ? 'sun' : 'moon'} label="테마 전환" onClick={onToggleTheme} />
+        {topTab === 'patients' && (
+          <PatientsHeader patientCount={patients.length} totalMeds={totalMeds} ds={ds} runUpdate={runUpdate} />
+        )}
       </div>
 
-      {topTab === 'lookup' ? (
-        <LookupBody onOpenDetail={onOpenDetail} />
-      ) : (
-        <PatientsBody
-          patients={patients}
-          totalMeds={totalMeds}
-          ds={ds}
-          runUpdate={runUpdate}
-          onOpenPatient={onOpenPatient}
-        />
-      )}
+      <ScrollArea bottomGap={topTab === 'patients' ? 110 : 24}>
+        {topTab === 'lookup' ? (
+          <div style={{ paddingBottom: 24 }}>
+            <LookupBody onOpenDetail={onOpenDetail} />
+          </div>
+        ) : (
+          <PatientsList patients={patients} onOpenPatient={onOpenPatient} />
+        )}
+      </ScrollArea>
     </div>
   );
 }
 
-function PatientsBody({
-  patients,
+function PatientsHeader({
+  patientCount,
   totalMeds,
   ds,
   runUpdate,
-  onOpenPatient,
 }: {
-  patients: Patient[];
+  patientCount: number;
   totalMeds: number;
   ds: ReturnType<typeof useDataset>;
   runUpdate: () => void;
-  onOpenPatient: (id: string) => void;
 }) {
-  // 가장 최근에 지참약을 수정한 환자가 위로. updatedAt 동률은 라벨 순.
-  const sortedPatients = useMemo(
-    () =>
-      [...patients].sort(
-        (a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0) || a.label.localeCompare(b.label, 'ko'),
-      ),
-    [patients],
-  );
   return (
     <>
       <div
@@ -210,12 +203,25 @@ function PatientsBody({
 
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', padding: '0 24px 14px' }}>
         <span style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.4 }}>
-          환자 {patients.length}명
+          환자 {patientCount}명
         </span>
         <span style={{ fontSize: 13.5, color: 'var(--text-weaker)', fontWeight: 600 }}>지참약 {totalMeds}건</span>
       </div>
+    </>
+  );
+}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--list-gap)', padding: '0 16px' }}>
+function PatientsList({ patients, onOpenPatient }: { patients: Patient[]; onOpenPatient: (id: string) => void }) {
+  // 가장 최근에 지참약을 수정한 환자가 위로. updatedAt 동률은 라벨 순.
+  const sortedPatients = useMemo(
+    () =>
+      [...patients].sort(
+        (a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0) || a.label.localeCompare(b.label, 'ko'),
+      ),
+    [patients],
+  );
+  return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--list-gap)', padding: '0 16px 100px' }}>
         {sortedPatients.map((p) => {
           const tint = avatarTintFor(p);
           const modified = fmtRelative(p.updatedAt);
@@ -269,7 +275,6 @@ function PatientsBody({
           );
         })}
       </div>
-    </>
   );
 }
 
@@ -400,30 +405,35 @@ export function MedListScreen({
 }) {
   const displayed = useMemo(() => sortMeds(patient.meds, patient.sortMode), [patient.meds, patient.sortMode]);
   return (
-    <div style={{ paddingBottom: 180 }}>
-      <PageHeader
-        title={patient.label}
-        sub={patient.meds.length ? `지참약 ${patient.meds.length}건` : '지참약을 추가해 보세요'}
-        onBack={onBack}
-        onTitleClick={onManage}
-        right={<IconBtn name="dots" label="환자 관리" onClick={onManage} />}
-      />
-      {patient.meds.length > 1 && (
-        <div style={{ padding: '6px 20px 14px' }}>
-          <SegTabs tabs={SORT_TABS} value={patient.sortMode} onChange={onSetSort} />
-        </div>
-      )}
-      {patient.meds.length === 0 ? (
-        <EmptyMedState onAdd={onAddMed} />
-      ) : (
-        <ul className="med-list" style={{ listStyle: 'none', margin: 0, display: 'flex', flexDirection: 'column', gap: 'var(--list-gap)', padding: '0 16px' }}>
-          {displayed.map((m) => (
-            <li key={m.id}>
-              <MedRow med={m} onClick={() => onEditMed(m)} onDetail={() => onDetail(m)} />
-            </li>
-          ))}
-        </ul>
-      )}
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      {/* 고정 헤더: 환자명 + 정렬 탭. 아래 약 리스트만 스크롤 */}
+      <div style={{ flexShrink: 0 }}>
+        <PageHeader
+          title={patient.label}
+          sub={patient.meds.length ? `지참약 ${patient.meds.length}건` : '지참약을 추가해 보세요'}
+          onBack={onBack}
+          onTitleClick={onManage}
+          right={<IconBtn name="dots" label="환자 관리" onClick={onManage} />}
+        />
+        {patient.meds.length > 1 && (
+          <div style={{ padding: '6px 20px 14px' }}>
+            <SegTabs tabs={SORT_TABS} value={patient.sortMode} onChange={onSetSort} />
+          </div>
+        )}
+      </div>
+      <ScrollArea bottomGap={190}>
+        {patient.meds.length === 0 ? (
+          <EmptyMedState onAdd={onAddMed} />
+        ) : (
+          <ul className="med-list" style={{ listStyle: 'none', margin: 0, display: 'flex', flexDirection: 'column', gap: 'var(--list-gap)', padding: '0 16px 180px' }}>
+            {displayed.map((m) => (
+              <li key={m.id}>
+                <MedRow med={m} onClick={() => onEditMed(m)} onDetail={() => onDetail(m)} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </ScrollArea>
     </div>
   );
 }
@@ -621,7 +631,9 @@ export function SearchScreen({
   };
 
   return (
-    <div style={{ paddingBottom: 30 }}>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <ScrollArea>
+        <div style={{ paddingBottom: 30 }}>
       <PageHeader title="약 검색" sub="색·모양·각인·마크 / 외용·주사제는 이름으로" onBack={onBack} />
       <div style={{ padding: '4px 20px 0' }}>
         <SegTabs
@@ -848,6 +860,8 @@ export function SearchScreen({
           직접 입력 (주사약·인슐린 등)
         </button>
       </div>
+        </div>
+      </ScrollArea>
     </div>
   );
 }
