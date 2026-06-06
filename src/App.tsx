@@ -1,15 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useStore, uid } from './state/store';
 import { buildTokens, useTheme } from './design/theme';
 import { HomeScreen, MedListScreen, SearchScreen, type PickedMark } from './design/screens';
 import { AddMedSheet, CopySheet, DurSheet, PatientManageSheet, MarkGallerySheet, DrawMarkSheet, DrugDetailSheet, type MedFormData } from './design/sheets';
 import { SettingsSheet } from './design/SettingsSheet';
-import { Onboarding } from './design/Onboarding';
-import { GuideBanner, GuideDone, type TourStep } from './design/GuideBanner';
+import { Onboarding, isStandalone } from './design/Onboarding';
 
 const ONBOARDED_KEY = 'ward-pillcheck:onboarded';
 import { Toast, Lightbox, Btn, type ZoomPill } from './design/ui';
-import { Icon } from './design/Icon';
 import { sortMeds } from './domain/sort';
 import type { MedItem, Patient, SortMode } from './domain/models';
 import type { MarkOption, PillResult } from './api';
@@ -66,8 +64,6 @@ export default function App() {
       return false;
     }
   });
-  const [tour, setTour] = useState(false); // 직접 해보기 가이드 진행 중
-  const [tourDone, setTourDone] = useState(false); // 완료 배너 표시
   const closeOnboarding = () => {
     try {
       localStorage.setItem(ONBOARDED_KEY, '1');
@@ -76,14 +72,6 @@ export default function App() {
     }
     setOnboardOpen(false);
   };
-  const startTour = () => {
-    closeOnboarding();
-    setTourDone(false);
-    setTour(true);
-    go({ name: 'home', patientId: null });
-  };
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [showTop, setShowTop] = useState(false);
 
   const patients = state.patients;
   const activePatient: Patient | null = patients.find((p) => p.id === route.patientId) ?? null;
@@ -100,7 +88,6 @@ export default function App() {
       setDrawOpen(false);
     }
     setDetailPill(null);
-    setShowTop(false);
     setRoute(next);
   };
 
@@ -116,14 +103,6 @@ export default function App() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navNew, state.activePatientId]);
-
-  // 가이드 마지막 단계(Teams 내보내기 시트를 열면) 완료 처리
-  useEffect(() => {
-    if (tour && copyOpen) {
-      setTour(false);
-      setTourDone(true);
-    }
-  }, [tour, copyOpen]);
 
   const existingSeqs = activePatient ? activePatient.meds.map((m) => m.itemSeq) : [];
   // 직접입력 약은 itemSeq 가 빈 문자열 → 빈 seq 끼리 중복으로 오판하지 않도록 truthy 가드
@@ -145,21 +124,6 @@ export default function App() {
     setAddState({ open: false, source: null, mode: 'add' });
     if (route.name === 'search') go({ name: 'patient', patientId: pid });
   };
-
-  // 현재 가이드 단계는 실제 앱 상태에서 파생(별도 진행 버튼 없이 자동 진행)
-  const tourStep: TourStep | null = !tour
-    ? null
-    : addState.open
-      ? 'add'
-      : route.name === 'home'
-        ? 'patient'
-        : route.name === 'search'
-          ? 'pick'
-          : route.name === 'patient'
-            ? activePatient && activePatient.meds.length > 0
-              ? 'export'
-              : 'search'
-            : null;
 
   let screen = null;
   if (route.name === 'home') {
@@ -245,51 +209,23 @@ export default function App() {
         overflow: 'hidden',
       }}
     >
+      {/* 화면 컨테이너는 스크롤하지 않음(레이어 분리). 각 화면이 헤더(고정) +
+          ScrollArea(리스트만 스크롤) 구조를 가진다. 전환 애니메이션만 담당. */}
       <div
         key={routeKey}
-        ref={scrollRef}
-        className="screen-scroll"
-        onScroll={(e) => setShowTop((e.target as HTMLDivElement).scrollTop > 500)}
         style={{
           position: 'absolute',
           inset: 0,
-          overflowY: 'auto',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
           animation: `${dir === 'fwd' ? 'slideFwd' : 'slideBack'} .28s cubic-bezier(.32,.72,0,1)`,
         }}
       >
         {screen}
       </div>
 
-      {showTop && (
-        <button
-          type="button"
-          aria-label="맨 위로"
-          onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
-          style={{
-            position: 'absolute',
-            right: 16,
-            bottom: 150,
-            zIndex: 60,
-            width: 44,
-            height: 44,
-            borderRadius: '50%',
-            border: '1px solid var(--border)',
-            background: 'var(--card)',
-            color: 'var(--text)',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            WebkitTapHighlightColor: 'transparent',
-          }}
-        >
-          <Icon name="chevDown" size={22} style={{ transform: 'rotate(180deg)' }} />
-        </button>
-      )}
-
-      {/* 하단 액션바 — 스크롤 컨테이너 밖(앱 루트)에 고정. iOS 에서 absolute 바를
-          overflow 스크롤 안에 두면 스크롤이 깨지므로 여기로 분리. */}
+      {/* 하단 액션바 — 화면 컨테이너 밖(앱 루트)에 고정. */}
       {route.name === 'home' && topTab === 'patients' && (
         <div style={BAR_WRAP}>
           <div style={{ pointerEvents: 'auto' }}>
@@ -363,11 +299,8 @@ export default function App() {
           setOnboardOpen(true);
         }}
       />
-      {onboardOpen && <Onboarding onClose={closeOnboarding} onStartTour={startTour} />}
+      {onboardOpen && <Onboarding onClose={closeOnboarding} standalone={isStandalone()} />}
       <Lightbox pill={zoomPill} onClose={() => setZoomPill(null)} />
-
-      {tourStep && <GuideBanner step={tourStep} onSkip={() => setTour(false)} />}
-      {tourDone && <GuideDone onClose={() => setTourDone(false)} />}
 
       <Toast msg={toast} />
     </div>

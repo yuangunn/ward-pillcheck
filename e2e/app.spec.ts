@@ -43,42 +43,25 @@ test('첫 실행: 온보딩 가이드 → 건너뛰기', async ({ page }) => {
   await expect(page.getByText('환자1')).toBeVisible();
 });
 
-test('온보딩: 좌우 스와이프로 카드 넘김', async ({ page }) => {
+test('온보딩: 10장 카드 진행 → 시작하기', async ({ page }) => {
   await page.addInitScript(() => localStorage.removeItem('ward-pillcheck:onboarded'));
   await page.goto('/');
   const dialog = page.getByRole('dialog', { name: '사용 가이드' });
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByText('병동 지참약 식별')).toBeVisible(); // 1번째 카드
-  const box = (await dialog.boundingBox())!;
-  const my = box.y + box.height * 0.5;
-  // 왼쪽으로 드래그 → 다음 카드
-  await page.mouse.move(box.x + box.width * 0.8, my);
-  await page.mouse.down();
-  await page.mouse.move(box.x + box.width * 0.2, my, { steps: 8 });
-  await page.mouse.up();
-  await expect(dialog.getByText('이렇게 찾아요')).toBeVisible(); // 2번째 카드
-  // 오른쪽으로 드래그 → 이전 카드
-  await page.mouse.move(box.x + box.width * 0.2, my);
-  await page.mouse.down();
-  await page.mouse.move(box.x + box.width * 0.8, my, { steps: 8 });
-  await page.mouse.up();
-  await expect(dialog.getByText('병동 지참약 식별')).toBeVisible();
+  await expect(dialog.getByText('01 / 10')).toBeVisible();
+  for (let k = 0; k < 9; k++) await dialog.getByRole('button', { name: '다음' }).click();
+  await expect(dialog.getByText('10 / 10')).toBeVisible();
+  await dialog.getByRole('button', { name: '시작하기' }).click();
+  await expect(page.getByText('환자1')).toBeVisible();
 });
 
-test('온보딩 → 직접 해보기 가이드 단계 진행', async ({ page }) => {
+test('온보딩: 점(dot)으로 특정 카드 이동', async ({ page }) => {
   await page.addInitScript(() => localStorage.removeItem('ward-pillcheck:onboarded'));
   await page.goto('/');
-  await expect(page.getByRole('dialog', { name: '사용 가이드' })).toBeVisible();
-  for (let k = 0; k < 3; k++) await page.getByRole('button', { name: '다음' }).click();
-  await page.getByRole('button', { name: '직접 해보기' }).click();
-  // 1단계: 환자 추가 안내 배너(제목 정확 일치로 버튼과 구분)
-  await expect(page.getByText('환자 추가', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: '새 환자 추가' }).click();
-  // 2단계: 지참약 식별(약 검색)로 자동 진행
-  await expect(page.getByText('지참약 식별', { exact: true })).toBeVisible();
-  // 그만하기 → 배너 사라짐
-  await page.getByRole('button', { name: '가이드 그만하기' }).click();
-  await expect(page.getByText('지참약 식별', { exact: true })).toHaveCount(0);
+  const dialog = page.getByRole('dialog', { name: '사용 가이드' });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: '5번째 카드' }).click();
+  await expect(dialog.getByText('05 / 10')).toBeVisible();
 });
 
 test('Teams 보내기: 대상 미지정 시 입력 팝업', async ({ page }) => {
