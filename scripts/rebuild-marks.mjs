@@ -18,29 +18,31 @@ if (!existsSync(pillsPath)) {
 const pills = JSON.parse(readFileSync(pillsPath, 'utf8'));
 const nedrugId = (url) => (String(url).split('/').pop() || '').replace(/[^a-zA-Z0-9]/g, '');
 
-// 마크코드 → 대표이미지/빈도 (build-dataset 의 buildMarks 와 동일 로직)
-const map = new Map();
+// 고유 마크 이미지 → 대표코드/빈도 (build-dataset 의 buildMarks 와 동일 로직: 이미지 단위)
+const map = new Map(); // imageId -> { img, codeCount: Map<code,n>, count }
 for (const r of pills) {
   for (const [codes, img] of [
     [r.markFA, r.markFI],
     [r.markBA, r.markBI],
   ]) {
-    if (!codes) continue;
+    if (!codes || !img) continue;
+    const id = nedrugId(img);
+    if (!id) continue;
+    const e = map.get(id) || { img, codeCount: new Map(), count: 0 };
+    e.count += 1;
     for (const c of String(codes).split(',').map((s) => s.trim()).filter(Boolean)) {
-      const e = map.get(c) || { img: undefined, count: 0 };
-      e.count += 1;
-      if (!e.img && img) e.img = img;
-      map.set(c, e);
+      e.codeCount.set(c, (e.codeCount.get(c) || 0) + 1);
     }
+    map.set(id, e);
   }
 }
+const repCode = (cc) => [...cc.entries()].sort((a, b) => b[1] - a[1])[0][0];
 
-// 실제 커밋된 gif 가 있는 코드만 목록에 포함
+// 실제 커밋·캐시된 gif 가 있는 이미지만 목록에 포함
 const out = [];
-for (const [code, v] of map) {
-  if (!v.img) continue;
+for (const v of map.values()) {
   const file = `${nedrugId(v.img)}.gif`;
-  if (existsSync(resolve(marksDir, file))) out.push({ code, file, count: v.count });
+  if (existsSync(resolve(marksDir, file))) out.push({ code: repCode(v.codeCount), file, count: v.count });
 }
 out.sort((a, b) => b.count - a.count);
 

@@ -1183,7 +1183,7 @@ export function MarkGallerySheet({ open, onClose, onPick }: { open: boolean; onC
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
           {filtered.map((o) => (
             <button
-              key={o.code}
+              key={o.img}
               type="button"
               onClick={() => { onPick(o); onClose(); }}
               style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '12px 4px', borderRadius: 'var(--r-card)', background: 'var(--card)', border: '1px solid var(--border)', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
@@ -1341,7 +1341,7 @@ export function DrawMarkSheet({ open, onPick, onClose }: { open: boolean; onPick
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
               {results.map((o) => (
                 <button
-                  key={o.code}
+                  key={o.img}
                   type="button"
                   onClick={() => {
                     onPick({ code: o.code, img: o.img, count: 0 });
