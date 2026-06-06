@@ -7,8 +7,10 @@ import { SettingsSheet } from './design/SettingsSheet';
 import { Onboarding, isStandalone } from './design/Onboarding';
 import { InstallGuide } from './design/InstallGuide';
 import { InAppBrowserBanner, detectInApp } from './design/InAppBrowserBanner';
+import { DisclaimerGate } from './design/DisclaimerGate';
 
 const ONBOARDED_KEY = 'ward-pillcheck:onboarded';
+const DISCLAIMER_KEY = 'ward-pillcheck:disclaimer-v1';
 import { Toast, Lightbox, Btn, type ZoomPill } from './design/ui';
 import type { MedItem, Patient } from './domain/models';
 import type { MarkOption, PillResult } from './api';
@@ -77,6 +79,22 @@ export default function App() {
     return installable ? 'install' : 'onboarding';
   });
   const [installGuideOpen, setInstallGuideOpen] = useState(false);
+  // 첫 실행 면책·로딩 게이트(동의 전까지 최상위 노출). 동의해야 데이터 로딩 완료 + 진입.
+  const [disclaimerAcked, setDisclaimerAcked] = useState<boolean>(() => {
+    try {
+      return !!localStorage.getItem(DISCLAIMER_KEY);
+    } catch {
+      return false;
+    }
+  });
+  const ackDisclaimer = () => {
+    try {
+      localStorage.setItem(DISCLAIMER_KEY, '1');
+    } catch {
+      /* ignore */
+    }
+    setDisclaimerAcked(true);
+  };
   // 복약 리스트 글자 크기(접근성): 0 보통 / 1 크게 / 2 아주 크게. localStorage 영속.
   const [textSizeIdx, setTextSizeIdx] = useState<number>(() => {
     try {
@@ -360,6 +378,9 @@ export default function App() {
         }}
       />
       <Lightbox pill={zoomPill} onClose={() => setZoomPill(null)} />
+
+      {/* 첫 실행 면책·로딩 게이트 — 모든 오버레이 위. 동의 전까지 진입 차단. */}
+      {!disclaimerAcked && <DisclaimerGate onAck={ackDisclaimer} />}
 
       <Toast msg={toast} />
     </div>

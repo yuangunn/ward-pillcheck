@@ -2,9 +2,12 @@ import { test, expect } from '@playwright/test';
 
 // 데모(목) 모드로 동작 — 인증키 없이 실제 브라우저에서 리디자인 핵심 흐름 검증.
 
-// 기본은 온보딩을 끈 상태로(첫 실행 오버레이가 클릭을 가리지 않도록). 온보딩은 전용 케이스에서.
+// 기본은 온보딩·면책 게이트를 끈 상태로(첫 실행 오버레이가 클릭을 가리지 않도록). 전용 케이스에서 검증.
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('ward-pillcheck:onboarded', '1'));
+  await page.addInitScript(() => {
+    localStorage.setItem('ward-pillcheck:onboarded', '1');
+    localStorage.setItem('ward-pillcheck:disclaimer-v1', '1');
+  });
 });
 
 test('환자 많아도 스크롤되고, 하단 액션바는 스크롤 영역 밖에 고정', async ({ page }) => {
@@ -74,6 +77,19 @@ test('온보딩: 점(dot)으로 특정 카드 이동', async ({ page }) => {
   await expect(dialog).toBeVisible();
   await dialog.getByRole('button', { name: '5번째 카드' }).click();
   await expect(dialog.getByText('05 / 10')).toBeVisible();
+});
+
+test('첫 실행: 면책 게이트 → 이해했습니다 → 진입', async ({ page }) => {
+  await page.addInitScript(() => localStorage.removeItem('ward-pillcheck:disclaimer-v1'));
+  await page.goto('/');
+  const gate = page.getByRole('dialog', { name: '사용 전 확인' });
+  await expect(gate).toBeVisible();
+  // 데모(목) 모드는 받을 데이터가 없어 즉시 활성화
+  const ack = gate.getByRole('button', { name: '이해했습니다' });
+  await expect(ack).toBeEnabled();
+  await ack.click();
+  await expect(gate).toBeHidden();
+  await expect(page.getByText('환자1')).toBeVisible();
 });
 
 test('첫 실행(미설치 브라우저): 설치 가이드가 인트로로', async ({ page }) => {

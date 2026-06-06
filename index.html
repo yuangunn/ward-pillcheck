@@ -20,7 +20,16 @@
     <title>지참약 식별 · ward-pillcheck</title>
   </head>
   <body>
-    <div id="root"></div>
+    <!-- 마운트 전 잠깐의 빈 화면 대신 가벼운 로딩 표시(React 가 #root 를 교체) -->
+    <div id="root">
+      <div style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;font-family:Pretendard,system-ui,sans-serif;color:#8a8f98;background:#ffffff">
+        <div style="width:34px;height:34px;border-radius:50%;border:3px solid #e6e8eb;border-top-color:#2f6bff;animation:appspin .8s linear infinite"></div>
+        <div style="font-size:14px;font-weight:700;letter-spacing:-0.3px">지참약 식별 · 불러오는 중…</div>
+      </div>
+    </div>
+    <style>
+      @keyframes appspin { to { transform: rotate(360deg); } }
+    </style>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
