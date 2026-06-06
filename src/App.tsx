@@ -9,12 +9,10 @@ import { InstallGuide } from './design/InstallGuide';
 
 const ONBOARDED_KEY = 'ward-pillcheck:onboarded';
 import { Toast, Lightbox, Btn, type ZoomPill } from './design/ui';
-import { sortMeds } from './domain/sort';
-import type { MedItem, Patient, SortMode } from './domain/models';
+import type { MedItem, Patient } from './domain/models';
 import type { MarkOption, PillResult } from './api';
 
 const pillToZoom = (p: PillResult): ZoomPill => ({ itemName: p.itemName, color: p.colorClass1, drugShape: p.drugShape, marking: p.printFront, imageUrl: p.itemImage });
-const medToPill = (m: MedItem): PillResult => ({ itemSeq: m.itemSeq, itemName: m.name, entpName: '', colorClass1: m.color, drugShape: m.shape, printFront: m.marking, itemImage: m.imageUrl });
 
 // 하단 고정 액션바 래퍼. 그라데이션(투명) 영역은 스크롤 터치를 막지 않도록 pointerEvents 차단,
 // 실제 버튼 영역만 auto 로 되살린다.
@@ -66,6 +64,27 @@ export default function App() {
     }
   });
   const [installGuideOpen, setInstallGuideOpen] = useState(false);
+  // 복약 리스트 글자 크기(접근성): 0 보통 / 1 크게 / 2 아주 크게. localStorage 영속.
+  const [textSizeIdx, setTextSizeIdx] = useState<number>(() => {
+    try {
+      return parseInt(localStorage.getItem('wpc:textSize') || '', 10) || 0;
+    } catch {
+      return 0;
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem('wpc:textSize', String(textSizeIdx));
+    } catch {
+      /* ignore */
+    }
+  }, [textSizeIdx]);
+  const cycleTextSize = () => {
+    const n = (textSizeIdx + 1) % 3;
+    setTextSizeIdx(n);
+    flash('글자 ' + ['보통', '크게', '아주 크게'][n]);
+  };
+  const textScale = [1, 1.18, 1.36][textSizeIdx] || 1;
   const closeOnboarding = () => {
     try {
       localStorage.setItem(ONBOARDED_KEY, '1');
@@ -151,9 +170,10 @@ export default function App() {
         onBack={() => go({ name: 'home', patientId: null })}
         onAddMed={() => go({ name: 'search', patientId: activePatient.id })}
         onEditMed={(m) => setAddState({ open: true, source: { ...m, __kind: 'med' }, mode: 'edit' })}
-        onSetSort={(mode: SortMode) => dispatch({ type: 'SET_SORT_MODE', patientId: activePatient.id, mode })}
         onManage={() => setManageOpen(true)}
-        onDetail={(m) => setDetailPill(medToPill(m))}
+        textScale={textScale}
+        sizeIdx={textSizeIdx}
+        onCycleTextSize={cycleTextSize}
       />
     );
   } else if (route.name === 'search' && activePatient) {
@@ -278,7 +298,7 @@ export default function App() {
         open={copyOpen}
         onClose={() => setCopyOpen(false)}
         label={activePatient?.label || ''}
-        meds={activePatient ? sortMeds(activePatient.meds, activePatient.sortMode) : []}
+        meds={activePatient?.meds || []}
       />
       <DurSheet open={durOpen} onClose={() => setDurOpen(false)} meds={activePatient?.meds || []} />
       <PatientManageSheet

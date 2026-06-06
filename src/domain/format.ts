@@ -97,40 +97,57 @@ function shareMedLine(med: MedItem, opts: ShareOpts): string {
   return appearance ? `${head} ${appearance}` : head;
 }
 
-interface ShareGroup {
-  header: string; // 예) "8am 1pm 6pm"
-  min: number; // 가장 이른 시점(분)
-  count: number; // 시점 개수
-  order: number; // 첫 등장 순서(동률 tie-break)
-  lines: string[];
+/** 복용시점 패턴으로 묶은 그룹. 화면 텍스트 뷰와 인계 공유가 함께 사용한다. */
+export interface TimingGroup {
+  timings: string[]; // 정렬된 한글 시점 — 화면 헤더용. 예) ['아침식후','저녁식후']
+  header: string; // 시계 표기 join. 예) "8am 6pm" — 인계 텍스트 헤더용
+  min: number; // 가장 이른 시점(분) — 그룹 정렬 키
+  count: number; // 시점 개수 — 동률 tie-break
+  order: number; // 첫 등장 순서 — 동률 tie-break
+  meds: MedItem[];
+}
+
+/**
+ * 복약 리스트를 복용시점 패턴별로 묶어 시간순 정렬해 반환.
+ * 화면(복약 리스트 텍스트 뷰)과 인계 공유(buildListText)가 동일하게 사용 →
+ * "화면에서 보던 그대로" 인계 텍스트가 나간다.
+ */
+export function groupMedsByTiming(meds: MedItem[]): TimingGroup[] {
+  const groups = new Map<string, TimingGroup>();
+  meds.forEach((m, idx) => {
+    const slots = m.timings.length ? m.timings : ['시점미정'];
+    const sorted = [...new Set(slots)].sort((a, b) => clockMin(a) - clockMin(b));
+    const key = sorted.join('|');
+    let g = groups.get(key);
+    if (!g) {
+      g = {
+        timings: sorted,
+        header: sorted.map(clockLabel).join(' '),
+        min: clockMin(sorted[0]),
+        count: sorted.length,
+        order: idx,
+        meds: [],
+      };
+      groups.set(key, g);
+    }
+    g.meds.push(m);
+  });
+  return [...groups.values()].sort(
+    (a, b) => a.min - b.min || a.count - b.count || a.order - b.order,
+  );
 }
 
 /**
  * 환자 복약 리스트를 인계용 텍스트로 직렬화.
  * - 라벨 가운데 블라인드 처리
- * - 시점 패턴(시계 표기)별로 묶어 시간순 정렬해 출력
+ * - 시점 패턴(시계 표기)별로 묶어 시간순 정렬해 출력(화면과 동일한 groupMedsByTiming)
  * - 성분명·용법코드·시점목록은 생략(헤더가 시점을 대신함)
  */
 export function buildListText(label: string, meds: MedItem[], opts: ShareOpts = {}): string {
   const head = `[${blindLabel(label)}]`;
   if (!meds.length) return head;
-
-  const groups = new Map<string, ShareGroup>();
-  meds.forEach((m, idx) => {
-    const slots = m.timings.length ? m.timings : ['시점미정'];
-    const sorted = [...new Set(slots)].sort((a, b) => clockMin(a) - clockMin(b));
-    const header = sorted.map(clockLabel).join(' ');
-    let g = groups.get(header);
-    if (!g) {
-      g = { header, min: clockMin(sorted[0]), count: sorted.length, order: idx, lines: [] };
-      groups.set(header, g);
-    }
-    g.lines.push(shareMedLine(m, opts));
-  });
-
-  const ordered = [...groups.values()].sort(
-    (a, b) => a.min - b.min || a.count - b.count || a.order - b.order,
+  const blocks = groupMedsByTiming(meds).map(
+    (g) => `<${g.header}>\n${g.meds.map((m) => shareMedLine(m, opts)).join('\n')}`,
   );
-  const blocks = ordered.map((g) => `<${g.header}>\n${g.lines.join('\n')}`);
   return `${head}\n${blocks.join('\n\n')}`;
 }

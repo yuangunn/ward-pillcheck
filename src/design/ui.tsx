@@ -514,7 +514,7 @@ export function Lightbox({ pill, onClose }: { pill: ZoomPill | null; onClose: ()
         {ap && <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.65)', fontWeight: 600, marginTop: 6 }}>{ap}</div>}
         {pill.imageUrl && (
           <a
-            href={proxiedImg(pill.imageUrl)}
+            href={pill.imageUrl}
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}

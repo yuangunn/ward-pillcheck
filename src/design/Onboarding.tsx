@@ -109,6 +109,27 @@ function ObPillRow({ color, shape, marking, name, tags }: { color?: string; shap
   );
 }
 
+// 온보딩용 시점 그룹 텍스트 행 (앱의 복약 리스트 텍스트 뷰 미니 버전)
+function ObTimeGroup({ header, rows, last }: { header: string; rows: [string, string, string, string][]; last?: boolean }) {
+  return (
+    <div style={{ marginBottom: last ? 0 : 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '2px 2px 5px' }}>
+        <span style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--primary-ink)', letterSpacing: -0.3, whiteSpace: 'nowrap' }}>{header}</span>
+        <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+      </div>
+      <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--r-card)', overflow: 'hidden' }}>
+        {rows.map((r, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 13px', borderTop: i ? '1px solid var(--border)' : 'none' }}>
+            <PillGlyph color={r[0]} shape={r[1]} marking="" size={18} />
+            <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: 'var(--text-strong)', letterSpacing: -0.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r[2]}</span>
+            <span style={{ flexShrink: 0, fontSize: 13, fontWeight: 800, color: 'var(--primary-ink)' }}>{r[3]}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 interface Slide {
   blue?: boolean;
   body: ReactNode;
@@ -228,23 +249,27 @@ function obSlides(standalone: boolean): Slide[] {
         </>
       ),
     },
-    // 4 복약 리스트
+    // 4 복약 리스트 (텍스트·인계형 단독 뷰)
     {
       body: (
         <>
           <ObKicker n="2">환자별 복약 리스트</ObKicker>
           <ObH2>
-            찾은 약을
+            20개를 가져와도
             <br />
-            한곳에 정리.
+            한눈에.
           </ObH2>
           <ObLead>
-            용법·투약시점·용량까지 담아 <Em>환자별로</Em> 모아요. 용법순·시점순 정렬도 한 번에.
+            <Em>복용 시점별로</Em> 모아 보여줘요. 인계로 보내는 모양 그대로라, 보던 대로 공유돼요.
           </ObLead>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 20 }}>
-            <ObPillRow color="하양" shape="원형" marking="Bayer" name="아스피린장용정100mg" tags={[{ label: '1T', pri: true }, { label: 'QD', pri: true }, { label: '아침식후' }]} />
-            <ObPillRow color="분홍" shape="원형" marking="D5" name="트라젠타정(리나글립틴)" tags={[{ label: '1T', pri: true }, { label: 'QD', pri: true }, { label: '아침식후' }]} />
+          <div style={{ marginTop: 20 }}>
+            <ObTimeGroup header="아침식후" rows={[['하양', '원형', '아스피린장용정100mg', '1T']]} />
+            <ObTimeGroup header="아침식후 · 저녁식후" rows={[['하양', '장방형', '메트포르민서방정500mg', '1T'], ['하양', '기타', '란투스주솔로스타펜', '1U']]} />
+            <ObTimeGroup header="자기전" rows={[['하양', '원형', '디아제팜정2mg', '0.5T']]} last />
           </div>
+          <ObLead>
+            글자가 작아 보이면 <Em>‘가＋’</Em> 버튼으로 키울 수 있어요.
+          </ObLead>
         </>
       ),
     },
