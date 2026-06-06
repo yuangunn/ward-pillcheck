@@ -7,6 +7,34 @@ test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('ward-pillcheck:onboarded', '1'));
 });
 
+test('환자 많아도 스크롤되고, 하단 액션바는 스크롤 영역 밖에 고정', async ({ page }) => {
+  await page.addInitScript(() => {
+    const patients = Array.from({ length: 12 }, (_, i) => ({
+      id: 'p' + i,
+      label: '환자' + (i + 1),
+      meds: [],
+      sortMode: 'manual',
+      updatedAt: Date.now() - i * 1000,
+    }));
+    localStorage.setItem(
+      'ward-pillcheck:v1',
+      JSON.stringify({ schemaVersion: 2, patients, activePatientId: 'p0' }),
+    );
+  });
+  await page.goto('/');
+  await expect(page.getByText('환자 12명')).toBeVisible();
+  // 하단 '새 환자 추가' 바는 스크롤 컨테이너(.screen-scroll) 밖에 있어야 함(iOS 스크롤 깨짐 방지)
+  const addBtn = page.getByRole('button', { name: '새 환자 추가' });
+  await expect(addBtn).toBeVisible();
+  const insideScroller = await addBtn.evaluate((el) => !!el.closest('.screen-scroll'));
+  expect(insideScroller).toBe(false);
+  // 끝까지 스크롤하면 마지막 환자 보임
+  await page.evaluate(() => {
+    (document.querySelector('.screen-scroll') as HTMLElement).scrollTop = 99999;
+  });
+  await expect(page.getByRole('button', { name: /환자12/ })).toBeVisible();
+});
+
 test('첫 실행: 온보딩 가이드 → 건너뛰기', async ({ page }) => {
   await page.addInitScript(() => localStorage.removeItem('ward-pillcheck:onboarded'));
   await page.goto('/');
