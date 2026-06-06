@@ -303,9 +303,11 @@ test('환자 약 행 탭 → 수정 시트', async ({ page }) => {
   await page.getByLabel('각인').fill('Bayer');
   await page.getByText('아스피린장용정100mg').click();
   await page.getByRole('dialog', { name: '리스트에 추가' }).getByRole('button', { name: '환자 리스트에 추가' }).click();
-  // 텍스트(인계형) 뷰의 약 행을 탭하면 수정 시트가 열린다(상세는 검색·DB 탭에서 확인).
+  // 텍스트(인계형) 뷰의 약 행을 탭하면 수정 시트가 열리고, 약 상세 정보 섹션도 제공한다.
   await page.locator('.med-list button').first().click();
-  await expect(page.getByRole('dialog', { name: '약 수정' })).toBeVisible();
+  const editSheet = page.getByRole('dialog', { name: '약 수정' });
+  await expect(editSheet).toBeVisible();
+  await expect(editSheet.getByRole('button', { name: '약 상세 정보' })).toBeVisible();
 });
 
 test('설정: 오프라인 데이터 화면 열림', async ({ page }) => {

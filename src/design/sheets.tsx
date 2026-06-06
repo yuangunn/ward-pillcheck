@@ -466,14 +466,23 @@ export function AddMedSheet({
   const entp = source.__kind === 'med' || source.__kind === 'manual' ? undefined : source.entpName;
   const slots = freqMeta(freq).slots;
 
-  // 약 상세 정보: 추가(편집X)이고 실제 itemSeq 가 있으면 표시 — 낱알뿐 아니라 주사·외용약도.
-  const detailPill: PillResult | null =
-    isEdit || !seq
-      ? null
-      : source.__kind === 'pill'
-        ? source
-        : source.__kind === 'manual'
-          ? { itemSeq: seq, itemName: source.itemName, entpName: '', itemImage: source.imageUrl }
+  // 약 상세 정보: 실제 itemSeq 가 있으면 표시(추가·편집 모두) — 낱알·주사·외용약 + 리스트에서 수정 시.
+  const detailPill: PillResult | null = !seq
+    ? null
+    : source.__kind === 'pill'
+      ? source
+      : source.__kind === 'manual'
+        ? { itemSeq: seq, itemName: source.itemName, entpName: '', itemImage: source.imageUrl }
+        : source.__kind === 'med'
+          ? {
+              itemSeq: seq,
+              itemName: source.name,
+              entpName: '',
+              colorClass1: source.color,
+              drugShape: source.shape,
+              printFront: source.marking,
+              itemImage: source.imageUrl,
+            }
           : null;
   const showDetail = !!detailPill;
 
@@ -1110,11 +1119,13 @@ export function PatientManageSheet({
 }
 
 export function MarkGallerySheet({ open, onClose, onPick }: { open: boolean; onClose: () => void; onPick: (m: MarkOption) => void }) {
-  const [q, setQ] = useState('');
+  const [input, setInput] = useState(''); // 입력 중 값(타이핑마다 검색하지 않음)
+  const [query, setQuery] = useState(''); // 적용된 검색어(검색 버튼/엔터로만 갱신)
   const [opts, setOpts] = useState<MarkOption[] | null>(null);
   useEffect(() => {
     if (!open) return;
-    setQ('');
+    setInput('');
+    setQuery('');
     setOpts(null);
     let alive = true;
     getMarkOptions().then((o) => alive && setOpts(o));
@@ -1122,18 +1133,48 @@ export function MarkGallerySheet({ open, onClose, onPick }: { open: boolean; onC
       alive = false;
     };
   }, [open]);
-  const filtered = (opts || []).filter((o) => !q.trim() || o.code.toLowerCase().includes(q.trim().toLowerCase()));
+  const runSearch = () => setQuery(input.trim());
+  const filtered = (opts || []).filter((o) => !query || o.code.toLowerCase().includes(query.toLowerCase()));
   return (
     <BottomSheet open={open} onClose={onClose} title="마크로 찾기" maxH="84%">
-      <p style={{ margin: '0 0 14px', fontSize: 14, color: 'var(--text-weak)', fontWeight: 600, letterSpacing: -0.3, lineHeight: 1.45 }}>
-        약에 새겨진 <b style={{ color: 'var(--text-strong)' }}>그림(마크)</b>과 가장 비슷한 것을 골라주세요.
-      </p>
-      <input
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder="마크 코드로 거르기 (예: D, P, dk)"
-        style={{ width: '100%', boxSizing: 'border-box', height: 48, padding: '0 14px', borderRadius: 'var(--r-btn)', border: '1.5px solid var(--border)', background: 'var(--fill)', color: 'var(--text)', fontSize: 15, fontFamily: 'inherit', fontWeight: 600, letterSpacing: -0.3, outline: 'none', marginBottom: 14 }}
-      />
+      {/* 설명 + 검색창 고정(스크롤해도 상단 유지) */}
+      <div
+        style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 10,
+          background: 'var(--bg)',
+          margin: '-6px -20px 0',
+          padding: '6px 20px 12px',
+          borderBottom: '1px solid var(--border)',
+        }}
+      >
+        <p style={{ margin: '0 0 12px', fontSize: 14, color: 'var(--text-weak)', fontWeight: 600, letterSpacing: -0.3, lineHeight: 1.45 }}>
+          약에 새겨진 <b style={{ color: 'var(--text-strong)' }}>그림(마크)</b>과 가장 비슷한 것을 골라주세요.
+        </p>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') runSearch();
+            }}
+            placeholder="마크 코드로 거르기 (예: D, P, dk)"
+            aria-label="마크 코드 검색"
+            style={{ flex: 1, minWidth: 0, boxSizing: 'border-box', height: 48, padding: '0 14px', borderRadius: 'var(--r-btn)', border: '1.5px solid var(--border)', background: 'var(--fill)', color: 'var(--text)', fontSize: 15, fontFamily: 'inherit', fontWeight: 600, letterSpacing: -0.3, outline: 'none' }}
+          />
+          <button
+            type="button"
+            onClick={runSearch}
+            aria-label="검색"
+            style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, height: 48, padding: '0 18px', borderRadius: 'var(--r-btn)', border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 15, fontWeight: 800, letterSpacing: -0.3, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+          >
+            <Icon name="search" size={18} stroke="#fff" />
+            검색
+          </button>
+        </div>
+      </div>
+      <div style={{ height: 14 }} />
       {!opts ? (
         <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text-weak)', fontSize: 14.5, fontWeight: 600 }}>마크 목록 불러오는 중…</div>
       ) : filtered.length === 0 ? (
