@@ -21,6 +21,7 @@ interface RawPillItem {
   ITEM_NAME?: string;
   ENTP_NAME?: string;
   DRUG_SHAPE?: string;
+  CHART?: string;
   COLOR_CLASS1?: string;
   PRINT_FRONT?: string;
   PRINT_BACK?: string;
@@ -70,6 +71,7 @@ function toPillResult(r: RawPillItem): PillResult {
     itemName: r.ITEM_NAME ?? '',
     entpName: r.ENTP_NAME ?? '',
     drugShape: r.DRUG_SHAPE || undefined,
+    chart: r.CHART || undefined,
     colorClass1: r.COLOR_CLASS1 || undefined,
     printFront: r.PRINT_FRONT || undefined,
     printBack: r.PRINT_BACK || undefined,

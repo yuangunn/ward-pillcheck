@@ -9,6 +9,7 @@ export interface PillRecord {
   name: string;
   entp: string;
   shape?: string;
+  chart?: string; // 성상(자연어 모양 설명)
   color?: string;
   color2?: string;
   front?: string;
@@ -156,6 +157,7 @@ function rec2result(r: PillRecord): PillResult {
     itemName: r.name,
     entpName: r.entp,
     drugShape: r.shape,
+    chart: r.chart,
     colorClass1: r.color,
     printFront: r.front,
     printBack: r.back,
