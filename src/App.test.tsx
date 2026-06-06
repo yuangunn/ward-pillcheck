@@ -15,14 +15,29 @@ function renderApp() {
 const medList = () => document.querySelector('.med-list') as HTMLElement | null;
 
 describe('App 리디자인 통합 (목 모드)', () => {
-  // 기본은 온보딩을 끈 상태로(테스트 방해 방지). 온보딩은 전용 케이스에서 검증.
+  // 기본은 온보딩·면책 게이트를 끈 상태로(테스트 방해 방지). 전용 케이스에서 검증.
   beforeEach(() => {
     localStorage.setItem('ward-pillcheck:onboarded', '1');
+    localStorage.setItem('ward-pillcheck:disclaimer-v1', '1');
   });
 
   it('홈: 제목 + 기본 환자(환자1) 카드 표시', () => {
     renderApp();
     expect(screen.getByRole('tab', { name: '지참약 식별' })).toBeInTheDocument();
+    expect(screen.getByText('환자1')).toBeInTheDocument();
+  });
+
+  it('첫 실행: 면책 게이트 노출 → 이해했습니다(목 모드는 즉시 활성) → 진입', async () => {
+    localStorage.removeItem('ward-pillcheck:disclaimer-v1');
+    const user = userEvent.setup();
+    renderApp();
+    const gate = await screen.findByRole('dialog', { name: '사용 전 확인' });
+    expect(gate).toBeInTheDocument();
+    // 목 모드는 받을 데이터가 없어 즉시 활성화
+    const ackBtn = within(gate).getByRole('button', { name: '이해했습니다' });
+    expect(ackBtn).toBeEnabled();
+    await user.click(ackBtn);
+    expect(screen.queryByRole('dialog', { name: '사용 전 확인' })).not.toBeInTheDocument();
     expect(screen.getByText('환자1')).toBeInTheDocument();
   });
 

@@ -86,6 +86,22 @@ export function getMeta(): DatasetMeta | null {
   return meta;
 }
 
+// ── 로드 진행도(첫 실행 면책·로딩 게이트용) ──
+// 다운로드/저장 진행을 0~1 로 알린다. 누가 트리거하든(게이트·홈) 같은 진행을 받도록 모듈 단위 구독.
+const progressListeners = new Set<(frac: number) => void>();
+/** 데이터셋 로드 진행도 구독(0~1). 해제 함수 반환. */
+export function onDatasetProgress(fn: (frac: number) => void): () => void {
+  progressListeners.add(fn);
+  return () => {
+    progressListeners.delete(fn);
+  };
+}
+function emitProgress(frac: number): void {
+  for (const fn of progressListeners) fn(frac);
+}
+// 동시 호출(게이트 + 홈 화면)이 중복 다운로드하지 않도록 비강제 로드는 공유한다.
+let inflight: Promise<DatasetStatus> | null = null;
+
 /** 원격 메타(생성일/개수). 실패 시 null */
 async function fetchRemoteMeta(): Promise<DatasetMeta | null> {
   try {
@@ -97,15 +113,38 @@ async function fetchRemoteMeta(): Promise<DatasetMeta | null> {
   }
 }
 
-/** 원격 데이터 파일을 받아 IndexedDB+메모리에 저장 */
+/** 원격 데이터 파일을 받아 IndexedDB+메모리에 저장. 다운로드 진행도를 0~0.95 로 알린다. */
 async function downloadAndStore(remoteMeta: DatasetMeta): Promise<void> {
   const res = await fetch(DATA_URL, { cache: 'no-cache' });
   if (!res.ok) throw new Error(`pills.json ${res.status}`);
-  const data = (await res.json()) as PillRecord[];
+
+  // 스트리밍으로 받아 바이트 진행도 보고(Content-Length 있을 때). 없으면 통째로.
+  const total = Number(res.headers.get('Content-Length')) || 0;
+  let text: string;
+  if (res.body && total > 0) {
+    const reader = res.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let received = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) {
+        chunks.push(value);
+        received += value.length;
+        emitProgress(Math.min(0.95, received / total));
+      }
+    }
+    text = await new Blob(chunks as BlobPart[]).text();
+  } else {
+    text = await res.text();
+  }
+
+  const data = JSON.parse(text) as PillRecord[];
   records = data;
   meta = remoteMeta;
   await idbSet('records', data);
   await idbSet('meta', remoteMeta);
+  emitProgress(1);
 }
 
 /**
@@ -114,36 +153,59 @@ async function downloadAndStore(remoteMeta: DatasetMeta): Promise<void> {
  * 캐시가 있으면 즉시 사용하고, 백그라운드로 최신 여부만 점검(force 시 즉시 갱신).
  */
 export async function ensureDataset(force = false): Promise<DatasetStatus> {
-  if (records && !force) return records.length ? 'ready' : 'empty';
+  if (records && !force) {
+    emitProgress(1);
+    return records.length ? 'ready' : 'empty';
+  }
+  // 비강제 동시 호출은 진행 중인 로드를 공유(중복 다운로드 방지)
+  if (!force && inflight) return inflight;
 
-  // IndexedDB 캐시 먼저
-  if (!force) {
-    try {
-      const cached = await idbGet<PillRecord[]>('records');
-      const cachedMeta = await idbGet<DatasetMeta>('meta');
-      if (cached && cached.length) {
-        records = cached;
-        meta = cachedMeta ?? null;
+  const run = (async (): Promise<DatasetStatus> => {
+    // IndexedDB 캐시 먼저
+    if (!force) {
+      try {
+        const cached = await idbGet<PillRecord[]>('records');
+        const cachedMeta = await idbGet<DatasetMeta>('meta');
+        if (cached && cached.length) {
+          records = cached;
+          meta = cachedMeta ?? null;
+        }
+      } catch {
+        /* IndexedDB 불가 — 네트워크로 진행 */
       }
-    } catch {
-      /* IndexedDB 불가 — 네트워크로 진행 */
     }
-  }
 
-  const remote = await fetchRemoteMeta();
-  const needDownload =
-    force || !records || !records.length || (remote && remote.builtAt !== meta?.builtAt);
+    const remote = await fetchRemoteMeta();
+    const needDownload =
+      force || !records || !records.length || (remote && remote.builtAt !== meta?.builtAt);
 
-  if (needDownload && remote) {
-    try {
-      await downloadAndStore(remote);
-    } catch {
-      if (!records) return 'error';
+    if (needDownload && remote) {
+      try {
+        await downloadAndStore(remote);
+      } catch {
+        if (!records) {
+          emitProgress(1);
+          return 'error';
+        }
+      }
     }
-  }
 
-  if (!records) return 'error';
-  return records.length ? 'ready' : 'empty';
+    emitProgress(1);
+    if (!records) return 'error';
+    return records.length ? 'ready' : 'empty';
+  })();
+
+  if (!force) inflight = run;
+  try {
+    return await run;
+  } finally {
+    if (!force) inflight = null;
+  }
+}
+
+/** 첫 실행 로딩 게이트용: 데이터셋 선로드(진행도는 onDatasetProgress 로 구독). */
+export function preloadDataset(): Promise<DatasetStatus> {
+  return ensureDataset(false);
 }
 
 /** 사용자가 "데이터 업데이트"를 눌렀을 때 — 강제 재다운로드 */
