@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useStore, uid } from './state/store';
-import { buildTokens, useTheme } from './design/theme';
+import { buildTokens, useTheme, setThemeColor } from './design/theme';
 import { HomeScreen, MedListScreen, SearchScreen, type PickedMark } from './design/screens';
 import { AddMedSheet, CopySheet, DurSheet, PatientManageSheet, MarkGallerySheet, DrawMarkSheet, DrugDetailSheet, type MedFormData } from './design/sheets';
 import { SettingsSheet } from './design/SettingsSheet';
@@ -116,6 +116,13 @@ export default function App() {
     flash('글자 ' + ['보통', '크게', '아주 크게'][n]);
   };
   const textScale = [1, 1.18, 1.36][textSizeIdx] || 1;
+
+  // 상태줄(theme-color) 기본값을 앱 배경색에 맞춘다. 온보딩 파란 화면은 Onboarding 이 직접 제어.
+  const appBg = dark ? '#16181d' : '#ffffff';
+  const onboardingActive = disclaimerAcked && intro === 'onboarding';
+  useEffect(() => {
+    if (!onboardingActive) setThemeColor(appBg);
+  }, [appBg, onboardingActive]);
   const finishIntro = () => {
     try {
       localStorage.setItem(ONBOARDED_KEY, '1');
@@ -369,9 +376,10 @@ export default function App() {
           setIntro('onboarding');
         }}
       />
-      {intro === 'onboarding' && <Onboarding onClose={finishIntro} standalone={isStandalone()} />}
+      {/* 인트로(온보딩/설치 가이드)는 면책 동의 후에만 노출 */}
+      {disclaimerAcked && intro === 'onboarding' && <Onboarding onClose={finishIntro} bg={appBg} />}
       <InstallGuide
-        open={installGuideOpen || intro === 'install'}
+        open={disclaimerAcked && (installGuideOpen || intro === 'install')}
         onClose={() => {
           setInstallGuideOpen(false);
           if (intro === 'install') finishIntro();

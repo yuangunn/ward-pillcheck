@@ -3,6 +3,21 @@ import { useEffect, useState } from 'react';
 
 const PRIMARY = '#2f6bff';
 
+/**
+ * 상태줄(iOS 16.4+ standalone PWA·브라우저 chrome) 색을 현재 화면색과 맞춘다.
+ * theme-color 메타를 동적으로 갱신 → 온보딩 파란 화면 등에서 상태줄과 경계가 안 생김.
+ */
+export function setThemeColor(color: string): void {
+  if (typeof document === 'undefined') return;
+  let meta = document.querySelector('meta[name="theme-color"]') as HTMLMetaElement | null;
+  if (!meta) {
+    meta = document.createElement('meta');
+    meta.name = 'theme-color';
+    document.head.appendChild(meta);
+  }
+  meta.content = color;
+}
+
 function hexToRgb(hex: string): [number, number, number] {
   const h = hex.replace('#', '');
   return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];

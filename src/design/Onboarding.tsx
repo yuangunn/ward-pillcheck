@@ -1,8 +1,9 @@
-import { useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Icon, PillGlyph, ShapeOutline, MarkGlyph } from './Icon';
+import { setThemeColor } from './theme';
 
 // 카드뉴스형 온보딩(10장). 폰 크기 적응 · 좌우 스와이프 · 점 · 다음/시작하기.
-// PWA standalone 첫 실행 시 표시, 마지막 카드는 설치 여부(standalone)로 분기.
+// 설치형(standalone) 첫 실행 시 인트로로 표시. 마지막 카드는 실사용 팁.
 
 export function isStandalone(): boolean {
   try {
@@ -135,7 +136,7 @@ interface Slide {
   body: ReactNode;
 }
 
-function obSlides(standalone: boolean): Slide[] {
+function obSlides(): Slide[] {
   const drawSvg = (
     <svg width="120" height="120" viewBox="0 0 220 220">
       <path d="M110 40 C 108 90 112 130 110 180" stroke="var(--text-strong)" strokeWidth="14" fill="none" strokeLinecap="round" />
@@ -387,52 +388,37 @@ function obSlides(standalone: boolean): Slide[] {
         </>
       ),
     },
-    // 9 마무리 (분기)
+    // 9 마무리 — 바로 쓰는 팁(설치 안내 대신 실사용 팁으로 교체)
     {
       blue: true,
       body: (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          <ObKicker n="★" onBlue>{standalone ? '준비 완료' : '지금 바로 시작'}</ObKicker>
-          {standalone ? (
-            <>
-              <ObH2 onBlue>
-                이제,
-                <br />
-                바로 시작해요.
-              </ObH2>
-              <ObLead onBlue>홈 화면 앱으로 잘 설치됐어요. 환자가 가져온 약을 바로 찾아보세요.</ObLead>
-            </>
-          ) : (
-            <>
-              <ObH2 onBlue>
-                홈 화면에
-                <br />
-                추가하면 끝.
-              </ObH2>
-              <ObLead onBlue>
-                앱스토어 설치 없이,
-                <br />
-                브라우저 ‘홈 화면에 추가’만 하면 앱처럼 써요.
-              </ObLead>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginTop: 20 }}>
-                {(
-                  [
-                    ['1', '링크 열기', '병동 공유 주소로 접속'],
-                    ['2', '홈 화면에 추가', '브라우저 공유 메뉴에서'],
-                    ['3', '아이콘 탭', '바로 검색 시작'],
-                  ] as [string, string, string][]
-                ).map((s, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 14, background: 'rgba(255,255,255,.14)', border: '1px solid rgba(255,255,255,.22)', borderRadius: 14, padding: '12px 15px' }}>
-                    <span style={{ width: 34, height: 34, borderRadius: '50%', background: '#fff', color: 'var(--primary-ink)', fontSize: 16, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{s[0]}</span>
-                    <span style={{ display: 'flex', flexDirection: 'column' }}>
-                      <b style={{ color: '#fff', fontSize: 16, fontWeight: 800, letterSpacing: -0.4, whiteSpace: 'nowrap' }}>{s[1]}</b>
-                      <span style={{ color: 'rgba(255,255,255,.72)', fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap' }}>{s[2]}</span>
-                    </span>
-                  </div>
-                ))}
+          <ObKicker n="★" onBlue>바로 쓰는 팁</ObKicker>
+          <ObH2 onBlue>
+            이제,
+            <br />
+            시작해요.
+          </ObH2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 22 }}>
+            {(
+              [
+                ['색·모양·각인으로 거꾸로 찾기', '각인이 잘 안 보이면 ‘그려서 찾기’로도 찾아요.'],
+                ['글자가 작으면 ‘가＋’', '복약 리스트 화면 오른쪽 위에서 글자 크기를 키워요.'],
+                ['인계는 ‘공유하기’ 한 번', '환자 이름은 자동으로 가려서(홍*동) 내보내요.'],
+                ['인터넷 없어도(인트라넷) OK', '설정에서 미리 받아두면 오프라인 검색·상세까지.'],
+              ] as [string, string][]
+            ).map((r, i) => (
+              <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                <span style={{ flexShrink: 0, width: 26, height: 26, borderRadius: '50%', background: 'rgba(255,255,255,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 1 }}>
+                  <Icon name="check" size={16} stroke="#fff" />
+                </span>
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: '#fff', letterSpacing: -0.4, lineHeight: 1.35 }}>{r[0]}</div>
+                  <div style={{ marginTop: 3, fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,.8)', lineHeight: 1.45 }}>{r[1]}</div>
+                </div>
               </div>
-            </>
-          )}
+            ))}
+          </div>
           <div style={{ flex: 1 }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <ObLogo size={50} />
@@ -447,14 +433,19 @@ function obSlides(standalone: boolean): Slide[] {
   ];
 }
 
-export function Onboarding({ onClose, standalone }: { onClose: () => void; standalone?: boolean }) {
+export function Onboarding({ onClose, bg }: { onClose: () => void; bg: string }) {
   const [i, setI] = useState(0);
-  const slides = obSlides(!!standalone);
+  const slides = obSlides();
   const N = slides.length;
   const last = i === N - 1;
   const sx = useRef<number | null>(null);
   const go = (n: number) => setI(Math.max(0, Math.min(N - 1, n)));
   const slide = slides[i];
+
+  // 현재 슬라이드 색에 상태줄(theme-color)을 맞춘다(파란 슬라이드 ↔ 흰/검정 배경).
+  useEffect(() => {
+    setThemeColor(slide.blue ? '#3b78ff' : bg);
+  }, [i, slide.blue, bg]);
 
   const containerStyle: CSSProperties = {
     position: 'absolute',
