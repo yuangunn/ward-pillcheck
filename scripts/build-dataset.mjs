@@ -330,22 +330,30 @@ const nedrugId = (url) => (String(url).split('/').pop() || '').replace(/[^a-zA-Z
 
 /** 낱알 레코드에서 고유 마크(코드→대표이미지)를 추려 이미지를 받아 번들 */
 async function buildMarks(pills) {
-  const map = new Map(); // code -> { img, count }
+  // 고유 마크 이미지 단위로 수집한다(코드당 대표 1장이 아니라 등장하는 모든 이미지).
+  // 같은 코드라도 로고가 다르면 별개 이미지이므로, 약 상세에 보이는 마크가 갤러리에도
+  // 반드시 존재하도록 이미지별로 받는다. 검색은 그 이미지의 대표 코드로 한다.
+  const map = new Map(); // imageId -> { img, codeCount: Map<code,n>, count }
   for (const r of pills) {
     for (const [codes, img] of [
       [r.markFA, r.markFI],
       [r.markBA, r.markBI],
     ]) {
-      if (!codes) continue;
+      if (!codes || !img) continue; // 코드+이미지 둘 다 있어야 코드로 역검색 가능
+      const id = nedrugId(img);
+      if (!id) continue;
+      const e = map.get(id) || { img, codeCount: new Map(), count: 0 };
+      e.count += 1;
       for (const c of String(codes).split(',').map((s) => s.trim()).filter(Boolean)) {
-        const e = map.get(c) || { img: undefined, count: 0 };
-        e.count += 1;
-        if (!e.img && img) e.img = img;
-        map.set(c, e);
+        e.codeCount.set(c, (e.codeCount.get(c) || 0) + 1);
       }
+      map.set(id, e);
     }
   }
-  const entries = [...map.entries()].filter(([, v]) => v.img).sort((a, b) => b[1].count - a[1].count);
+  const repCode = (cc) => [...cc.entries()].sort((a, b) => b[1] - a[1])[0][0];
+  const entries = [...map.values()]
+    .map((v) => ({ img: v.img, code: repCode(v.codeCount), count: v.count }))
+    .sort((a, b) => b.count - a.count);
   const marksDir = resolve(OUT, 'marks');
   mkdirSync(marksDir, { recursive: true });
 
@@ -354,29 +362,29 @@ async function buildMarks(pills) {
   const MARK_TIMEOUT = 8000; // 짧은 타임아웃(차단 시 빌드 무한지연 방지)
   let attempts = 0;
   let aborted = false;
-  // 동시성 다운로드(배치 8). 이미 받은(레포 커밋 포함) 파일은 재사용.
+  // 동시성 다운로드(배치 8). 이미 받은(레포 커밋·캐시 포함) 파일은 재사용.
   for (let i = 0; i < entries.length && !aborted; i += 8) {
     const batch = entries.slice(i, i + 8);
     await Promise.allSettled(
-      batch.map(async ([code, v]) => {
-        const id = nedrugId(v.img);
+      batch.map(async ({ code, img, count }) => {
+        const id = nedrugId(img);
         if (!id) return;
         const file = `${id}.gif`;
         const path = resolve(marksDir, file);
         if (downloaded.has(id) || existsSync(path)) {
           downloaded.add(id);
-          out.push({ code, file, count: v.count });
+          out.push({ code, file, count });
           return;
         }
         attempts++;
         // 간헐 타임아웃 대비 재시도(최대 3회). 배치 내 8개는 병렬이라 차단 시에도 ~24초로 바운드.
         for (let a = 0; a < 3; a++) {
           try {
-            const res = await fetch(v.img, { headers: IMG_HEADERS, signal: AbortSignal.timeout(MARK_TIMEOUT) });
+            const res = await fetch(img, { headers: IMG_HEADERS, signal: AbortSignal.timeout(MARK_TIMEOUT) });
             if (!res.ok) throw new Error(`mark ${res.status}`);
             writeFileSync(path, Buffer.from(await res.arrayBuffer()));
             downloaded.add(id);
-            out.push({ code, file, count: v.count });
+            out.push({ code, file, count });
             break;
           } catch {
             if (a < 2) await new Promise((r) => setTimeout(r, 600 * (a + 1)));
