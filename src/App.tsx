@@ -5,6 +5,7 @@ import { HomeScreen, MedListScreen, SearchScreen, type PickedMark } from './desi
 import { AddMedSheet, CopySheet, DurSheet, PatientManageSheet, MarkGallerySheet, DrawMarkSheet, DrugDetailSheet, type MedFormData } from './design/sheets';
 import { SettingsSheet } from './design/SettingsSheet';
 import { Onboarding, isStandalone } from './design/Onboarding';
+import { InstallGuide } from './design/InstallGuide';
 
 const ONBOARDED_KEY = 'ward-pillcheck:onboarded';
 import { Toast, Lightbox, Btn, type ZoomPill } from './design/ui';
@@ -64,6 +65,7 @@ export default function App() {
       return false;
     }
   });
+  const [installGuideOpen, setInstallGuideOpen] = useState(false);
   const closeOnboarding = () => {
     try {
       localStorage.setItem(ONBOARDED_KEY, '1');
@@ -138,6 +140,8 @@ export default function App() {
         onOpenDetail={(pill) => setDetailPill(pill)}
         onOpenSettings={() => setSettingsOpen(true)}
         onFlash={flash}
+        standalone={isStandalone()}
+        onInstallGuide={() => setInstallGuideOpen(true)}
       />
     );
   } else if (route.name === 'patient' && activePatient) {
@@ -186,6 +190,8 @@ export default function App() {
         onOpenDetail={(pill) => setDetailPill(pill)}
         onOpenSettings={() => setSettingsOpen(true)}
         onFlash={flash}
+        standalone={isStandalone()}
+        onInstallGuide={() => setInstallGuideOpen(true)}
       />
     );
   }
@@ -300,6 +306,7 @@ export default function App() {
         }}
       />
       {onboardOpen && <Onboarding onClose={closeOnboarding} standalone={isStandalone()} />}
+      <InstallGuide open={installGuideOpen} onClose={() => setInstallGuideOpen(false)} />
       <Lightbox pill={zoomPill} onClose={() => setZoomPill(null)} />
 
       <Toast msg={toast} />

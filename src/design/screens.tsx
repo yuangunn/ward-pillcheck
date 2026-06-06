@@ -53,6 +53,8 @@ export function HomeScreen({
   onOpenDetail,
   onOpenSettings,
   onFlash,
+  standalone,
+  onInstallGuide,
 }: {
   patients: Patient[];
   dark: boolean;
@@ -63,6 +65,8 @@ export function HomeScreen({
   onOpenDetail: (pill: PillResult) => void;
   onOpenSettings: () => void;
   onFlash?: (m: string) => void;
+  standalone?: boolean;
+  onInstallGuide: () => void;
 }) {
   const totalMeds = patients.reduce((s, p) => s + p.meds.length, 0);
   const ds = useDataset();
@@ -89,7 +93,7 @@ export function HomeScreen({
           <IconBtn name={dark ? 'sun' : 'moon'} label="테마 전환" onClick={onToggleTheme} />
         </div>
         {topTab === 'patients' && (
-          <PatientsHeader patientCount={patients.length} totalMeds={totalMeds} ds={ds} runUpdate={runUpdate} />
+          <PatientsHeader patientCount={patients.length} totalMeds={totalMeds} ds={ds} runUpdate={runUpdate} standalone={standalone} onInstallGuide={onInstallGuide} />
         )}
       </div>
 
@@ -111,14 +115,34 @@ function PatientsHeader({
   totalMeds,
   ds,
   runUpdate,
+  standalone,
+  onInstallGuide,
 }: {
   patientCount: number;
   totalMeds: number;
   ds: ReturnType<typeof useDataset>;
   runUpdate: () => void;
+  standalone?: boolean;
+  onInstallGuide: () => void;
 }) {
   return (
     <>
+      {!standalone && (
+        <button
+          type="button"
+          onClick={onInstallGuide}
+          style={{ display: 'flex', alignItems: 'center', gap: 12, width: 'calc(100% - 40px)', margin: '0 20px 22px', padding: 'var(--card-py) 16px', borderRadius: 'var(--r-card)', background: 'var(--danger-weak)', border: '1.5px solid var(--danger)', cursor: 'pointer', textAlign: 'left', WebkitTapHighlightColor: 'transparent' }}
+        >
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--danger)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Icon name="download" size={19} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14, color: 'var(--danger)', fontWeight: 800, letterSpacing: -0.3, lineHeight: 1.35, wordBreak: 'keep-all' }}>홈 화면 앱으로 설치해 주세요</div>
+            <div style={{ fontSize: 12.5, color: 'var(--danger)', fontWeight: 600, letterSpacing: -0.3, lineHeight: 1.45, marginTop: 3, opacity: 0.9, wordBreak: 'keep-all' }}>브라우저보다 빠르고 안정적이에요. 탭하면 설치 방법을 그림으로 알려드려요.</div>
+          </div>
+          <Icon name="chevron" size={18} style={{ color: 'var(--danger)', flexShrink: 0 }} />
+        </button>
+      )}
       <div
         style={{
           margin: '4px 20px 22px',

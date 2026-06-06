@@ -64,6 +64,18 @@ test('온보딩: 점(dot)으로 특정 카드 이동', async ({ page }) => {
   await expect(dialog.getByText('05 / 10')).toBeVisible();
 });
 
+test('설치 배너 → 설치 가이드 열림 + 브라우저 전환', async ({ page }) => {
+  // 비standalone(브라우저)에선 홈 상단에 설치 배너 노출
+  await page.goto('/');
+  await page.getByRole('button', { name: /홈 화면 앱으로 설치/ }).click();
+  const guide = page.getByRole('dialog', { name: '앱 설치 가이드' });
+  await expect(guide).toBeVisible();
+  await guide.getByRole('button', { name: '크롬' }).click();
+  await expect(guide.getByText(/안드로이드 크롬/)).toBeVisible();
+  await guide.getByRole('button', { name: '따라 했어요 · 닫기' }).click();
+  await expect(guide).not.toBeVisible();
+});
+
 test('Teams 보내기: 대상 미지정 시 입력 팝업', async ({ page }) => {
   await page.goto('/');
   await page.getByText('환자1').click();
