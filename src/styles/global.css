@@ -8,6 +8,18 @@ body,
   margin: 0;
   padding: 0;
   height: 100%;
+  /* 문서 레벨 스크롤/고무줄 바운스 차단 — 하단 고정바가 위로 끌려 밀리지 않게.
+     유일한 스크롤러는 .screen-scroll 이다. */
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+/* 동적 뷰포트(주소창 접힘 대응) — 미지원 브라우저는 위 height:100% 로 폴백 */
+@supports (height: 100dvh) {
+  html,
+  body,
+  #root {
+    height: 100dvh;
+  }
 }
 body {
   background: #fff;
@@ -31,6 +43,8 @@ input {
 }
 .screen-scroll {
   scrollbar-width: none;
+  /* 내부 스크롤 끝에서의 바운스가 문서로 전파되지 않게(체이닝 차단) */
+  overscroll-behavior: contain;
 }
 
 @keyframes slideFwd {
