@@ -391,9 +391,12 @@ export default {
           },
         });
       } catch {
-        return json({ error: 'img fetch 실패' }, env, 502);
+        // 프록시 fetch 자체 실패 → 브라우저가 원본을 직접 받도록 리다이렉트(새 탭/이미지 모두 깨지지 않음)
+        return Response.redirect(target.toString(), 302);
       }
-      if (!res.ok) return json({ error: `img ${res.status}` }, env, 502);
+      // nedrug↔CF 간 TLS 실패(525) 등 업스트림 5xx → JSON 대신 원본으로 폴백 리다이렉트.
+      // (새 탭으로 열었을 때 {"error":"img 525"} 가 그대로 렌더되던 문제 방지)
+      if (!res.ok) return Response.redirect(target.toString(), 302);
       const ct = (res.headers.get('content-type') || 'image/jpeg').split(';')[0].trim();
       const body = await res.arrayBuffer();
       return new Response(body, {

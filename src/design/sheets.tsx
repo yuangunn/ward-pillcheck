@@ -303,7 +303,7 @@ function DetailPanel({ seq, pill, onZoom }: { seq: string; pill: PillResult; onZ
 
           {photo && (
             <a
-              href={photo}
+              href={pill.itemImage}
               target="_blank"
               rel="noreferrer"
               style={{ display: 'inline-block', marginBottom: 14, fontSize: 12.5, fontWeight: 700, color: 'var(--primary-ink)', textDecoration: 'none' }}

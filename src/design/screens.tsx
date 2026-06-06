@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Icon, PillGlyph, MarkGlyph, ShapeOutline } from './Icon';
-import { Btn, Chip, ColorChip, SegTabs, FieldLabel, TextField, Tag, PageHeader, IconBtn, STATUS_TOP, ScrollArea } from './ui';
+import { Btn, Chip, ColorChip, SegTabs, FieldLabel, TextField, PageHeader, IconBtn, STATUS_TOP, ScrollArea } from './ui';
 import { COLOR_OPTIONS, SHAPE_OPTIONS, FORM_OPTIONS } from '../constants/appearance';
-import { freqMeta } from '../constants/frequency';
-import { sortMeds } from '../domain/sort';
 import { shapeLabel } from '../domain/shape';
-import type { MedItem, Patient, SortMode } from '../domain/models';
+import { groupMedsByTiming, stripIngredient, type TimingGroup } from '../domain/format';
+import type { MedItem, Patient } from '../domain/models';
 import { drugApi, proxiedImg, searchInjections, isInjectionName, type PermitDrug, type PillResult, type PillSearchQuery } from '../api';
 import { useDataset } from '../state/useDataset';
 
@@ -403,61 +402,139 @@ function LookupBody({ onOpenDetail }: { onOpenDetail: (pill: PillResult) => void
   );
 }
 
-// ── 복약 리스트 ──────────────────────────────────────────────
-const SORT_TABS: { value: SortMode; label: string }[] = [
-  { value: 'manual', label: '기본순' },
-  { value: 'byFrequency', label: '용법순' },
-  { value: 'byTiming', label: '시점순' },
-];
-
+// ── 복약 리스트 (텍스트·인계형 단독 뷰) ──────────────────────
+// 카드형·정렬탭·뷰 토글을 제거하고, 복용시점별 그룹(한글 헤더)으로만 표시한다.
+// 그룹/정렬은 공유 포맷(groupMedsByTiming)과 완전히 동일 → 화면에서 보던 그대로 인계로 나간다.
 export function MedListScreen({
   patient,
   onBack,
   onAddMed,
   onEditMed,
-  onSetSort,
   onManage,
-  onDetail,
+  textScale,
+  sizeIdx,
+  onCycleTextSize,
 }: {
   patient: Patient;
   onBack: () => void;
   onAddMed: () => void;
   onEditMed: (m: MedItem) => void;
-  onSetSort: (mode: SortMode) => void;
   onManage: () => void;
-  onDetail: (m: MedItem) => void;
+  textScale: number;
+  sizeIdx: number;
+  onCycleTextSize: () => void;
 }) {
-  const displayed = useMemo(() => sortMeds(patient.meds, patient.sortMode), [patient.meds, patient.sortMode]);
+  const groups = useMemo(() => groupMedsByTiming(patient.meds), [patient.meds]);
+  const fontBtn = (
+    <button
+      type="button"
+      onClick={onCycleTextSize}
+      aria-label="글자 크기 조절"
+      title="글자 크기"
+      style={{
+        position: 'relative',
+        width: 40,
+        height: 40,
+        borderRadius: '50%',
+        border: 'none',
+        cursor: 'pointer',
+        background: sizeIdx ? 'var(--primary-weak)' : 'var(--fill)',
+        color: sizeIdx ? 'var(--primary-ink)' : 'var(--text)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        WebkitTapHighlightColor: 'transparent',
+      }}
+    >
+      <span style={{ fontSize: 17, fontWeight: 800, letterSpacing: -0.5 }}>가</span>
+      <span style={{ position: 'absolute', right: 6, top: 5, fontSize: 11, fontWeight: 800, lineHeight: 1 }}>＋</span>
+    </button>
+  );
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {/* 고정 헤더: 환자명 + 정렬 탭. 아래 약 리스트만 스크롤 */}
+      {/* 고정 헤더: 환자명 + 글자크기(가＋) + 환자 관리. 아래 리스트만 스크롤 */}
       <div style={{ flexShrink: 0 }}>
         <PageHeader
           title={patient.label}
           sub={patient.meds.length ? `지참약 ${patient.meds.length}건` : '지참약을 추가해 보세요'}
           onBack={onBack}
           onTitleClick={onManage}
-          right={<IconBtn name="dots" label="환자 관리" onClick={onManage} />}
+          right={
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              {patient.meds.length > 0 && fontBtn}
+              <IconBtn name="dots" label="환자 관리" onClick={onManage} />
+            </div>
+          }
         />
-        {patient.meds.length > 1 && (
-          <div style={{ padding: '6px 20px 14px' }}>
-            <SegTabs tabs={SORT_TABS} value={patient.sortMode} onChange={onSetSort} />
-          </div>
-        )}
       </div>
       <ScrollArea bottomGap={190}>
         {patient.meds.length === 0 ? (
           <EmptyMedState onAdd={onAddMed} />
         ) : (
-          <ul className="med-list" style={{ listStyle: 'none', margin: 0, display: 'flex', flexDirection: 'column', gap: 'var(--list-gap)', padding: '0 16px 180px' }}>
-            {displayed.map((m) => (
-              <li key={m.id}>
-                <MedRow med={m} onClick={() => onEditMed(m)} onDetail={() => onDetail(m)} />
-              </li>
-            ))}
-          </ul>
+          <MedTextView groups={groups} onEditMed={onEditMed} scale={textScale} />
         )}
       </ScrollArea>
+    </div>
+  );
+}
+
+// 텍스트(인계형) 뷰 — 시점 그룹(한글 헤더) + 색·모양 점 + 약이름 + 용량.
+// 행에서 성분 괄호·용법코드·시점은 제거(헤더가 시점을 대신). 글자 크기 조절 반영.
+function MedTextView({
+  groups,
+  onEditMed,
+  scale,
+}: {
+  groups: TimingGroup[];
+  onEditMed: (m: MedItem) => void;
+  scale: number;
+}) {
+  const s = scale || 1;
+  const dot = Math.round(18 * Math.min(s, 1.4));
+  return (
+    <div className="med-list" style={{ padding: '0 16px 180px' }}>
+      {groups.map((g, gi) => (
+        <div key={gi} style={{ marginBottom: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '2px 2px 6px' }}>
+            <span style={{ fontSize: 13 * s, fontWeight: 800, color: 'var(--primary-ink)', letterSpacing: -0.3, whiteSpace: 'nowrap' }}>
+              {g.timings.join(' · ')}
+            </span>
+            <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+            <span style={{ fontSize: 11.5 * s, fontWeight: 700, color: 'var(--text-weaker)' }}>{g.meds.length}</span>
+          </div>
+          <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--r-card)', overflow: 'hidden' }}>
+            {g.meds.map((m, mi) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => onEditMed(m)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  width: '100%',
+                  padding: `${Math.round(9 * Math.min(s, 1.25))}px 14px`,
+                  background: 'transparent',
+                  border: 'none',
+                  borderTop: mi ? '1px solid var(--border)' : 'none',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  WebkitTapHighlightColor: 'transparent',
+                }}
+              >
+                <PillGlyph color={m.color} shape={m.shape} marking="" size={dot} />
+                <span className="med-name" style={{ flex: 1, minWidth: 0, fontSize: 14.5 * s, fontWeight: 700, color: 'var(--text-strong)', letterSpacing: -0.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {stripIngredient(m.name)}
+                </span>
+                <span style={{ flexShrink: 0, fontSize: 13.5 * s, fontWeight: 800, color: 'var(--primary-ink)', letterSpacing: -0.2 }}>
+                  {m.tabletCount}
+                  {m.doseUnit || 'T'}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -493,56 +570,6 @@ function EmptyMedState({ onAdd }: { onAdd: () => void }) {
           약 검색해서 추가
         </Btn>
       </div>
-    </div>
-  );
-}
-
-function MedRow({ med, onClick, onDetail }: { med: MedItem; onClick: () => void; onDetail: () => void }) {
-  const fm = freqMeta(med.frequency);
-  return (
-    <div
-      className="med-row"
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 13,
-        padding: 'var(--card-py) 16px',
-        borderRadius: 'var(--r-card)',
-        background: 'var(--card)',
-        border: '1px solid var(--border)',
-        boxShadow: 'var(--shadow-sm)',
-        width: '100%',
-        boxSizing: 'border-box',
-      }}
-    >
-      <button
-        type="button"
-        onClick={onDetail}
-        aria-label="약 상세 정보"
-        style={{ border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', flexShrink: 0, WebkitTapHighlightColor: 'transparent' }}
-      >
-        <PillGlyph color={med.color} shape={med.shape} marking={med.marking} size={50} />
-      </button>
-      <button
-        type="button"
-        onClick={onClick}
-        style={{ flex: 1, minWidth: 0, border: 'none', background: 'transparent', padding: 0, textAlign: 'left', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-      >
-        <div
-          className="med-name"
-          style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-        >
-          {med.name}
-        </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 7 }}>
-          <Tag tone="primary">{med.tabletCount}{med.doseUnit || 'T'}</Tag>
-          <Tag tone="primary">{fm.sub || fm.label}</Tag>
-          {(med.timings || []).map((t, i) => (
-            <Tag key={i}>{t}</Tag>
-          ))}
-        </div>
-      </button>
-      <Icon name="chevron" size={18} style={{ color: 'var(--text-weaker)', flexShrink: 0 }} />
     </div>
   );
 }

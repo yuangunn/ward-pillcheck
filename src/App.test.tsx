@@ -12,7 +12,7 @@ function renderApp() {
   );
 }
 
-const medList = () => document.querySelector('ul.med-list') as HTMLElement | null;
+const medList = () => document.querySelector('.med-list') as HTMLElement | null;
 
 describe('App 리디자인 통합 (목 모드)', () => {
   // 기본은 온보딩을 끈 상태로(테스트 방해 방지). 온보딩은 전용 케이스에서 검증.
