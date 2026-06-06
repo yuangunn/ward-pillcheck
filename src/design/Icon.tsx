@@ -325,6 +325,28 @@ export function ShapeOutline({
   );
 }
 
+/** 분할선 글리프: 없음(빈 정제)·일자(—)·십자(+). 정제 원 위에 분할선을 얹어 표현. */
+export function SplitLineGlyph({
+  kind,
+  size = 20,
+  stroke = 'currentColor',
+  sw = 2,
+}: {
+  kind: 'none' | 'single' | 'cross';
+  size?: number;
+  stroke?: string;
+  sw?: number;
+}) {
+  const p = { stroke, strokeWidth: sw, strokeLinecap: 'round' as const, fill: 'none' };
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" style={{ flexShrink: 0, display: 'block' }} aria-hidden>
+      <circle cx="12" cy="12" r="9" {...p} opacity={0.35} />
+      {kind !== 'none' && <line x1="4.5" y1="12" x2="19.5" y2="12" {...p} />}
+      {kind === 'cross' && <line x1="12" y1="4.5" x2="12" y2="19.5" {...p} />}
+    </svg>
+  );
+}
+
 export interface MarkOpt {
   code: string;
   img?: string;

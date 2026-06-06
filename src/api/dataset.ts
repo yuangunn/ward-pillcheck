@@ -1,4 +1,5 @@
 import type { PillResult, PillSearchQuery } from './types';
+import { splitLineKind } from '../domain/splitLine';
 
 // 번들 낱알식별 데이터셋: GitHub Pages 의 정적 파일을 받아 IndexedDB 에 캐시하고
 // 색/모양/각인 검색을 기기에서 직접 수행한다(완전 오프라인·전체 커버).
@@ -249,6 +250,7 @@ export function filterRecords(
   const color = q.colorClass1?.trim();
   const colors = (q.colors ?? []).map((c) => c.trim()).filter(Boolean);
   const forms = (q.forms ?? []).map((f) => f.trim()).filter(Boolean);
+  const lines = q.lines ?? [];
   const print = q.printFront?.trim().toUpperCase();
   const markCode = q.markCode?.trim();
 
@@ -266,6 +268,7 @@ export function filterRecords(
       const f = r.form ?? '';
       if (!forms.some((k) => f.includes(k))) continue;
     }
+    if (lines.length && !lines.includes(splitLineKind(r.lineF, r.lineB))) continue;
     if (print) {
       // 각인은 실제 인쇄된 각인(앞/뒤)만 검색한다.
       // 마크(그림) 속 글자/로고는 별도의 "마크로 찾기/그려서 찾기"가 담당하므로

@@ -2,6 +2,8 @@
 // 식약처 응답 필드를 프론트 친화적인 정규화 형태로 변환해 노출한다.
 // 추후 "번들 데이터셋 방식"으로 교체해도 이 타입들은 그대로 유지된다.
 
+import type { SplitLineKind } from '../domain/splitLine';
+
 /** 낱알식별 검색 쿼리 (실물 역방향 검색 + 이름 검색 공용) */
 export interface PillSearchQuery {
   itemName?: string; // 품목명
@@ -10,6 +12,7 @@ export interface PillSearchQuery {
   colorClass1?: string; // 색 (color_class1) — 단일(하위호환)
   colors?: string[]; // 색 다중 선택(하나라도 일치)
   forms?: string[]; // 제형 부분일치 키워드(정/경질/연질 등) — 하나라도 일치
+  lines?: SplitLineKind[]; // 분할선 종류(없음/일자/십자) — 하나라도 일치
   printFront?: string; // 앞면 각인 (print_front)
   markCode?: string; // 마크 코드(갤러리 선택) — 번들 데이터셋 전용
   formCodeName?: string; // 제형

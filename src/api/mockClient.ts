@@ -4,6 +4,7 @@ import {
   type PillResult,
   type PillSearchQuery,
 } from './types';
+import { splitLineKind } from '../domain/splitLine';
 
 // 인증키/Worker 없이 UI 와 로직을 검증·시연하기 위한 오프라인 목 클라이언트.
 // VITE_API_BASE 가 비어 있으면 자동 선택된다.
@@ -83,6 +84,7 @@ const SAMPLE: PillResult[] = [
     colorClass1: '하양',
     printFront: 'TYLENOL 500',
     printBack: '',
+    lineFront: '-',
     formCodeName: '필름코팅정',
     etcOtcName: '일반의약품',
     className: '해열.진통.소염제',
@@ -169,6 +171,7 @@ function matches(p: PillResult, q: PillSearchQuery): boolean {
   if (q.colorClass1 && p.colorClass1 !== q.colorClass1) return false;
   if (q.colors?.length && !q.colors.some((c) => (p.colorClass1 ?? '').includes(c))) return false;
   if (q.forms?.length && !q.forms.some((f) => (p.formCodeName ?? '').includes(f))) return false;
+  if (q.lines?.length && !q.lines.includes(splitLineKind(p.lineFront, p.lineBack))) return false;
   if (q.printFront && !includesCI(p.printFront, q.printFront)) return false;
   return true;
 }

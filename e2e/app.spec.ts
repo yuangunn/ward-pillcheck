@@ -175,6 +175,16 @@ test('환자 열기 → 검색 → 추가 → 리스트에 표시', async ({ pag
   await expect(page.locator('.med-list .med-name')).toContainText('아스피린장용정100mg');
 });
 
+test('실물 검색: 분할선(일자) 필터로 좁히기', async ({ page }) => {
+  await page.goto('/');
+  await page.getByText('환자1').click();
+  await page.getByRole('button', { name: '약 검색해서 추가' }).click();
+  await expect(page.getByRole('tab', { name: '실물 검색' })).toHaveAttribute('aria-selected', 'true');
+  // 분할선 '일자' 칩 → 분할선 있는 약(타이레놀)만
+  await page.getByRole('button', { name: '일자', exact: true }).click();
+  await expect(page.getByText('타이레놀정500mg')).toBeVisible();
+});
+
 test('이름 검색 탭 전환', async ({ page }) => {
   await page.goto('/');
   await page.getByText('환자1').click();

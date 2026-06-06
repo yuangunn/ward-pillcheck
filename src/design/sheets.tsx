@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Icon, PillGlyph, MarkGlyph, ShapeOutline, type MarkOpt } from './Icon';
+import { Icon, PillGlyph, MarkGlyph, ShapeOutline, SplitLineGlyph, type MarkOpt } from './Icon';
 import { Btn, Chip, BottomSheet, FieldLabel, TextField, Stepper } from './ui';
 import { COLOR_OPTIONS, SHAPE_OPTIONS } from '../constants/appearance';
 import {
@@ -12,6 +12,7 @@ import {
 import { TIMING_PRESETS, timingOrder } from '../constants/timing';
 import { buildListText, tidyText } from '../domain/format';
 import { shapeLabel } from '../domain/shape';
+import { splitLineKind, SPLIT_LINE_LABEL } from '../domain/splitLine';
 import type { MedItem, Patient } from '../domain/models';
 import { drugApi, getMarkOptions, proxiedImg, type DrugDetail, type MarkOption, type PillResult } from '../api';
 import { ensureMarkFeatures, featuresFromCanvas, rankFeaturesMulti, type RankedMark } from '../api';
@@ -230,7 +231,7 @@ function DetailPanel({ seq, pill, onZoom }: { seq: string; pill: PillResult; onZ
     .map(([k, v]) => [k, fieldVal(v)] as [string, string])
     .filter(([, v]) => v);
   const imprint = frontBack(pill.printFront, pill.printBack);
-  const splitLine = frontBack(pill.lineFront, pill.lineBack);
+  const lineKind = splitLineKind(pill.lineFront, pill.lineBack);
 
   const rows = detail
     ? ([
@@ -292,10 +293,13 @@ function DetailPanel({ seq, pill, onZoom }: { seq: string; pill: PillResult; onZ
                   <span style={{ color: 'var(--text)', fontWeight: 600, letterSpacing: -0.3 }}>{imprint}</span>
                 </div>
               )}
-              {splitLine && (
-                <div style={{ display: 'flex', gap: 8, fontSize: 13, lineHeight: 1.4 }}>
+              {lineKind !== 'none' && (
+                <div style={{ display: 'flex', gap: 8, fontSize: 13, lineHeight: 1.4, alignItems: 'center' }}>
                   <span style={{ flexShrink: 0, width: 38, color: 'var(--text-weaker)', fontWeight: 700 }}>분할선</span>
-                  <span style={{ color: 'var(--text)', fontWeight: 600, letterSpacing: -0.3 }}>{splitLine}</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'var(--text)', fontWeight: 600, letterSpacing: -0.3 }}>
+                    <SplitLineGlyph kind={lineKind} size={16} />
+                    {SPLIT_LINE_LABEL[lineKind]}
+                  </span>
                 </div>
               )}
             </div>
