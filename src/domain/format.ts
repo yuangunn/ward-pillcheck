@@ -44,6 +44,20 @@ export function stripIngredient(name: string): string {
   return name.replace(/\s*\([^)]*\)/g, '').trim();
 }
 
+/**
+ * 허가사항 본문 가독성 정리: 줄 끝 공백 제거 + 빈 줄 2줄 이상을 1줄로 압축 + 양끝 트림.
+ * (허가/e약은요 원문은 블록 태그가 줄바꿈으로 풀리며 빈 줄이 과도하게 쌓이는 경우가 많음)
+ */
+export function tidyText(s: string): string {
+  return (s || '')
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map((line) => line.replace(/[ \t ]+$/, ''))
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 // 투약시점 → 시계 표기 및 정렬용 분(minute). 매핑 없는 시점(필요시/자유입력)은 라벨 그대로·맨 뒤.
 const TIMING_CLOCK: Record<string, string> = {
   아침식전: '7am',

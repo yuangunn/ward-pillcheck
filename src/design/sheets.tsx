@@ -11,7 +11,7 @@ import {
   isFreqChipSelected,
 } from '../constants/frequency';
 import { TIMING_PRESETS, timingOrder } from '../constants/timing';
-import { buildListText } from '../domain/format';
+import { buildListText, tidyText } from '../domain/format';
 import type { MedItem, Patient } from '../domain/models';
 import { drugApi, getMarkOptions, proxiedImg, type DrugDetail, type MarkOption, type PillResult } from '../api';
 import { ensureMarkFeatures, featuresFromCanvas, rankFeaturesMulti, type RankedMark } from '../api';
@@ -270,7 +270,7 @@ function DetailPanel({ seq, pill, onZoom }: { seq: string; pill: PillResult; onZ
                 {rows.map(([k, v]) => (
                   <div key={k}>
                     <dt style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--primary-ink)', marginBottom: 3 }}>{k}</dt>
-                    <dd style={{ margin: 0, fontSize: 14, color: 'var(--text)', lineHeight: 1.55, letterSpacing: -0.3, whiteSpace: 'pre-line' }}>{v}</dd>
+                    <dd style={{ margin: 0, fontSize: 14, color: 'var(--text)', lineHeight: 1.55, letterSpacing: -0.3, whiteSpace: 'pre-line' }}>{tidyText(v || '')}</dd>
                   </div>
                 ))}
               </dl>

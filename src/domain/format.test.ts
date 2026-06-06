@@ -6,6 +6,7 @@ import {
   buildListText,
   blindLabel,
   stripIngredient,
+  tidyText,
 } from './format';
 import type { MedItem } from './models';
 
@@ -95,6 +96,21 @@ describe('stripIngredient', () => {
     expect(stripIngredient('트라젠타정(리나글립틴)')).toBe('트라젠타정');
     expect(stripIngredient('스틸녹스CR정6.25밀리그램(졸피뎀타르타르산염)')).toBe('스틸녹스CR정6.25밀리그램');
     expect(stripIngredient('아스피린프로텍트정100밀리그람')).toBe('아스피린프로텍트정100밀리그람');
+  });
+});
+
+describe('tidyText', () => {
+  it('빈 줄 3개 이상을 1개로 압축', () => {
+    expect(tidyText('A\n\n\n\nB')).toBe('A\n\nB');
+  });
+  it('한 줄 간격(\\n\\n)은 유지', () => {
+    expect(tidyText('1) 정맥주사\n\n성인...\n\n2) 근육주사')).toBe('1) 정맥주사\n\n성인...\n\n2) 근육주사');
+  });
+  it('줄 끝 공백·양끝 공백 제거, CRLF 처리', () => {
+    expect(tidyText('  A  \r\n\r\n\r\nB \n\n')).toBe('A\n\nB');
+  });
+  it('빈 입력은 빈 문자열', () => {
+    expect(tidyText('')).toBe('');
   });
 });
 
