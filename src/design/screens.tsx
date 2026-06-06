@@ -49,7 +49,6 @@ export function HomeScreen({
   topTab,
   onTopTab,
   onOpenPatient,
-  onNewPatient,
   onToggleTheme,
   onOpenDetail,
   onOpenSettings,
@@ -60,7 +59,6 @@ export function HomeScreen({
   topTab: 'patients' | 'lookup';
   onTopTab: (t: 'patients' | 'lookup') => void;
   onOpenPatient: (id: string) => void;
-  onNewPatient: () => void;
   onToggleTheme: () => void;
   onOpenDetail: (pill: PillResult) => void;
   onOpenSettings: () => void;
@@ -73,7 +71,7 @@ export function HomeScreen({
     onFlash?.(s === 'ready' ? '약품 데이터 최신화 완료' : '업데이트에 실패했어요');
   };
   return (
-    <div style={{ paddingBottom: 120 }}>
+    <div style={{ paddingBottom: 100 }}>
       {/* 상단: [지참약 식별 | 의약품 검색] 탭 + 테마 토글(같은 줄에 정렬) */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: `calc(${STATUS_TOP} + 8px) 16px 14px` }}>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -99,7 +97,6 @@ export function HomeScreen({
           ds={ds}
           runUpdate={runUpdate}
           onOpenPatient={onOpenPatient}
-          onNewPatient={onNewPatient}
         />
       )}
     </div>
@@ -112,14 +109,12 @@ function PatientsBody({
   ds,
   runUpdate,
   onOpenPatient,
-  onNewPatient,
 }: {
   patients: Patient[];
   totalMeds: number;
   ds: ReturnType<typeof useDataset>;
   runUpdate: () => void;
   onOpenPatient: (id: string) => void;
-  onNewPatient: () => void;
 }) {
   // 가장 최근에 지참약을 수정한 환자가 위로. updatedAt 동률은 라벨 순.
   const sortedPatients = useMemo(
@@ -274,29 +269,7 @@ function PatientsBody({
           );
         })}
       </div>
-
-      <FloatingCTA icon="plus" label="새 환자 추가" onClick={onNewPatient} />
     </>
-  );
-}
-
-function FloatingCTA({ label, icon, onClick }: { label: string; icon: string; onClick: () => void }) {
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        left: 0,
-        right: 0,
-        bottom: 0,
-        padding: '12px 16px 30px',
-        background: 'linear-gradient(to top, var(--bg) 62%, transparent)',
-        zIndex: 50,
-      }}
-    >
-      <Btn variant="primary" full icon={icon} onClick={onClick}>
-        {label}
-      </Btn>
-    </div>
   );
 }
 
@@ -415,8 +388,6 @@ export function MedListScreen({
   onEditMed,
   onSetSort,
   onManage,
-  onCopy,
-  onDur,
   onDetail,
 }: {
   patient: Patient;
@@ -425,13 +396,11 @@ export function MedListScreen({
   onEditMed: (m: MedItem) => void;
   onSetSort: (mode: SortMode) => void;
   onManage: () => void;
-  onCopy: () => void;
-  onDur: () => void;
   onDetail: (m: MedItem) => void;
 }) {
   const displayed = useMemo(() => sortMeds(patient.meds, patient.sortMode), [patient.meds, patient.sortMode]);
   return (
-    <div style={{ paddingBottom: 150 }}>
+    <div style={{ paddingBottom: 180 }}>
       <PageHeader
         title={patient.label}
         sub={patient.meds.length ? `지참약 ${patient.meds.length}건` : '지참약을 추가해 보세요'}
@@ -454,31 +423,6 @@ export function MedListScreen({
             </li>
           ))}
         </ul>
-      )}
-      {patient.meds.length > 0 && (
-        <div
-          style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            bottom: 0,
-            padding: '12px 16px 30px',
-            background: 'linear-gradient(to top, var(--bg) 60%, transparent)',
-            zIndex: 50,
-          }}
-        >
-          <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-            <Btn variant="primary" full icon="send" onClick={onCopy} style={{ height: 48, fontSize: 15, background: '#5b5fc7' }}>
-              공유하기
-            </Btn>
-            <Btn variant="ghost" full icon="shield" onClick={onDur} style={{ height: 48, fontSize: 15 }}>
-              금기 점검
-            </Btn>
-          </div>
-          <Btn variant="primary" full icon="plus" onClick={onAddMed}>
-            약 추가
-          </Btn>
-        </div>
       )}
     </div>
   );

@@ -8,7 +8,7 @@ import { Onboarding } from './design/Onboarding';
 import { GuideBanner, GuideDone, type TourStep } from './design/GuideBanner';
 
 const ONBOARDED_KEY = 'ward-pillcheck:onboarded';
-import { Toast, Lightbox, type ZoomPill } from './design/ui';
+import { Toast, Lightbox, Btn, type ZoomPill } from './design/ui';
 import { Icon } from './design/Icon';
 import { sortMeds } from './domain/sort';
 import type { MedItem, Patient, SortMode } from './domain/models';
@@ -16,6 +16,19 @@ import type { MarkOption, PillResult } from './api';
 
 const pillToZoom = (p: PillResult): ZoomPill => ({ itemName: p.itemName, color: p.colorClass1, drugShape: p.drugShape, marking: p.printFront, imageUrl: p.itemImage });
 const medToPill = (m: MedItem): PillResult => ({ itemSeq: m.itemSeq, itemName: m.name, entpName: '', colorClass1: m.color, drugShape: m.shape, printFront: m.marking, itemImage: m.imageUrl });
+
+// 하단 고정 액션바 래퍼. 그라데이션(투명) 영역은 스크롤 터치를 막지 않도록 pointerEvents 차단,
+// 실제 버튼 영역만 auto 로 되살린다.
+const BAR_WRAP: React.CSSProperties = {
+  position: 'absolute',
+  left: 0,
+  right: 0,
+  bottom: 0,
+  zIndex: 60,
+  padding: '14px 16px calc(20px + env(safe-area-inset-bottom, 0px))',
+  background: 'linear-gradient(to top, var(--bg) 62%, transparent)',
+  pointerEvents: 'none',
+};
 
 type Route = { name: 'home' | 'patient' | 'search'; patientId: string | null };
 const DEPTH: Record<Route['name'], number> = { home: 0, patient: 1, search: 2 };
@@ -157,7 +170,6 @@ export default function App() {
         topTab={topTab}
         onTopTab={setTopTab}
         onOpenPatient={(id) => go({ name: 'patient', patientId: id })}
-        onNewPatient={newPatient}
         onToggleTheme={toggle}
         onOpenDetail={(pill) => setDetailPill(pill)}
         onOpenSettings={() => setSettingsOpen(true)}
@@ -173,8 +185,6 @@ export default function App() {
         onEditMed={(m) => setAddState({ open: true, source: { ...m, __kind: 'med' }, mode: 'edit' })}
         onSetSort={(mode: SortMode) => dispatch({ type: 'SET_SORT_MODE', patientId: activePatient.id, mode })}
         onManage={() => setManageOpen(true)}
-        onCopy={() => setCopyOpen(true)}
-        onDur={() => setDurOpen(true)}
         onDetail={(m) => setDetailPill(medToPill(m))}
       />
     );
@@ -208,7 +218,6 @@ export default function App() {
         topTab={topTab}
         onTopTab={setTopTab}
         onOpenPatient={(id) => go({ name: 'patient', patientId: id })}
-        onNewPatient={newPatient}
         onToggleTheme={toggle}
         onOpenDetail={(pill) => setDetailPill(pill)}
         onOpenSettings={() => setSettingsOpen(true)}
@@ -245,7 +254,6 @@ export default function App() {
           position: 'absolute',
           inset: 0,
           overflowY: 'auto',
-          WebkitOverflowScrolling: 'touch',
           animation: `${dir === 'fwd' ? 'slideFwd' : 'slideBack'} .28s cubic-bezier(.32,.72,0,1)`,
         }}
       >
@@ -278,6 +286,35 @@ export default function App() {
         >
           <Icon name="chevDown" size={22} style={{ transform: 'rotate(180deg)' }} />
         </button>
+      )}
+
+      {/* 하단 액션바 — 스크롤 컨테이너 밖(앱 루트)에 고정. iOS 에서 absolute 바를
+          overflow 스크롤 안에 두면 스크롤이 깨지므로 여기로 분리. */}
+      {route.name === 'home' && topTab === 'patients' && (
+        <div style={BAR_WRAP}>
+          <div style={{ pointerEvents: 'auto' }}>
+            <Btn variant="primary" full icon="plus" onClick={newPatient}>
+              새 환자 추가
+            </Btn>
+          </div>
+        </div>
+      )}
+      {route.name === 'patient' && activePatient && activePatient.meds.length > 0 && (
+        <div style={BAR_WRAP}>
+          <div style={{ pointerEvents: 'auto' }}>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+              <Btn variant="primary" full icon="send" onClick={() => setCopyOpen(true)} style={{ height: 48, fontSize: 15, background: '#5b5fc7' }}>
+                공유하기
+              </Btn>
+              <Btn variant="ghost" full icon="shield" onClick={() => setDurOpen(true)} style={{ height: 48, fontSize: 15 }}>
+                금기 점검
+              </Btn>
+            </div>
+            <Btn variant="primary" full icon="plus" onClick={() => go({ name: 'search', patientId: activePatient.id })}>
+              약 추가
+            </Btn>
+          </div>
+        </div>
       )}
 
       <AddMedSheet
