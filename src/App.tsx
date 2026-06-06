@@ -6,6 +6,7 @@ import { AddMedSheet, CopySheet, DurSheet, PatientManageSheet, MarkGallerySheet,
 import { SettingsSheet } from './design/SettingsSheet';
 import { Onboarding, isStandalone } from './design/Onboarding';
 import { InstallGuide } from './design/InstallGuide';
+import { InAppBrowserBanner, detectInApp } from './design/InAppBrowserBanner';
 
 const ONBOARDED_KEY = 'ward-pillcheck:onboarded';
 import { Toast, Lightbox, Btn, type ZoomPill } from './design/ui';
@@ -56,12 +57,24 @@ export default function App() {
   const [topTab, setTopTab] = useState<'patients' | 'lookup'>('patients');
   const [detailPill, setDetailPill] = useState<PillResult | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [onboardOpen, setOnboardOpen] = useState(() => {
+  // 인앱 브라우저(카카오톡 등) 감지 — 상단 "외부 브라우저로 열기" 배너 표시용.
+  const inAppInfo = useMemo(() => detectInApp(), []);
+  const [inAppDismissed, setInAppDismissed] = useState(false);
+  const [bannerH, setBannerH] = useState(0);
+  const showInApp = inAppInfo.inApp && !isStandalone() && !inAppDismissed;
+  // 첫 실행 인트로 분기: PWA 설치 가능(지원 브라우저·미설치·인앱 아님)이면 설치 가이드를,
+  // 그 외(이미 설치된 standalone·인앱 등)는 기능 온보딩을 띄운다.
+  const [intro, setIntro] = useState<'none' | 'onboarding' | 'install'>(() => {
+    let onboarded = false;
     try {
-      return !localStorage.getItem(ONBOARDED_KEY);
+      onboarded = !!localStorage.getItem(ONBOARDED_KEY);
     } catch {
-      return false;
+      /* ignore */
     }
+    if (onboarded) return 'none';
+    const installable =
+      !isStandalone() && !inAppInfo.inApp && typeof navigator !== 'undefined' && 'serviceWorker' in navigator;
+    return installable ? 'install' : 'onboarding';
   });
   const [installGuideOpen, setInstallGuideOpen] = useState(false);
   // 복약 리스트 글자 크기(접근성): 0 보통 / 1 크게 / 2 아주 크게. localStorage 영속.
@@ -85,13 +98,13 @@ export default function App() {
     flash('글자 ' + ['보통', '크게', '아주 크게'][n]);
   };
   const textScale = [1, 1.18, 1.36][textSizeIdx] || 1;
-  const closeOnboarding = () => {
+  const finishIntro = () => {
     try {
       localStorage.setItem(ONBOARDED_KEY, '1');
     } catch {
       /* ignore */
     }
-    setOnboardOpen(false);
+    setIntro('none');
   };
 
   const patients = state.patients;
@@ -235,13 +248,26 @@ export default function App() {
         overflow: 'hidden',
       }}
     >
+      {/* 인앱 브라우저(카카오톡 등) 최상단 배너 — 화면을 배너 높이만큼 아래로 민다. */}
+      {showInApp && (
+        <InAppBrowserBanner
+          info={inAppInfo}
+          onFlash={flash}
+          onHeight={setBannerH}
+          onDismiss={() => setInAppDismissed(true)}
+        />
+      )}
+
       {/* 화면 컨테이너는 스크롤하지 않음(레이어 분리). 각 화면이 헤더(고정) +
           ScrollArea(리스트만 스크롤) 구조를 가진다. 전환 애니메이션만 담당. */}
       <div
         key={routeKey}
         style={{
           position: 'absolute',
-          inset: 0,
+          top: showInApp ? bannerH : 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
@@ -322,11 +348,17 @@ export default function App() {
         onFlash={flash}
         onShowGuide={() => {
           setSettingsOpen(false);
-          setOnboardOpen(true);
+          setIntro('onboarding');
         }}
       />
-      {onboardOpen && <Onboarding onClose={closeOnboarding} standalone={isStandalone()} />}
-      <InstallGuide open={installGuideOpen} onClose={() => setInstallGuideOpen(false)} />
+      {intro === 'onboarding' && <Onboarding onClose={finishIntro} standalone={isStandalone()} />}
+      <InstallGuide
+        open={installGuideOpen || intro === 'install'}
+        onClose={() => {
+          setInstallGuideOpen(false);
+          if (intro === 'install') finishIntro();
+        }}
+      />
       <Lightbox pill={zoomPill} onClose={() => setZoomPill(null)} />
 
       <Toast msg={toast} />
