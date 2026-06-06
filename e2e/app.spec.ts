@@ -160,18 +160,50 @@ test('직접 입력으로 주사약 추가', async ({ page }) => {
   await expect(page.locator('ul.med-list .med-name')).toContainText('란투스주');
 });
 
-test('용법 필요시 → 상세 입력 모달 → 확인', async ({ page }) => {
+test('용법 필요시 → 사유 입력 모달 → 투약시점에 필요시 자동 체크', async ({ page }) => {
   await page.goto('/');
   await page.getByText('환자1').click();
   await page.getByRole('button', { name: '약 검색해서 추가' }).click();
   await page.getByLabel('각인').fill('Bayer');
   await page.getByText('아스피린장용정100mg').click();
   const sheet = page.getByRole('dialog', { name: '리스트에 추가' });
-  // 용법 '필요시' 칩(서브라벨 PRN 으로 식별) → 상세 입력 모달
+  // 용법 '필요시' 칩(서브라벨 PRN 으로 식별) → "어떨 때 복용하는 약인가요?" 모달
   await sheet.getByRole('button', { name: /PRN/ }).click();
-  const modal = page.getByRole('dialog', { name: '필요시 — 상세 입력' });
+  const modal = page.getByRole('dialog', { name: '어떨 때 복용하는 약인가요?' });
   await expect(modal).toBeVisible();
-  await modal.getByRole('textbox').fill('필요시 (통증 시)');
+  await modal.getByRole('textbox').fill('통증 시');
+  await modal.getByRole('button', { name: '확인' }).click();
+  await expect(modal).not.toBeVisible();
+  // 투약시점에 '필요시' 자동 체크 (정확 일치로 용법칩 '필요시 PRN'과 구분)
+  await expect(sheet.getByRole('button', { name: '필요시', exact: true, pressed: true })).toBeVisible();
+});
+
+test('용법 QD: 투약시점이 라디오(1개)로 작동', async ({ page }) => {
+  await page.goto('/');
+  await page.getByText('환자1').click();
+  await page.getByRole('button', { name: '약 검색해서 추가' }).click();
+  await page.getByLabel('각인').fill('Bayer');
+  await page.getByText('아스피린장용정100mg').click();
+  const sheet = page.getByRole('dialog', { name: '리스트에 추가' });
+  // QD 기본 → 아침식후 1개 체크. 다른 시점 누르면 교체(라디오)
+  await sheet.getByRole('button', { name: '점심식후' }).click();
+  await expect(sheet.getByRole('button', { name: '점심식후', pressed: true })).toBeVisible();
+  await expect(sheet.getByRole('button', { name: '아침식후', pressed: false })).toBeVisible();
+});
+
+test('용법 주 1회 → 요일 선택 모달', async ({ page }) => {
+  await page.goto('/');
+  await page.getByText('환자1').click();
+  await page.getByRole('button', { name: '약 검색해서 추가' }).click();
+  await page.getByLabel('각인').fill('Bayer');
+  await page.getByText('아스피린장용정100mg').click();
+  const sheet = page.getByRole('dialog', { name: '리스트에 추가' });
+  await sheet.getByRole('button', { name: /QW/ }).click();
+  const modal = page.getByRole('dialog', { name: '어느 요일에 투여하나요?' });
+  await expect(modal).toBeVisible();
+  await expect(modal.getByRole('button', { name: '확인' })).toBeDisabled();
+  await modal.getByRole('button', { name: '월', exact: true }).click();
+  await expect(modal.getByRole('button', { name: '확인' })).toBeEnabled();
   await modal.getByRole('button', { name: '확인' }).click();
   await expect(modal).not.toBeVisible();
 });
