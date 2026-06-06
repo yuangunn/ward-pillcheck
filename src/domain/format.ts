@@ -44,6 +44,20 @@ export function stripIngredient(name: string): string {
   return name.replace(/\s*\([^)]*\)/g, '').trim();
 }
 
+/**
+ * 허가사항 본문 가독성 정리: 줄 끝 공백 제거 + 빈 줄 2줄 이상을 1줄로 압축 + 양끝 트림.
+ * (허가/e약은요 원문은 블록 태그가 줄바꿈으로 풀리며 빈 줄이 과도하게 쌓이는 경우가 많음)
+ */
+export function tidyText(s: string): string {
+  return (s || '')
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map((line) => line.replace(/[ \t ]+$/, ''))
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 // 투약시점 → 시계 표기 및 정렬용 분(minute). 매핑 없는 시점(필요시/자유입력)은 라벨 그대로·맨 뒤.
 const TIMING_CLOCK: Record<string, string> = {
   아침식전: '7am',
@@ -68,11 +82,18 @@ const LATE = 99999; // 매핑 없는 시점 정렬 위치(맨 뒤)
 const clockLabel = (t: string): string => TIMING_CLOCK[t] ?? t;
 const clockMin = (t: string): number => TIMING_MIN[t] ?? LATE;
 
-/** 공유용 약 한 줄: 성분·용법·시점 제거, 이름/용량/겉모습만 */
-function shareMedLine(med: MedItem): string {
+/** 인계 공유 옵션: 성분명·겉모습 포함 여부 */
+export interface ShareOpts {
+  ingredient?: boolean; // 품목명의 성분 괄호(…) 포함
+  appearance?: boolean; // 겉모습(색/모양/각인) 포함
+}
+
+/** 공유용 약 한 줄: 용법·시점 제거, 이름/용량(+옵션에 따라 성분·겉모습) */
+function shareMedLine(med: MedItem, opts: ShareOpts): string {
   const unit = med.doseUnit || 'T';
-  const head = `${stripIngredient(med.name)} ${formatTabletCount(med.tabletCount)}${unit}`;
-  const appearance = formatAppearance(med);
+  const name = opts.ingredient ? med.name : stripIngredient(med.name);
+  const head = `${name} ${formatTabletCount(med.tabletCount)}${unit}`;
+  const appearance = opts.appearance === false ? '' : formatAppearance(med);
   return appearance ? `${head} ${appearance}` : head;
 }
 
@@ -90,7 +111,7 @@ interface ShareGroup {
  * - 시점 패턴(시계 표기)별로 묶어 시간순 정렬해 출력
  * - 성분명·용법코드·시점목록은 생략(헤더가 시점을 대신함)
  */
-export function buildListText(label: string, meds: MedItem[]): string {
+export function buildListText(label: string, meds: MedItem[], opts: ShareOpts = {}): string {
   const head = `[${blindLabel(label)}]`;
   if (!meds.length) return head;
 
@@ -104,7 +125,7 @@ export function buildListText(label: string, meds: MedItem[]): string {
       g = { header, min: clockMin(sorted[0]), count: sorted.length, order: idx, lines: [] };
       groups.set(header, g);
     }
-    g.lines.push(shareMedLine(m));
+    g.lines.push(shareMedLine(m, opts));
   });
 
   const ordered = [...groups.values()].sort(

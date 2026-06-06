@@ -6,6 +6,7 @@ import {
   buildListText,
   blindLabel,
   stripIngredient,
+  tidyText,
 } from './format';
 import type { MedItem } from './models';
 
@@ -98,9 +99,47 @@ describe('stripIngredient', () => {
   });
 });
 
+describe('tidyText', () => {
+  it('빈 줄 3개 이상을 1개로 압축', () => {
+    expect(tidyText('A\n\n\n\nB')).toBe('A\n\nB');
+  });
+  it('한 줄 간격(\\n\\n)은 유지', () => {
+    expect(tidyText('1) 정맥주사\n\n성인...\n\n2) 근육주사')).toBe('1) 정맥주사\n\n성인...\n\n2) 근육주사');
+  });
+  it('줄 끝 공백·양끝 공백 제거, CRLF 처리', () => {
+    expect(tidyText('  A  \r\n\r\n\r\nB \n\n')).toBe('A\n\nB');
+  });
+  it('빈 입력은 빈 문자열', () => {
+    expect(tidyText('')).toBe('');
+  });
+});
+
 describe('buildListText (블라인드 + 시점 범주화)', () => {
   it('약이 없으면 블라인드 헤더만', () => {
     expect(buildListText('환자2', [])).toBe('[환*2]');
+  });
+
+  it('옵션: 성분명 포함 / 겉모습 제외', () => {
+    const med: MedItem = {
+      ...base,
+      name: '트라젠타정(리나글립틴)',
+      timings: ['아침식후'],
+      color: '분홍',
+      shape: '원형',
+      marking: '마크',
+    };
+    // 기본(성분 제외·겉모습 포함)
+    expect(buildListText('환자1', [med])).toBe('[환*1]\n<8am>\n트라젠타정 1T (분홍/원형/마크)');
+    // 성분명 ON
+    expect(buildListText('환자1', [med], { ingredient: true })).toBe(
+      '[환*1]\n<8am>\n트라젠타정(리나글립틴) 1T (분홍/원형/마크)',
+    );
+    // 겉모습 OFF
+    expect(buildListText('환자1', [med], { appearance: false })).toBe('[환*1]\n<8am>\n트라젠타정 1T');
+    // 둘 다: 성분 ON + 겉모습 OFF
+    expect(buildListText('환자1', [med], { ingredient: true, appearance: false })).toBe(
+      '[환*1]\n<8am>\n트라젠타정(리나글립틴) 1T',
+    );
   });
 
   it('명세 예시와 일치: 시점 패턴별 그룹·시간순 정렬', () => {

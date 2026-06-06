@@ -6,17 +6,17 @@ import {
   FREQUENCY_PRESETS,
   freqMeta,
   FREQ_DETAIL_CODES,
-  FREQ_DETAIL_DEFAULT,
   freqDetailFamily,
   isFreqChipSelected,
 } from '../constants/frequency';
 import { TIMING_PRESETS, timingOrder } from '../constants/timing';
-import { buildListText } from '../domain/format';
+import { buildListText, tidyText } from '../domain/format';
 import type { MedItem, Patient } from '../domain/models';
 import { drugApi, getMarkOptions, proxiedImg, type DrugDetail, type MarkOption, type PillResult } from '../api';
 import { ensureMarkFeatures, featuresFromCanvas, rankFeaturesMulti, type RankedMark } from '../api';
 import { analyzeInteractions, fetchDurMap, type InteractionResult } from '../api/dur';
 import { getTeamsTarget, setTeamsTarget, teamsDeepLink } from '../state/teamsTarget';
+import { getShareOptions, setShareOptions, type ShareOptions } from '../state/shareOptions';
 
 const TIMING_DEFAULTS: Record<number, string[]> = {
   1: ['아침식후'],
@@ -74,13 +74,22 @@ function Section({ label, children }: { label: string; children: ReactNode }) {
 }
 
 const FREQ_MODAL_TITLE: Record<string, string> = {
-  QW: '주 1회 — 상세 입력',
-  QOD: '격일 — 상세 입력',
-  PRN: '필요시 — 상세 입력',
+  QW: '어느 요일에 투여하나요?',
+  QOD: '투여 스케줄이 어떻게 되나요?',
+  PRN: '어떨 때 복용하는 약인가요?',
   ETC: '기타 용법 입력',
 };
 
-/** 비정형 용법(주1회·격일·필요시·기타)의 자유 텍스트 입력 모달 */
+const WEEKDAYS = ['월', '화', '수', '목', '금', '토', '일'];
+const QOD_OPTS = ['홀수일', '짝수일'];
+
+/** initial 용법 문자열에서 괄호 안 상세값 추출. 예) 주 1회(월) → 월 */
+function parseFreqDetail(initial: string): string {
+  const m = /\((.+)\)\s*$/.exec(initial);
+  return m ? m[1].trim() : '';
+}
+
+/** 비정형 용법(주1회=요일 / 격일=홀짝 / 필요시=사유 / 기타=자유)의 상세 입력 모달 */
 function FreqDetailModal({
   code,
   initial,
@@ -92,8 +101,43 @@ function FreqDetailModal({
   onCancel: () => void;
   onConfirm: (text: string) => void;
 }) {
-  const [val, setVal] = useState(initial);
-  useEffect(() => setVal(initial), [initial]);
+  const preset = parseFreqDetail(initial);
+  const [choice, setChoice] = useState(preset); // QW(요일)·QOD(홀짝)
+  const [text, setText] = useState(code === 'ETC' ? initial : preset); // PRN(사유)·ETC(자유)
+
+  const result = (): string => {
+    if (code === 'QW') return choice ? `주 1회(${choice})` : '주 1회';
+    if (code === 'QOD') return choice ? `격일(${choice})` : '격일';
+    if (code === 'PRN') return text.trim() ? `필요시(${text.trim()})` : '필요시';
+    return text.trim(); // ETC
+  };
+  const canConfirm = code === 'QW' || code === 'QOD' ? !!choice : code === 'PRN' ? true : !!text.trim();
+
+  const chip = (val: string, sel: boolean, onClick: () => void) => (
+    <button
+      key={val}
+      type="button"
+      aria-pressed={sel}
+      onClick={onClick}
+      style={{
+        flex: code === 'QOD' ? 1 : '0 0 auto',
+        minWidth: code === 'QOD' ? 0 : 44,
+        padding: '11px 14px',
+        borderRadius: 'var(--r-chip)',
+        border: sel ? '1.5px solid var(--primary)' : '1.5px solid var(--border)',
+        background: sel ? 'var(--primary-weak)' : 'var(--card)',
+        color: sel ? 'var(--primary-ink)' : 'var(--text-weak)',
+        fontSize: 15,
+        fontWeight: 700,
+        letterSpacing: -0.3,
+        cursor: 'pointer',
+        WebkitTapHighlightColor: 'transparent',
+      }}
+    >
+      {val}
+    </button>
+  );
+
   return (
     <div
       role="dialog"
@@ -103,26 +147,37 @@ function FreqDetailModal({
     >
       <div onClick={onCancel} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }} />
       <div style={{ position: 'relative', width: '100%', maxWidth: 340, background: 'var(--bg)', borderRadius: 20, padding: 20, boxShadow: '0 12px 44px rgba(0,0,0,0.32)' }}>
-        <h3 style={{ margin: '0 0 6px', fontSize: 18, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.4 }}>
+        <h3 style={{ margin: '0 0 14px', fontSize: 18, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.4 }}>
           {FREQ_MODAL_TITLE[code] || '용법 입력'}
         </h3>
-        <p style={{ margin: '0 0 14px', fontSize: 13, color: 'var(--text-weak)', fontWeight: 600, letterSpacing: -0.3, lineHeight: 1.45 }}>
-          인계문에 그대로 표시돼요. 자세히 적을수록 좋아요.
-        </p>
-        <TextField
-          value={val}
-          onChange={setVal}
-          placeholder={code === 'PRN' ? '예) 필요시 (통증 시)' : code === 'QW' ? '예) 매주 월요일' : code === 'QOD' ? '예) 격일 저녁' : '예) 5일 복용 2일 휴약'}
-          autoFocus
-          onKeyDown={(e: React.KeyboardEvent) => {
-            if (e.key === 'Enter' && val.trim()) onConfirm(val.trim());
-          }}
-        />
+
+        {code === 'QW' && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+            {WEEKDAYS.map((d) => chip(d, choice === d, () => setChoice(d)))}
+          </div>
+        )}
+        {code === 'QOD' && (
+          <div style={{ display: 'flex', gap: 8 }}>
+            {QOD_OPTS.map((o) => chip(o, choice === o, () => setChoice(o)))}
+          </div>
+        )}
+        {(code === 'PRN' || code === 'ETC') && (
+          <TextField
+            value={text}
+            onChange={setText}
+            placeholder={code === 'PRN' ? '예) 통증 시, 혈압 높을 때 (비워도 됨)' : '예) 5일 복용 2일 휴약'}
+            autoFocus
+            onKeyDown={(e: React.KeyboardEvent) => {
+              if (e.key === 'Enter' && canConfirm) onConfirm(result());
+            }}
+          />
+        )}
+
         <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
           <Btn variant="ghost" full onClick={onCancel}>
             취소
           </Btn>
-          <Btn variant="primary" full onClick={() => onConfirm(val.trim())} disabled={!val.trim()}>
+          <Btn variant="primary" full onClick={() => onConfirm(result())} disabled={!canConfirm}>
             확인
           </Btn>
         </div>
@@ -270,7 +325,7 @@ function DetailPanel({ seq, pill, onZoom }: { seq: string; pill: PillResult; onZ
                 {rows.map(([k, v]) => (
                   <div key={k}>
                     <dt style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--primary-ink)', marginBottom: 3 }}>{k}</dt>
-                    <dd style={{ margin: 0, fontSize: 14, color: 'var(--text)', lineHeight: 1.55, letterSpacing: -0.3, whiteSpace: 'pre-line' }}>{v}</dd>
+                    <dd style={{ margin: 0, fontSize: 14, color: 'var(--text)', lineHeight: 1.55, letterSpacing: -0.3, whiteSpace: 'pre-line' }}>{tidyText(v || '')}</dd>
                   </div>
                 ))}
               </dl>
@@ -419,29 +474,40 @@ export function AddMedSheet({
 
   const changeFreq = (code: string) => {
     setFreq(code);
-    setTimings((TIMING_DEFAULTS[freqMeta(code).slots] || ['필요시']).slice());
+    // 취침전(HS)은 자기전만 자동 체크. 그 외 표준 용법은 횟수만큼 기본 시점.
+    if (code === 'HS') setTimings(['자기전']);
+    else setTimings((TIMING_DEFAULTS[freqMeta(code).slots] || ['아침식후']).slice());
   };
   // 비정형 용법(주1회·격일·필요시·기타) 칩은 바로 적용하지 않고 상세 입력 모달을 띄운다.
   const onFreqChip = (code: string) => {
     if (FREQ_DETAIL_CODES.has(code)) {
-      const initial = freqDetailFamily(freq) === code ? freq : FREQ_DETAIL_DEFAULT[code];
+      const initial = freqDetailFamily(freq) === code ? freq : '';
       setFreqModal({ code, initial });
     } else {
       changeFreq(code);
     }
   };
-  const confirmFreqModal = (text: string) => {
-    const v = text.trim() || FREQ_DETAIL_DEFAULT[freqModal?.code ?? 'ETC'] || '기타';
-    setFreq(v);
-    setTimings((TIMING_DEFAULTS[1] || ['필요시']).slice()); // 비정형은 시점 1칸
+  const confirmFreqModal = (value: string) => {
+    const code = freqModal?.code ?? 'ETC';
+    setFreq(value || '기타');
+    // 필요시는 '필요시' 시점 자동 체크, 그 외 비정형은 시점 1칸 기본.
+    setTimings(code === 'PRN' ? ['필요시'] : ['아침식후']);
     setFreqModal(null);
   };
-  const toggleTiming = (code: string) =>
-    setTimings((ts) => (ts.includes(code) ? ts.filter((c) => c !== code) : [...ts, code]).sort((a, b) => timingOrder(a) - timingOrder(b)));
+  // 용법에 맞춰 투약시점 선택 제한: 1회=라디오(교체), N회=최대 N개까지.
+  const pickTiming = (code: string) =>
+    setTimings((ts) => {
+      if (ts.includes(code)) return ts.filter((c) => c !== code); // 해제
+      const max = freqMeta(freq).slots;
+      if (max <= 1) return [code]; // 라디오(1개만)
+      if (ts.length >= max) return ts; // 상한 도달 — 무시
+      return [...ts, code].sort((a, b) => timingOrder(a) - timingOrder(b));
+    });
+  const toggleTiming = pickTiming;
   const addCustomTiming = () => {
     const v = customInput.trim();
     if (!v) return;
-    setTimings((ts) => (ts.includes(v) ? ts : [...ts, v].sort((a, b) => timingOrder(a) - timingOrder(b))));
+    pickTiming(v);
     setCustomInput('');
   };
   const finalName = (isManual ? nameInput : name).trim();
@@ -589,14 +655,23 @@ export function AddMedSheet({
 
       <Section label="투약시점">
         <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-weaker)', margin: '-4px 0 12px', lineHeight: 1.45 }}>
-          {freqMeta(freq).label} 기준 보통 {slots}회 · 해당하는 시점을 모두 선택하세요
+          {slots <= 1 ? '한 가지 시점만 선택돼요 (용법에 연동)' : `최대 ${slots}개까지 선택돼요 (용법에 연동)`}
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {TIMING_PRESETS.map((t) => (
-            <Chip key={t.code} selected={timings.includes(t.code)} onClick={() => toggleTiming(t.code)} style={{ padding: '9px 14px', fontSize: 14.5 }}>
-              {t.code}
-            </Chip>
-          ))}
+          {TIMING_PRESETS.map((t) => {
+            const sel = timings.includes(t.code);
+            const capped = slots > 1 && !sel && timings.length >= slots; // 상한 도달 시 비활성 느낌
+            return (
+              <Chip
+                key={t.code}
+                selected={sel}
+                onClick={() => toggleTiming(t.code)}
+                style={{ padding: '9px 14px', fontSize: 14.5, opacity: capped ? 0.4 : 1 }}
+              >
+                {t.code}
+              </Chip>
+            );
+          })}
           {timings
             .filter((t) => !TIMING_PRESETS.some((p) => p.code === t))
             .map((t) => (
@@ -767,18 +842,63 @@ function TeamsTargetPrompt({
   );
 }
 
+/** 공유 상세설정의 토글 행(체크박스 스타일) */
+function ShareToggle({ label, hint, on, onToggle }: { label: string; hint: string; on: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      onClick={onToggle}
+      style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '10px 12px', borderRadius: 'var(--r-card)', background: 'var(--fill)', border: 'none', cursor: 'pointer', textAlign: 'left', WebkitTapHighlightColor: 'transparent' }}
+    >
+      <span
+        style={{
+          flexShrink: 0,
+          width: 22,
+          height: 22,
+          borderRadius: 7,
+          border: on ? 'none' : '1.5px solid var(--border)',
+          background: on ? 'var(--primary)' : 'transparent',
+          color: '#fff',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        {on && <Icon name="check" size={15} stroke="#fff" sw={2.6} />}
+      </span>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ display: 'block', fontSize: 14, fontWeight: 700, color: 'var(--text)', letterSpacing: -0.3 }}>{label}</span>
+        <span style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-weaker)', letterSpacing: -0.2, marginTop: 1 }}>{hint}</span>
+      </span>
+    </button>
+  );
+}
+
 export function CopySheet({ open, onClose, label, meds }: { open: boolean; onClose: () => void; label: string; meds: MedItem[] }) {
   const [copied, setCopied] = useState(false);
   const [teamsTarget, setTeamsTargetState] = useState('');
   const [teamsPrompt, setTeamsPrompt] = useState(false);
-  const text = useMemo(() => buildListText(label, meds), [label, meds]);
+  const [opts, setOpts] = useState<ShareOptions>(getShareOptions);
+  const [optsOpen, setOptsOpen] = useState(false);
+  const text = useMemo(() => buildListText(label, meds, opts), [label, meds, opts]);
   useEffect(() => {
-    if (open) setTeamsTargetState(getTeamsTarget());
-    else {
+    if (open) {
+      setTeamsTargetState(getTeamsTarget());
+      setOpts(getShareOptions());
+    } else {
       setCopied(false);
       setTeamsPrompt(false);
+      setOptsOpen(false);
     }
   }, [open]);
+  const toggleOpt = (key: keyof ShareOptions) => {
+    const next = { ...opts, [key]: !opts[key] };
+    setOpts(next);
+    setShareOptions(next);
+  };
   const canShare = typeof navigator !== 'undefined' && !!navigator.share;
   const launchTeams = (target?: string) => {
     const url = teamsDeepLink(text, target);
@@ -824,7 +944,27 @@ export function CopySheet({ open, onClose, label, meds }: { open: boolean; onClo
       <pre style={{ margin: 0, padding: 16, borderRadius: 'var(--r-card)', background: 'var(--fill)', color: 'var(--text)', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 280, overflowY: 'auto' }}>
         {text}
       </pre>
-      <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+
+      <button
+        type="button"
+        onClick={() => setOptsOpen((v) => !v)}
+        aria-expanded={optsOpen}
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginTop: 12, padding: '10px 0', background: 'none', border: 'none', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+      >
+        <span style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.3 }}>공유 상세설정</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, color: 'var(--text-weaker)' }}>
+          {[opts.ingredient && '성분명', opts.appearance && '겉모습'].filter(Boolean).join('·') || '기본'}
+          <Icon name={optsOpen ? 'chevDown' : 'chevron'} size={16} />
+        </span>
+      </button>
+      {optsOpen && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 4 }}>
+          <ShareToggle label="성분명 표시" hint="예) 트라젠타정(리나글립틴)" on={opts.ingredient} onToggle={() => toggleOpt('ingredient')} />
+          <ShareToggle label="겉모습 표시" hint="색·모양·각인 예) (하양/원형/Bayer)" on={opts.appearance} onToggle={() => toggleOpt('appearance')} />
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
         {canShare && <Btn variant="ghost" icon="share" onClick={doShare} style={{ flex: '0 0 auto', width: 54, padding: 0 }} />}
         <Btn variant="primary" full icon={copied ? 'check' : 'copy'} onClick={doCopy}>
           {copied ? '복사됐어요' : '복사하기'}
