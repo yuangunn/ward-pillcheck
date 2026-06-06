@@ -61,8 +61,8 @@ test('Teams 보내기: 대상 미지정 시 입력 팝업', async ({ page }) => 
   await page.getByLabel('각인').fill('Bayer');
   await page.getByText('아스피린장용정100mg').click();
   await page.getByRole('dialog', { name: '리스트에 추가' }).getByRole('button', { name: '환자 리스트에 추가' }).click();
-  // 인계 복사 → Teams로 보내기 → 대상 미지정이라 입력 팝업
-  await page.getByRole('button', { name: '인계 복사' }).click();
+  // 공유하기 → Teams로 보내기 → 대상 미지정이라 입력 팝업
+  await page.getByRole('button', { name: '공유하기' }).click();
   await page.getByRole('button', { name: 'Teams로 보내기' }).click();
   const prompt = page.getByRole('dialog', { name: 'Teams 대상 입력' });
   await expect(prompt).toBeVisible();

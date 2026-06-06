@@ -122,6 +122,10 @@ export function SettingsSheet({ open, onClose, onFlash, onShowGuide }: { open: b
         오프라인 상세·DUR 캐시 비우기
       </button>
 
+      <div style={{ marginTop: 14, padding: '12px 14px', borderRadius: 'var(--r-card)', background: 'var(--primary-weak)', fontSize: 12.5, color: 'var(--primary-ink)', fontWeight: 600, lineHeight: 1.55 }}>
+        💡 병동 인트라넷에서 쓰려면: 인터넷이 되는 곳에서 위 버튼으로 한 번 받아두면, 이후 폐쇄망/오프라인에서도 그대로 동작해요.
+      </div>
+
       {/* 선택: 실물사진(대용량) */}
       <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.4, margin: '24px 0 4px' }}>실물사진 (선택 · 대용량)</div>
       <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--text-weak)', fontWeight: 600, lineHeight: 1.5 }}>
@@ -165,10 +169,6 @@ export function SettingsSheet({ open, onClose, onFlash, onShowGuide }: { open: b
         style={{ width: '100%', boxSizing: 'border-box', height: 48, padding: '0 14px', borderRadius: 'var(--r-btn)', border: '1.5px solid var(--border)', background: 'var(--fill)', color: 'var(--text)', fontSize: 15, fontFamily: 'inherit', fontWeight: 600, letterSpacing: -0.3, outline: 'none' }}
       />
 
-      <div style={{ marginTop: 18, padding: '12px 14px', borderRadius: 'var(--r-card)', background: 'var(--primary-weak)', fontSize: 12.5, color: 'var(--primary-ink)', fontWeight: 600, lineHeight: 1.55 }}>
-        💡 병동 인트라넷에서 쓰려면: 인터넷이 되는 곳에서 위 버튼으로 한 번 받아두면, 이후 폐쇄망/오프라인에서도 그대로 동작해요.
-      </div>
-
       {onShowGuide && (
         <button
           type="button"
@@ -178,6 +178,18 @@ export function SettingsSheet({ open, onClose, onFlash, onShowGuide }: { open: b
           사용 가이드 다시 보기
         </button>
       )}
+
+      <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--border)', textAlign: 'center', fontSize: 12, color: 'var(--text-weaker)', fontWeight: 600, letterSpacing: -0.2 }}>
+        Made by{' '}
+        <a
+          href="https://github.com/yuangunn"
+          target="_blank"
+          rel="noreferrer"
+          style={{ color: 'var(--primary-ink)', fontWeight: 700, textDecoration: 'none' }}
+        >
+          yuangunn
+        </a>
+      </div>
     </BottomSheet>
   );
 }

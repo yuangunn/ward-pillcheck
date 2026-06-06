@@ -467,8 +467,8 @@ export function MedListScreen({
           }}
         >
           <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-            <Btn variant="ghost" full icon="copy" onClick={onCopy} style={{ height: 48, fontSize: 15 }}>
-              인계 복사
+            <Btn variant="primary" full icon="send" onClick={onCopy} style={{ height: 48, fontSize: 15, background: '#5b5fc7' }}>
+              공유하기
             </Btn>
             <Btn variant="ghost" full icon="shield" onClick={onDur} style={{ height: 48, fontSize: 15 }}>
               금기 점검

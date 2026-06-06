@@ -302,7 +302,21 @@ export function DrugDetailSheet({
     <BottomSheet open={open} onClose={onClose} title="약 상세 정보" maxH="92%">
       {pill && (
         <>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '2px 0 8px' }}>
+          {/* 약명 헤더 고정 — 스크롤 컨테이너 상단 패딩(6px)까지 덮어 비침 방지(iOS sticky) */}
+          <div
+            style={{
+              position: 'sticky',
+              top: 0,
+              zIndex: 10,
+              background: 'var(--bg)',
+              margin: '-6px -20px 0',
+              padding: '8px 20px 12px',
+              borderBottom: '1px solid var(--border)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 14,
+            }}
+          >
             <PillGlyph color={pill.colorClass1} shape={pill.drugShape} marking={pill.printFront} size={52} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.4 }}>{pill.itemName}</div>
