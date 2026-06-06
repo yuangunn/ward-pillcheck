@@ -259,7 +259,7 @@ export function BottomSheet({
     <div style={{ position: 'absolute', inset: 0, zIndex: 200, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
       <div
         onClick={onClose}
-        style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.42)', opacity: show ? 1 : 0, transition: 'opacity .28s ease' }}
+        style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)', opacity: show ? 1 : 0, transition: 'opacity .28s ease' }}
       />
       <div
         role="dialog"

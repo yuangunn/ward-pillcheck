@@ -11,6 +11,7 @@ import {
 } from '../constants/frequency';
 import { TIMING_PRESETS, timingOrder } from '../constants/timing';
 import { buildListText, tidyText } from '../domain/format';
+import { shapeLabel } from '../domain/shape';
 import type { MedItem, Patient } from '../domain/models';
 import { drugApi, getMarkOptions, proxiedImg, type DrugDetail, type MarkOption, type PillResult } from '../api';
 import { ensureMarkFeatures, featuresFromCanvas, rankFeaturesMulti, type RankedMark } from '../api';
@@ -224,7 +225,7 @@ function DetailPanel({ seq, pill, onZoom }: { seq: string; pill: PillResult; onZ
     ['구분', pill.etcOtcName],
     ['제형', pill.formCodeName],
     ['색상', pill.colorClass1],
-    ['모양', pill.drugShape],
+    ['모양', shapeLabel(pill)],
   ] as [string, string | undefined][])
     .map(([k, v]) => [k, fieldVal(v)] as [string, string])
     .filter(([, v]) => v);
@@ -529,7 +530,7 @@ export function AddMedSheet({
 
   return (
     <>
-    <BottomSheet open={open} onClose={onClose} title={isManual ? '직접 입력' : isEdit ? '약 수정' : '리스트에 추가'}>
+    <BottomSheet open={open} onClose={onClose} maxH="92%" title={isManual ? '직접 입력' : isEdit ? '약 수정' : '리스트에 추가'}>
       {/* 약명·제약사·상세버튼은 상단 고정 — 상세를 펼쳐 길어져도 무슨 약인지 유지 */}
       <div
         style={{

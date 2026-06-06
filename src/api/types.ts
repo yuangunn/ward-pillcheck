@@ -23,6 +23,7 @@ export interface PillResult {
   itemName: string; // 품목명
   entpName: string; // 업체명
   drugShape?: string; // 모양
+  chart?: string; // 성상(자연어 모양·색 설명) — '기타' 모양 세분화용
   colorClass1?: string; // 색
   printFront?: string; // 앞면 각인
   printBack?: string; // 뒤면 각인

@@ -4,6 +4,7 @@ import { Btn, Chip, ColorChip, SegTabs, FieldLabel, TextField, Tag, PageHeader, 
 import { COLOR_OPTIONS, SHAPE_OPTIONS, FORM_OPTIONS } from '../constants/appearance';
 import { freqMeta } from '../constants/frequency';
 import { sortMeds } from '../domain/sort';
+import { shapeLabel } from '../domain/shape';
 import type { MedItem, Patient, SortMode } from '../domain/models';
 import { drugApi, proxiedImg, searchInjections, isInjectionName, type PermitDrug, type PillResult, type PillSearchQuery } from '../api';
 import { useDataset } from '../state/useDataset';
@@ -386,7 +387,7 @@ function LookupBody({ onOpenDetail }: { onOpenDetail: (pill: PillResult) => void
               key={p.itemSeq}
               name={p.itemName}
               sub={p.entpName}
-              meta={[p.colorClass1, p.drugShape, p.formCodeName].filter(Boolean).join(' · ')}
+              meta={[p.colorClass1, shapeLabel(p), p.formCodeName].filter(Boolean).join(' · ')}
               glyph={<PillGlyph color={p.colorClass1} shape={p.drugShape} marking={p.printFront} size={48} />}
               onClick={() => onOpenDetail(p)}
             />
@@ -1005,7 +1006,7 @@ function ResultCard({
         </div>
         <div style={{ fontSize: 13.5, color: 'var(--text-weak)', fontWeight: 600, marginTop: 2 }}>{pill.entpName}</div>
         <div style={{ fontSize: 12.5, color: 'var(--text-weaker)', fontWeight: 600, marginTop: 3 }}>
-          {[pill.colorClass1, pill.drugShape, pill.formCodeName].filter(Boolean).join(' · ')}
+          {[pill.colorClass1, shapeLabel(pill), pill.formCodeName].filter(Boolean).join(' · ')}
         </div>
         {(pill.printFront || pill.printBack) && (
           <div style={{ fontSize: 12.5, color: 'var(--text-weaker)', fontWeight: 600, marginTop: 3 }}>

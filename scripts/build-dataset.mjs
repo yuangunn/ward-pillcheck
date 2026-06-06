@@ -69,6 +69,7 @@ function compactPill(r) {
     if (v) o[k] = v;
   };
   put('shape', r.DRUG_SHAPE);
+  put('chart', r.CHART); // 성상(자연어 모양 설명) — '기타' 세분화용
   put('color', r.COLOR_CLASS1);
   put('color2', r.COLOR_CLASS2);
   put('front', r.PRINT_FRONT);
