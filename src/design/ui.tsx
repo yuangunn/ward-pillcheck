@@ -56,6 +56,7 @@ export function ScrollArea({ children, bottomGap = 16 }: { children: ReactNode; 
   );
 }
 import { proxiedImg } from '../api';
+import { useWorkerReachable } from '../state/connectivity';
 
 type BtnVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'line';
 
@@ -441,7 +442,8 @@ export interface ZoomPill {
   itemName: string;
   color?: string;
   drugShape?: string;
-  marking?: string;
+  marking?: string; // 앞면 각인
+  markingBack?: string; // 뒷면 각인
   imageUrl?: string;
 }
 
@@ -456,7 +458,11 @@ export function Lightbox({ pill, onClose }: { pill: ZoomPill | null; onClose: ()
   }, [pill]);
   if (!pill) return null;
   const ap = [pill.color, pill.drugShape, pill.marking].filter(Boolean).join(' · ');
-  const realImg = pill.imageUrl && !imgFailed ? proxiedImg(pill.imageUrl) : undefined;
+  // 워커(인터넷) 연결 안 되면(인트라넷) 프록시 사진을 못 받으니 글리프만 보여주고 새 탭 링크 숨김.
+  const online = useWorkerReachable() !== false;
+  const realImg = online && pill.imageUrl && !imgFailed ? proxiedImg(pill.imageUrl) : undefined;
+  // 뒷면 각인이 따로 있으면 앞/뒤 두 글리프로 표시(사진 없을 때)
+  const showBack = !realImg && !!pill.markingBack && pill.markingBack !== pill.marking;
   return (
     <div
       onClick={onClose}
@@ -508,6 +514,18 @@ export function Lightbox({ pill, onClose }: { pill: ZoomPill | null; onClose: ()
             onError={() => setImgFailed(true)}
             style={{ width: 280, height: 280, maxWidth: '80vw', maxHeight: '50vh', objectFit: 'contain', borderRadius: 20, background: '#fff' }}
           />
+        ) : showBack ? (
+          // 사진이 없으면(오프라인 등) 각인 글리프를 앞면·뒷면 두 개로 크게
+          <div style={{ display: 'flex', gap: 22, alignItems: 'flex-start', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 9 }}>
+              <PillGlyph color={pill.color} shape={pill.drugShape} marking={pill.marking} size={156} />
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>앞면</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 9 }}>
+              <PillGlyph color={pill.color} shape={pill.drugShape} marking={pill.markingBack} size={156} />
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>뒷면</span>
+            </div>
+          </div>
         ) : (
           <PillGlyph color={pill.color} shape={pill.drugShape} marking={pill.marking} size={228} />
         )}
@@ -515,7 +533,7 @@ export function Lightbox({ pill, onClose }: { pill: ZoomPill | null; onClose: ()
       <div style={{ textAlign: 'center', color: '#fff' }}>
         <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: -0.4 }}>{pill.itemName}</div>
         {ap && <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.65)', fontWeight: 600, marginTop: 6 }}>{ap}</div>}
-        {pill.imageUrl && (
+        {online && pill.imageUrl && (
           <a
             href={proxiedImg(pill.imageUrl)}
             target="_blank"

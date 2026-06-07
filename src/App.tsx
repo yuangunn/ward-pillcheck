@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useStore, uid } from './state/store';
+import { useWorkerReachable } from './state/connectivity';
 import { buildTokens, useTheme, setThemeColor } from './design/theme';
 import { HomeScreen, MedListScreen, SearchScreen, type PickedMark } from './design/screens';
 import { AddMedSheet, CopySheet, DurSheet, PatientManageSheet, MarkGallerySheet, DrawMarkSheet, DrugDetailSheet, type MedFormData } from './design/sheets';
@@ -15,7 +16,7 @@ import { Toast, Lightbox, Btn, type ZoomPill } from './design/ui';
 import type { MedItem, Patient } from './domain/models';
 import type { MarkOption, PillResult } from './api';
 
-const pillToZoom = (p: PillResult): ZoomPill => ({ itemName: p.itemName, color: p.colorClass1, drugShape: p.drugShape, marking: p.printFront, imageUrl: p.itemImage });
+const pillToZoom = (p: PillResult): ZoomPill => ({ itemName: p.itemName, color: p.colorClass1, drugShape: p.drugShape, marking: p.printFront, markingBack: p.printBack, imageUrl: p.itemImage });
 
 // 하단 고정 액션바 래퍼. 그라데이션(투명) 영역은 스크롤 터치를 막지 않도록 pointerEvents 차단,
 // 실제 버튼 영역만 auto 로 되살린다.
@@ -41,6 +42,8 @@ type AddSource =
 export default function App() {
   const { state, dispatch } = useStore();
   const { dark, toggle } = useTheme();
+  // 외부 워커 연결 여부(인트라넷 판별). false 면 워커 전용 기능(금기점검 등)을 숨김.
+  const online = useWorkerReachable() !== false;
   const tokens = useMemo(() => buildTokens(dark), [dark]);
 
   const [route, setRoute] = useState<Route>({ name: 'home', patientId: null });
@@ -222,7 +225,7 @@ export default function App() {
         onOpenGallery={() => setGalleryOpen(true)}
         onOpenDraw={() => setDrawOpen(true)}
         onClearMark={() => setPickedMark(null)}
-        onZoom={(pill) => setZoomPill({ itemName: pill.itemName, color: pill.colorClass1, drugShape: pill.drugShape, marking: pill.printFront, imageUrl: pill.itemImage })}
+        onZoom={(pill) => setZoomPill(pillToZoom(pill))}
         onBack={() => go({ name: 'patient', patientId: activePatient.id })}
         onPick={(pill) => setAddState({ open: true, source: { ...pill, __kind: 'pill' }, mode: 'add' })}
         onManual={() => setAddState({ open: true, source: { __kind: 'manual', itemSeq: '', itemName: '' }, mode: 'add' })}
@@ -319,9 +322,12 @@ export default function App() {
               <Btn variant="primary" full icon="send" onClick={() => setCopyOpen(true)} style={{ height: 48, fontSize: 15, background: '#5b5fc7' }}>
                 공유하기
               </Btn>
-              <Btn variant="ghost" full icon="shield" onClick={() => setDurOpen(true)} style={{ height: 48, fontSize: 15 }}>
-                금기 점검
-              </Btn>
+              {/* 금기점검(DUR)은 워커 전용 — 인트라넷에선 숨김 */}
+              {online && (
+                <Btn variant="ghost" full icon="shield" onClick={() => setDurOpen(true)} style={{ height: 48, fontSize: 15 }}>
+                  금기 점검
+                </Btn>
+              )}
             </div>
             <Btn variant="primary" full icon="plus" onClick={() => go({ name: 'search', patientId: activePatient.id })}>
               약 추가

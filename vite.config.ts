@@ -14,10 +14,16 @@ export default defineConfig({
       registerType: 'autoUpdate',
       // 오프라인 셸 + 마크 이미지 프리캐시. 환자 데이터는 localStorage, 데이터 번들은 IndexedDB.
       workbox: {
-        // 마크 gif(~3MB) + 주사제 번들(injections.json ~1.3MB)까지 프리캐시.
-        // 주사제는 IndexedDB 적재 경로가 없어 매 검색마다 injections.json 을 fetch 하므로,
-        // 프리캐시해야 오프라인/인트라넷(외부망 차단)에서도 주사제 검색이 된다.
-        globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2,gif}', '**/data/injections.json', '**/data/injections-meta.json'],
+        // 마크 gif(~3MB) + 주사제 번들(injections.json ~1.3MB) + 마크 목록(marks.json)까지 프리캐시.
+        // 주사제·마크는 IndexedDB 적재 경로가 없어 검색/특징생성 시 json 을 fetch 하므로,
+        // 프리캐시해야 오프라인/인트라넷(외부망 차단)에서도 주사제 검색·'그려서 마크 찾기'가 된다.
+        globPatterns: [
+          '**/*.{js,css,html,svg,png,ico,woff2,gif}',
+          '**/data/injections.json',
+          '**/data/injections-meta.json',
+          '**/data/marks.json',
+          '**/data/marks-meta.json',
+        ],
         // pills.json(대용량)·상세(gz)는 프리캐시 제외(앱이 IndexedDB로 관리).
         globIgnores: ['**/data/*.json.gz'],
         navigateFallbackDenylist: [/^\/api/],
