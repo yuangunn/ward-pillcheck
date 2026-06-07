@@ -228,26 +228,35 @@ async function collectDetails() {
   return details;
 }
 
-/** DUR 룰셋 전수 수집 → seq별 컴팩트 맵 { c:[{s,n,t}], p,e,a,d }. 오프라인 금기점검용 */
+/** DUR 룰셋 수집 → 컴팩트 번들(v2). 오프라인 금기점검용.
+ *  압축 핵심: ① 우리 앱이 식별 가능한 약끼리(ourSeqs)만 보존 → 병용금기 폭발 억제
+ *           ② 사유 텍스트 인터닝(중복 제거) → 행에는 인덱스만, 상대약 이름은 런타임 조회로 생략
+ *  포맷: { v:2, t:[텍스트], c:{seq:[[mseq,tIdx]|[mseq]]}, p/e/a/d:{seq:tIdx} } */
 function durText(it) {
   return stripDoc(it.PROHBT_CONTENT ?? it.REMARK ?? it.TYPE_NAME) ?? '';
 }
-function addDur(map, cat, row) {
+function addDurRaw(raw, cat, row, ourSeqs) {
   const seq = row.ITEM_SEQ ?? '';
-  if (!seq) return;
-  const e = (map[seq] ??= {});
+  if (!seq || !ourSeqs.has(seq)) return; // 우리 약만
+  const e = (raw[seq] ??= {});
   if (cat === 'combo') {
-    const s = row.MIXTURE_ITEM_SEQ ?? '';
-    const n = row.MIXTURE_ITEM_NAME ?? '';
-    if (s || n) (e.c ??= []).push({ s, n, t: durText(row) });
+    const mseq = row.MIXTURE_ITEM_SEQ ?? '';
+    if (!mseq || !ourSeqs.has(mseq)) return; // 상대약도 우리 약이어야 매칭됨
+    (e.c ??= new Map());
+    if (!e.c.has(mseq)) e.c.set(mseq, durText(row)); // (seq,mseq) 중복 제거, 첫 사유 유지
   } else {
     const key = cat === 'pregnancy' ? 'p' : cat === 'elderly' ? 'e' : cat === 'age' ? 'a' : 'd';
-    if (!e[key]) e[key] = durText(row);
+    if (!e[key]) {
+      const t = durText(row);
+      if (t) e[key] = t; // 사유 없는 플래그는 의미 없으니 생략
+    }
   }
 }
-async function collectDur() {
-  const map = {};
-  const DUR_MAX_PAGES = 2000; // 안전 상한(잘못된 totalCount로 무한 페이징 방지)
+async function collectDur(ourSeqs) {
+  const raw = {};
+  // 병용금기는 ~81만행(≈8100p). 우리 약 필터는 행 단위라 전수 스캔이 필요하므로 상한을 넉넉히.
+  // (매칭되는 항목만 raw 에 누적되어 메모리는 우리 약 규모로 한정됨)
+  const DUR_MAX_PAGES = 12000;
   for (const [cat, op] of Object.entries(DUR_OPS)) {
     const ep = `${DUR_BASE}/${op}`;
     let total = 0;
@@ -256,7 +265,7 @@ async function collectDur() {
       const first = await fetchPayload(ep, 1);
       total = totalCountOf(first);
       pages = Math.min(total ? Math.ceil(total / NUM) : 1, DUR_MAX_PAGES);
-      extractItems(first).forEach((row) => addDur(map, cat, row));
+      extractItems(first).forEach((row) => addDurRaw(raw, cat, row, ourSeqs));
     } catch (e) {
       console.warn(`  [DUR:${cat}] page1 실패: ${e.message}`);
       continue;
@@ -266,10 +275,43 @@ async function collectDur() {
       const batch = [];
       for (let p = start; p < start + CONCURRENCY && p <= pages; p++) batch.push(p);
       const res = await Promise.allSettled(batch.map((p) => fetchItems(ep, p)));
-      for (const r of res) if (r.status === 'fulfilled') r.value.forEach((row) => addDur(map, cat, row));
+      for (const r of res) if (r.status === 'fulfilled') r.value.forEach((row) => addDurRaw(raw, cat, row, ourSeqs));
     }
   }
-  return map;
+  // 인터닝 + 컴팩트화
+  const t = [];
+  const tIndex = new Map();
+  const intern = (s) => {
+    if (!s) return -1;
+    let i = tIndex.get(s);
+    if (i == null) {
+      i = t.length;
+      t.push(s);
+      tIndex.set(s, i);
+    }
+    return i;
+  };
+  const c = {};
+  const p = {};
+  const e = {};
+  const a = {};
+  const d = {};
+  for (const [seq, ent] of Object.entries(raw)) {
+    if (ent.c && ent.c.size) {
+      c[seq] = [...ent.c].map(([mseq, txt]) => {
+        const ti = intern(txt);
+        return ti >= 0 ? [mseq, ti] : [mseq];
+      });
+    }
+    if (ent.p) p[seq] = intern(ent.p);
+    if (ent.e) e[seq] = intern(ent.e);
+    if (ent.a) a[seq] = intern(ent.a);
+    if (ent.d) d[seq] = intern(ent.d);
+  }
+  const count = new Set([...Object.keys(c), ...Object.keys(p), ...Object.keys(e), ...Object.keys(a), ...Object.keys(d)]).size;
+  const combos = Object.values(c).reduce((n, arr) => n + arr.length, 0);
+  console.log(`  [DUR] 우리 약 ${count}품목 · 병용금기쌍 ${combos} · 사유텍스트 ${t.length}종`);
+  return { bundle: { v: 2, t, c, p, e, a, d }, count };
 }
 
 /** 낱알식별 등 일반 endpoint 를 totalCount 기준 전수 페이징(컴팩트가 null이면 제외).
@@ -312,8 +354,8 @@ function write(name, records) {
 }
 
 /** 용량이 큰 번들은 gzip 으로 저장(클라이언트가 DecompressionStream 으로 해제). 배열·객체 모두 허용 */
-function writeGz(name, data) {
-  const count = Array.isArray(data) ? data.length : Object.keys(data).length;
+function writeGz(name, data, countOverride) {
+  const count = countOverride != null ? countOverride : Array.isArray(data) ? data.length : Object.keys(data).length;
   const meta = { builtAt: new Date().toISOString(), version: 1, count };
   const gz = gzipSync(Buffer.from(JSON.stringify(data)));
   writeFileSync(`${OUT}/${name}.json.gz`, gz);
@@ -440,8 +482,10 @@ if (!KEY) {
     const details = await collectDetails();
     console.log(`허가사항 상세 ${details.length}건(전문약 포함) → details.json.gz`);
     writeGz('details', details);
-    // DUR 은 온라인(워커) 전용 — 병용금기만 81만건이라 전수 오프라인 번들이 비현실적.
-    // (오프라인에선 DUR 점검 생략, 온라인이면 /api/dur 품목별 점검)
-    writeGz('dur', {});
+    // DUR: 우리 약(낱알+주사·외용)끼리로 제한 + 텍스트 인터닝으로 압축해 오프라인 번들 생성.
+    console.log('금기점검(DUR) 룰셋 수집·압축…');
+    const ourSeqs = new Set([...pills.map((x) => x.seq), ...injections.map((x) => x.seq)].filter(Boolean));
+    const { bundle: durBundle, count: durCount } = await collectDur(ourSeqs);
+    writeGz('dur', durBundle, durCount);
   }
 }

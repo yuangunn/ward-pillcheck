@@ -5,6 +5,9 @@ import {
   detailsStatus,
   downloadDetails,
   clearDetails,
+  downloadDur,
+  durBundleStatus,
+  clearDur,
   downloadPhotos,
   cachedPhotoCount,
   clearPhotos,
@@ -17,10 +20,8 @@ import { getTeamsTarget, setTeamsTarget } from '../state/teamsTarget';
 // 내려받기 용량(배포본 기준 근사) — 사용자 안내용.
 const DL_PILLS_MB = 11; // pills.json
 const DL_DETAIL_MB = 137; // details.json.gz(압축)
-const DL_TOTAL_LABEL = '약 150MB';
+const DL_TOTAL_LABEL = '약 150MB+'; // 검색+상세+금기 룰셋(DUR 크기는 배포 빌드에서 확정)
 const STORE_TOTAL_LABEL = '약 600MB'; // 해제 후 IndexedDB 사용량 근사
-// pills 가 전체 바이트에서 차지하는 비중(나머지는 상세) — 통합 진행률 가중치.
-const PILLS_WEIGHT = DL_PILLS_MB / (DL_PILLS_MB + DL_DETAIL_MB);
 
 // 오프라인/인트라넷용 설정: 검색 + 허가사항 상세 + DUR 룰셋을 기기에 받아두기.
 // 받아두면 워커(공용 인터넷) 없이도 검색·상세·금기점검이 동작한다.
@@ -44,9 +45,10 @@ export function SettingsSheet({ open, onClose, onFlash, onShowGuide }: { open: b
   const ds = useDataset();
   const online = useWorkerReachable() !== false; // 워커(인터넷) 연결 — 실물사진 받기 가능 여부
   const [det, setDet] = useState<Stat | null>(null);
+  const [dur, setDur] = useState<Stat | null>(null);
   const [usage, setUsage] = useState('');
   const [prog, setProg] = useState<{ label: string; pct: number } | null>(null);
-  const [dlErr, setDlErr] = useState<'net' | 'detail' | null>(null);
+  const [dlErr, setDlErr] = useState<'net' | 'detail' | 'dur' | null>(null);
   const [photos, setPhotos] = useState(0);
   const downloading = !!prog;
   const [photoProg, setPhotoProg] = useState<{ done: number; total: number } | null>(null);
@@ -55,6 +57,7 @@ export function SettingsSheet({ open, onClose, onFlash, onShowGuide }: { open: b
 
   const refresh = async () => {
     setDet(await detailsStatus());
+    setDur(await durBundleStatus());
     setPhotos(await cachedPhotoCount());
     try {
       const e = await navigator.storage?.estimate?.();
@@ -70,11 +73,10 @@ export function SettingsSheet({ open, onClose, onFlash, onShowGuide }: { open: b
 
   const downloadAll = async () => {
     setDlErr(null);
-    // 1) 검색 데이터(낱알 pills.json) — updateDataset 은 실패해도 throw 하지 않고 'error' 반환
-    setProg({ label: '검색 데이터(낱알) 받는 중…', pct: 0 });
-    const unsub = onDatasetProgress((f) =>
-      setProg({ label: '검색 데이터(낱알) 받는 중…', pct: Math.round(f * PILLS_WEIGHT * 100) }),
-    );
+    // 1/3 검색 데이터(낱알 pills.json) — updateDataset 은 실패해도 throw 하지 않고 'error' 반환
+    const L1 = '검색 데이터(낱알) 받는 중… (1/3)';
+    setProg({ label: L1, pct: 0 });
+    const unsub = onDatasetProgress((f) => setProg({ label: L1, pct: Math.round(f * 100) }));
     let pillsOk = false;
     try {
       pillsOk = (await ds.update()) !== 'error';
@@ -89,16 +91,24 @@ export function SettingsSheet({ open, onClose, onFlash, onShowGuide }: { open: b
       onFlash?.('받기 실패 — 인터넷 연결을 확인하세요');
       return;
     }
-    // 2) 허가사항 상세(details.json.gz ~137MB)
-    const after = (f: number) => setProg({ label: `허가사항 상세 받는 중… (${DL_DETAIL_MB}MB)`, pct: Math.round((PILLS_WEIGHT + f * (1 - PILLS_WEIGHT)) * 100) });
-    after(0);
+    // 2/3 허가사항 상세(details.json.gz ~137MB)
     try {
-      await downloadDetails(after);
+      await downloadDetails((f) => setProg({ label: `허가사항 상세 받는 중… (${DL_DETAIL_MB}MB · 2/3)`, pct: Math.round(f * 100) }));
     } catch {
       setProg(null);
       setDlErr('detail');
       await refresh();
       onFlash?.('상세 받기 실패 — 잠시 후 다시 시도해 주세요');
+      return;
+    }
+    // 3/3 금기점검(DUR) 룰셋
+    try {
+      await downloadDur((f) => setProg({ label: '금기점검(DUR) 룰셋 받는 중… (3/3)', pct: Math.round(f * 100) }));
+    } catch {
+      setProg(null);
+      setDlErr('dur');
+      await refresh();
+      onFlash?.('금기 룰셋 받기 실패 — 잠시 후 다시 시도해 주세요');
       return;
     }
     setProg(null);
@@ -107,8 +117,9 @@ export function SettingsSheet({ open, onClose, onFlash, onShowGuide }: { open: b
   };
   const clearAll = async () => {
     await clearDetails();
+    await clearDur();
     await refresh();
-    onFlash?.('오프라인 상세 캐시를 비웠어요');
+    onFlash?.('오프라인 상세·DUR 캐시를 비웠어요');
   };
 
   const getPhotos = async () => {
@@ -129,13 +140,14 @@ export function SettingsSheet({ open, onClose, onFlash, onShowGuide }: { open: b
     <BottomSheet open={open} onClose={onClose} title="설정" maxH="90%">
       <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.4, marginBottom: 4 }}>오프라인 데이터</div>
       <p style={{ margin: '0 0 14px', fontSize: 13, color: 'var(--text-weak)', fontWeight: 600, lineHeight: 1.5 }}>
-        받아두면 <b style={{ color: 'var(--text-strong)' }}>인터넷 없이(인트라넷)</b> 도 검색·상세가 됩니다. (금기점검·실물사진은 온라인)
+        받아두면 <b style={{ color: 'var(--text-strong)' }}>인터넷 없이(인트라넷)</b> 도 검색·상세·금기점검이 됩니다. (실물사진은 온라인)
       </p>
 
       <div style={{ padding: '4px 14px', borderRadius: 'var(--r-card)', background: 'var(--fill)', marginBottom: 16 }}>
         <Row label={`약품 검색(낱알·주사·외용·마크) · ${DL_PILLS_MB}MB`} value={ds.meta ? `${ds.meta.count.toLocaleString()}건` : ds.enabled ? '미수신' : '데모'} ok={!!ds.meta?.count} />
         <Row label={`허가사항 상세(효능·용법·주의) · ${DL_DETAIL_MB}MB`} value={det?.downloaded ? `${det.count.toLocaleString()}건 · ${fmtDate(det.builtAt)}` : '미다운로드'} ok={!!det?.downloaded} />
-        <Row label="금기점검(DUR) · 실물사진" value="온라인 전용" />
+        <Row label="금기점검(DUR) 룰셋" value={dur?.downloaded ? `${dur.count.toLocaleString()}품목 · ${fmtDate(dur.builtAt)}` : '미다운로드'} ok={!!dur?.downloaded} />
+        <Row label="실물사진" value="온라인 전용" />
         <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', fontSize: 13, fontWeight: 700, color: 'var(--text-weaker)' }}>
           <span>기기 사용 용량</span>
           <span>{usage || '—'}</span>
@@ -170,11 +182,17 @@ export function SettingsSheet({ open, onClose, onFlash, onShowGuide }: { open: b
               <br />
               인트라넷·폐쇄망에서는 받을 수 없어요. <b>인터넷이 되는 곳(휴대폰 데이터 등)</b>에서 한 번 받아두면, 이후 인트라넷에서도 동작합니다.
             </>
-          ) : (
+          ) : dlErr === 'detail' ? (
             <>
               <b style={{ color: 'var(--danger)' }}>❌ 상세({DL_DETAIL_MB}MB) 받기에 실패했어요.</b>
               <br />
               검색 데이터는 받았어요. 연결이 끊겼을 수 있으니 잠시 후 다시 시도해 주세요.
+            </>
+          ) : (
+            <>
+              <b style={{ color: 'var(--danger)' }}>❌ 금기점검(DUR) 룰셋 받기에 실패했어요.</b>
+              <br />
+              검색·상세는 받았어요. 연결이 끊겼을 수 있으니 잠시 후 다시 시도해 주세요.
             </>
           )}
         </div>
@@ -186,11 +204,11 @@ export function SettingsSheet({ open, onClose, onFlash, onShowGuide }: { open: b
         disabled={downloading}
         style={{ display: 'block', width: '100%', marginTop: 12, padding: '12px 0', background: 'none', border: 'none', color: 'var(--danger)', fontSize: 14, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
       >
-        오프라인 상세 캐시 비우기
+        오프라인 상세·DUR 캐시 비우기
       </button>
 
       <div style={{ marginTop: 14, padding: '12px 14px', borderRadius: 'var(--r-card)', background: 'var(--primary-weak)', fontSize: 12.5, color: 'var(--primary-ink)', fontWeight: 600, lineHeight: 1.55, wordBreak: 'keep-all' }}>
-        💡 병동 인트라넷에서 쓰려면: <b>인터넷이 되는 곳</b>에서 위 버튼으로 한 번 받아두세요(내려받기 {DL_TOTAL_LABEL} → 기기 저장 {STORE_TOTAL_LABEL}). 이후 폐쇄망/오프라인에서도 검색·상세가 동작해요. (금기점검·실물사진은 온라인에서만)
+        💡 병동 인트라넷에서 쓰려면: <b>인터넷이 되는 곳</b>에서 위 버튼으로 한 번 받아두세요(내려받기 {DL_TOTAL_LABEL} → 기기 저장 {STORE_TOTAL_LABEL}). 이후 폐쇄망/오프라인에서도 검색·상세·금기점검이 동작해요. (실물사진은 온라인에서만)
       </div>
 
       {/* 선택: 실물사진(대용량) */}
