@@ -9,8 +9,17 @@ import {
   cachedPhotoCount,
   clearPhotos,
 } from '../api';
+import { onDatasetProgress } from '../api/dataset';
 import { useDataset } from '../state/useDataset';
 import { getTeamsTarget, setTeamsTarget } from '../state/teamsTarget';
+
+// 내려받기 용량(배포본 기준 근사) — 사용자 안내용.
+const DL_PILLS_MB = 11; // pills.json
+const DL_DETAIL_MB = 137; // details.json.gz(압축)
+const DL_TOTAL_LABEL = '약 150MB';
+const STORE_TOTAL_LABEL = '약 600MB'; // 해제 후 IndexedDB 사용량 근사
+// pills 가 전체 바이트에서 차지하는 비중(나머지는 상세) — 통합 진행률 가중치.
+const PILLS_WEIGHT = DL_PILLS_MB / (DL_PILLS_MB + DL_DETAIL_MB);
 
 // 오프라인/인트라넷용 설정: 검색 + 허가사항 상세 + DUR 룰셋을 기기에 받아두기.
 // 받아두면 워커(공용 인터넷) 없이도 검색·상세·금기점검이 동작한다.
@@ -34,8 +43,10 @@ export function SettingsSheet({ open, onClose, onFlash, onShowGuide }: { open: b
   const ds = useDataset();
   const [det, setDet] = useState<Stat | null>(null);
   const [usage, setUsage] = useState('');
-  const [busy, setBusy] = useState('');
+  const [prog, setProg] = useState<{ label: string; pct: number } | null>(null);
+  const [dlErr, setDlErr] = useState<'net' | 'detail' | null>(null);
   const [photos, setPhotos] = useState(0);
+  const downloading = !!prog;
   const [photoProg, setPhotoProg] = useState<{ done: number; total: number } | null>(null);
   const [teams, setTeams] = useState(getTeamsTarget());
   const stopRef = useRef(false);
@@ -56,18 +67,41 @@ export function SettingsSheet({ open, onClose, onFlash, onShowGuide }: { open: b
   }, [open]);
 
   const downloadAll = async () => {
+    setDlErr(null);
+    // 1) 검색 데이터(낱알 pills.json) — updateDataset 은 실패해도 throw 하지 않고 'error' 반환
+    setProg({ label: '검색 데이터(낱알) 받는 중…', pct: 0 });
+    const unsub = onDatasetProgress((f) =>
+      setProg({ label: '검색 데이터(낱알) 받는 중…', pct: Math.round(f * PILLS_WEIGHT * 100) }),
+    );
+    let pillsOk = false;
     try {
-      setBusy('검색 데이터 최신화…');
-      await ds.update();
-      setBusy('허가사항 상세 받는 중…');
-      await downloadDetails();
-      setBusy('');
-      await refresh();
-      onFlash?.('오프라인 데이터 다운로드 완료');
+      pillsOk = (await ds.update()) !== 'error';
     } catch {
-      setBusy('');
-      onFlash?.('다운로드 실패 — 네트워크를 확인하세요');
+      pillsOk = false;
     }
+    unsub();
+    if (!pillsOk) {
+      setProg(null);
+      setDlErr('net');
+      await refresh();
+      onFlash?.('받기 실패 — 인터넷 연결을 확인하세요');
+      return;
+    }
+    // 2) 허가사항 상세(details.json.gz ~137MB)
+    const after = (f: number) => setProg({ label: `허가사항 상세 받는 중… (${DL_DETAIL_MB}MB)`, pct: Math.round((PILLS_WEIGHT + f * (1 - PILLS_WEIGHT)) * 100) });
+    after(0);
+    try {
+      await downloadDetails(after);
+    } catch {
+      setProg(null);
+      setDlErr('detail');
+      await refresh();
+      onFlash?.('상세 받기 실패 — 잠시 후 다시 시도해 주세요');
+      return;
+    }
+    setProg(null);
+    await refresh();
+    onFlash?.('오프라인 데이터 다운로드 완료');
   };
   const clearAll = async () => {
     await clearDetails();
@@ -97,33 +131,64 @@ export function SettingsSheet({ open, onClose, onFlash, onShowGuide }: { open: b
       </p>
 
       <div style={{ padding: '4px 14px', borderRadius: 'var(--r-card)', background: 'var(--fill)', marginBottom: 16 }}>
-        <Row label="약품 검색(낱알·주사·외용·마크)" value={ds.meta ? `${ds.meta.count.toLocaleString()}건` : ds.enabled ? '미수신' : '데모'} ok={!!ds.meta?.count} />
-        <Row label="허가사항 상세(효능·용법·주의)" value={det?.downloaded ? `${det.count.toLocaleString()}건 · ${fmtDate(det.builtAt)}` : '미다운로드'} ok={!!det?.downloaded} />
-        <Row label="금기점검(DUR)" value="온라인 점검" />
+        <Row label={`약품 검색(낱알·주사·외용·마크) · ${DL_PILLS_MB}MB`} value={ds.meta ? `${ds.meta.count.toLocaleString()}건` : ds.enabled ? '미수신' : '데모'} ok={!!ds.meta?.count} />
+        <Row label={`허가사항 상세(효능·용법·주의) · ${DL_DETAIL_MB}MB`} value={det?.downloaded ? `${det.count.toLocaleString()}건 · ${fmtDate(det.builtAt)}` : '미다운로드'} ok={!!det?.downloaded} />
+        <Row label="금기점검(DUR) · 실물사진" value="온라인 전용" />
         <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', fontSize: 13, fontWeight: 700, color: 'var(--text-weaker)' }}>
           <span>기기 사용 용량</span>
           <span>{usage || '—'}</span>
         </div>
       </div>
 
-      <Btn variant="primary" full icon="download" onClick={downloadAll} disabled={!!busy || !ds.enabled}>
-        {busy || '전체 의약품 데이터 받기 (오프라인용)'}
-      </Btn>
+      {prog ? (
+        <div style={{ padding: '14px 16px', borderRadius: 'var(--r-card)', background: 'var(--fill)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+            <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text)' }}>{prog.label}</span>
+            <span style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--primary-ink)' }}>{prog.pct}%</span>
+          </div>
+          <div style={{ height: 8, borderRadius: 999, background: 'var(--border)', overflow: 'hidden' }}>
+            <div style={{ width: `${prog.pct}%`, height: '100%', background: 'var(--primary)', borderRadius: 999, transition: 'width .25s ease' }} />
+          </div>
+          <p style={{ margin: '8px 2px 0', fontSize: 12, color: 'var(--text-weaker)', fontWeight: 600 }}>받는 중에는 창을 닫지 마세요 · 전체 {DL_TOTAL_LABEL}</p>
+        </div>
+      ) : (
+        <Btn variant="primary" full icon="download" onClick={downloadAll} disabled={downloading || !ds.enabled}>
+          전체 의약품 데이터 받기 · {DL_TOTAL_LABEL}
+        </Btn>
+      )}
       {!ds.enabled && (
         <p style={{ margin: '10px 2px 0', fontSize: 12.5, color: 'var(--text-weaker)', fontWeight: 600 }}>데모 모드에선 받을 데이터가 없어요(배포본에서 동작).</p>
+      )}
+
+      {dlErr && !prog && (
+        <div style={{ marginTop: 12, padding: '12px 14px', borderRadius: 'var(--r-card)', background: 'var(--danger-weak)', fontSize: 12.5, color: 'var(--text)', fontWeight: 600, lineHeight: 1.6, wordBreak: 'keep-all' }}>
+          {dlErr === 'net' ? (
+            <>
+              <b style={{ color: 'var(--danger)' }}>❌ 받기 실패 — 데이터 서버(인터넷)에 연결할 수 없어요.</b>
+              <br />
+              인트라넷·폐쇄망에서는 받을 수 없어요. <b>인터넷이 되는 곳(휴대폰 데이터 등)</b>에서 한 번 받아두면, 이후 인트라넷에서도 동작합니다.
+            </>
+          ) : (
+            <>
+              <b style={{ color: 'var(--danger)' }}>❌ 상세({DL_DETAIL_MB}MB) 받기에 실패했어요.</b>
+              <br />
+              검색 데이터는 받았어요. 연결이 끊겼을 수 있으니 잠시 후 다시 시도해 주세요.
+            </>
+          )}
+        </div>
       )}
 
       <button
         type="button"
         onClick={clearAll}
-        disabled={!!busy}
+        disabled={downloading}
         style={{ display: 'block', width: '100%', marginTop: 12, padding: '12px 0', background: 'none', border: 'none', color: 'var(--danger)', fontSize: 14, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
       >
-        오프라인 상세·DUR 캐시 비우기
+        오프라인 상세 캐시 비우기
       </button>
 
-      <div style={{ marginTop: 14, padding: '12px 14px', borderRadius: 'var(--r-card)', background: 'var(--primary-weak)', fontSize: 12.5, color: 'var(--primary-ink)', fontWeight: 600, lineHeight: 1.55 }}>
-        💡 병동 인트라넷에서 쓰려면: 인터넷이 되는 곳에서 위 버튼으로 한 번 받아두면, 이후 폐쇄망/오프라인에서도 그대로 동작해요.
+      <div style={{ marginTop: 14, padding: '12px 14px', borderRadius: 'var(--r-card)', background: 'var(--primary-weak)', fontSize: 12.5, color: 'var(--primary-ink)', fontWeight: 600, lineHeight: 1.55, wordBreak: 'keep-all' }}>
+        💡 병동 인트라넷에서 쓰려면: <b>인터넷이 되는 곳</b>에서 위 버튼으로 한 번 받아두세요(내려받기 {DL_TOTAL_LABEL} → 기기 저장 {STORE_TOTAL_LABEL}). 이후 폐쇄망/오프라인에서도 검색·상세가 동작해요. (금기점검·실물사진은 온라인에서만)
       </div>
 
       {/* 선택: 실물사진(대용량) */}
@@ -141,7 +206,7 @@ export function SettingsSheet({ open, onClose, onFlash, onShowGuide }: { open: b
           <Btn variant="danger" onClick={() => (stopRef.current = true)} style={{ height: 50 }}>중단</Btn>
         </div>
       ) : (
-        <Btn variant="ghost" full icon="download" onClick={getPhotos} disabled={!!busy || !ds.enabled}>
+        <Btn variant="ghost" full icon="download" onClick={getPhotos} disabled={downloading || !ds.enabled}>
           실물사진 받기 (대용량)
         </Btn>
       )}

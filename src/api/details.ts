@@ -49,14 +49,25 @@ async function ensureLoaded(): Promise<void> {
 }
 
 /** gzip 번들을 받아 해제. DecompressionStream 미지원 시 예외. */
-async function fetchDecompress(url: string): Promise<DetailRecord[]> {
+async function fetchDecompress(url: string, onProgress?: (frac: number) => void): Promise<DetailRecord[]> {
   const res = await fetch(url, { cache: 'no-cache' });
   if (!res.ok) throw new Error(`details ${res.status}`);
   if (typeof DecompressionStream === 'undefined' || !res.body) {
     throw new Error('DecompressionStream 미지원');
   }
-  const stream = res.body.pipeThrough(new DecompressionStream('gzip'));
+  const total = Number(res.headers.get('Content-Length')) || 0;
+  let received = 0;
+  // 압축 바이트를 세어 진행도 보고(해제 전 단계에서 tap). 제네릭은 스트림 타입 호환 위해 생략.
+  const counting = new TransformStream({
+    transform(chunk, ctrl) {
+      received += (chunk as Uint8Array).length;
+      if (total > 0 && onProgress) onProgress(Math.min(0.99, received / total));
+      ctrl.enqueue(chunk);
+    },
+  });
+  const stream = res.body.pipeThrough(counting).pipeThrough(new DecompressionStream('gzip'));
   const text = await new Response(stream).text();
+  onProgress?.(1);
   return JSON.parse(text) as DetailRecord[];
 }
 
@@ -71,8 +82,8 @@ async function fetchMeta(): Promise<DetailsMeta | null> {
 }
 
 /** 설정의 "전체 다운로드" — 허가사항 상세를 받아 IndexedDB+메모리에 적재. 건수 반환. */
-export async function downloadDetails(): Promise<number> {
-  const arr = await fetchDecompress(DATA_URL);
+export async function downloadDetails(onProgress?: (frac: number) => void): Promise<number> {
+  const arr = await fetchDecompress(DATA_URL, onProgress);
   const m = (await fetchMeta()) ?? { builtAt: new Date().toISOString(), version: 1, count: arr.length };
   map = buildMap(arr);
   meta = m;
