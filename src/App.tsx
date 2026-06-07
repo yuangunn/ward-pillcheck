@@ -16,7 +16,7 @@ import { Toast, Lightbox, Btn, type ZoomPill } from './design/ui';
 import type { MedItem, Patient } from './domain/models';
 import type { MarkOption, PillResult } from './api';
 
-const pillToZoom = (p: PillResult): ZoomPill => ({ itemName: p.itemName, color: p.colorClass1, drugShape: p.drugShape, marking: p.printFront, imageUrl: p.itemImage });
+const pillToZoom = (p: PillResult): ZoomPill => ({ itemName: p.itemName, color: p.colorClass1, drugShape: p.drugShape, marking: p.printFront, markingBack: p.printBack, imageUrl: p.itemImage });
 
 // 하단 고정 액션바 래퍼. 그라데이션(투명) 영역은 스크롤 터치를 막지 않도록 pointerEvents 차단,
 // 실제 버튼 영역만 auto 로 되살린다.
@@ -225,7 +225,7 @@ export default function App() {
         onOpenGallery={() => setGalleryOpen(true)}
         onOpenDraw={() => setDrawOpen(true)}
         onClearMark={() => setPickedMark(null)}
-        onZoom={(pill) => setZoomPill({ itemName: pill.itemName, color: pill.colorClass1, drugShape: pill.drugShape, marking: pill.printFront, imageUrl: pill.itemImage })}
+        onZoom={(pill) => setZoomPill(pillToZoom(pill))}
         onBack={() => go({ name: 'patient', patientId: activePatient.id })}
         onPick={(pill) => setAddState({ open: true, source: { ...pill, __kind: 'pill' }, mode: 'add' })}
         onManual={() => setAddState({ open: true, source: { __kind: 'manual', itemSeq: '', itemName: '' }, mode: 'add' })}
