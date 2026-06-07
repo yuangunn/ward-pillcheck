@@ -15,6 +15,7 @@ import { shapeLabel } from '../domain/shape';
 import { splitLineKind, SPLIT_LINE_LABEL } from '../domain/splitLine';
 import type { MedItem, Patient } from '../domain/models';
 import { drugApi, getMarkOptions, isInjectionName, proxiedImg, type DrugDetail, type MarkOption, type PillResult } from '../api';
+import { useWorkerReachable } from '../state/connectivity';
 import { ensureMarkFeatures, featuresFromCanvas, rankFeaturesMulti, type RankedMark } from '../api';
 import { analyzeInteractions, fetchDurMap, type InteractionResult } from '../api/dur';
 import { getTeamsTarget, setTeamsTarget, teamsDeepLink } from '../state/teamsTarget';
@@ -218,7 +219,9 @@ function DetailPanel({ seq, pill, onZoom }: { seq: string; pill: PillResult; onZ
     };
   }, [seq, pill.itemName]);
 
-  const photo = proxiedImg(pill.itemImage);
+  // 워커(인터넷) 연결 안 되면(인트라넷) 실물사진은 프록시로 못 받으니 시도하지 않고 글리프 표시.
+  const online = useWorkerReachable() !== false;
+  const photo = online ? proxiedImg(pill.itemImage) : undefined;
   const isInjection = isInjectionName(pill.itemName); // 주사제는 식별용 사진이 원본에 없음
   // 사진 없는 일반 약은 글리프(모양/색) 확대가 유용하지만, 주사제는 보여줄 게 없어 확대 비활성화
   const canZoom = !!onZoom && (!!photo || !isInjection);
@@ -325,6 +328,11 @@ function DetailPanel({ seq, pill, onZoom }: { seq: string; pill: PillResult; onZ
           )}
 
           {/* 식약처 상세(효능/용법/주의/상호작용/이상반응/보관) */}
+          {!online && (
+            <div style={{ marginBottom: 12, padding: '8px 11px', borderRadius: 10, background: 'var(--fill)', fontSize: 12, fontWeight: 600, color: 'var(--text-weaker)', lineHeight: 1.5, wordBreak: 'keep-all' }}>
+              📡 인터넷 미연결 — 받아둔 효능·용법·주의만 표시돼요. (상호작용·이상반응·보관 등 온라인 보충정보는 생략)
+            </div>
+          )}
           {!loaded ? (
             <div style={{ fontSize: 13.5, color: 'var(--text-weak)' }}>상세 정보 불러오는 중…</div>
           ) : rows.length ? (

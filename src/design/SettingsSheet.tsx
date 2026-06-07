@@ -10,6 +10,7 @@ import {
   clearPhotos,
 } from '../api';
 import { onDatasetProgress } from '../api/dataset';
+import { useWorkerReachable } from '../state/connectivity';
 import { useDataset } from '../state/useDataset';
 import { getTeamsTarget, setTeamsTarget } from '../state/teamsTarget';
 
@@ -41,6 +42,7 @@ function Row({ label, value, ok }: { label: string; value: string; ok?: boolean 
 
 export function SettingsSheet({ open, onClose, onFlash, onShowGuide }: { open: boolean; onClose: () => void; onFlash?: (m: string) => void; onShowGuide?: () => void }) {
   const ds = useDataset();
+  const online = useWorkerReachable() !== false; // 워커(인터넷) 연결 — 실물사진 받기 가능 여부
   const [det, setDet] = useState<Stat | null>(null);
   const [usage, setUsage] = useState('');
   const [prog, setProg] = useState<{ label: string; pct: number } | null>(null);
@@ -206,8 +208,8 @@ export function SettingsSheet({ open, onClose, onFlash, onShowGuide }: { open: b
           <Btn variant="danger" onClick={() => (stopRef.current = true)} style={{ height: 50 }}>중단</Btn>
         </div>
       ) : (
-        <Btn variant="ghost" full icon="download" onClick={getPhotos} disabled={downloading || !ds.enabled}>
-          실물사진 받기 (대용량)
+        <Btn variant="ghost" full icon="download" onClick={getPhotos} disabled={downloading || !ds.enabled || !online}>
+          {online ? '실물사진 받기 (대용량)' : '실물사진 받기 (인터넷 필요)'}
         </Btn>
       )}
       {photos > 0 && !photoProg && (

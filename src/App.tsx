@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useStore, uid } from './state/store';
+import { useWorkerReachable } from './state/connectivity';
 import { buildTokens, useTheme, setThemeColor } from './design/theme';
 import { HomeScreen, MedListScreen, SearchScreen, type PickedMark } from './design/screens';
 import { AddMedSheet, CopySheet, DurSheet, PatientManageSheet, MarkGallerySheet, DrawMarkSheet, DrugDetailSheet, type MedFormData } from './design/sheets';
@@ -41,6 +42,8 @@ type AddSource =
 export default function App() {
   const { state, dispatch } = useStore();
   const { dark, toggle } = useTheme();
+  // 외부 워커 연결 여부(인트라넷 판별). false 면 워커 전용 기능(금기점검 등)을 숨김.
+  const online = useWorkerReachable() !== false;
   const tokens = useMemo(() => buildTokens(dark), [dark]);
 
   const [route, setRoute] = useState<Route>({ name: 'home', patientId: null });
@@ -319,9 +322,12 @@ export default function App() {
               <Btn variant="primary" full icon="send" onClick={() => setCopyOpen(true)} style={{ height: 48, fontSize: 15, background: '#5b5fc7' }}>
                 공유하기
               </Btn>
-              <Btn variant="ghost" full icon="shield" onClick={() => setDurOpen(true)} style={{ height: 48, fontSize: 15 }}>
-                금기 점검
-              </Btn>
+              {/* 금기점검(DUR)은 워커 전용 — 인트라넷에선 숨김 */}
+              {online && (
+                <Btn variant="ghost" full icon="shield" onClick={() => setDurOpen(true)} style={{ height: 48, fontSize: 15 }}>
+                  금기 점검
+                </Btn>
+              )}
             </div>
             <Btn variant="primary" full icon="plus" onClick={() => go({ name: 'search', patientId: activePatient.id })}>
               약 추가

@@ -56,6 +56,7 @@ export function ScrollArea({ children, bottomGap = 16 }: { children: ReactNode; 
   );
 }
 import { proxiedImg } from '../api';
+import { useWorkerReachable } from '../state/connectivity';
 
 type BtnVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'line';
 
@@ -456,7 +457,9 @@ export function Lightbox({ pill, onClose }: { pill: ZoomPill | null; onClose: ()
   }, [pill]);
   if (!pill) return null;
   const ap = [pill.color, pill.drugShape, pill.marking].filter(Boolean).join(' · ');
-  const realImg = pill.imageUrl && !imgFailed ? proxiedImg(pill.imageUrl) : undefined;
+  // 워커(인터넷) 연결 안 되면(인트라넷) 프록시 사진을 못 받으니 글리프만 보여주고 새 탭 링크 숨김.
+  const online = useWorkerReachable() !== false;
+  const realImg = online && pill.imageUrl && !imgFailed ? proxiedImg(pill.imageUrl) : undefined;
   return (
     <div
       onClick={onClose}
@@ -515,7 +518,7 @@ export function Lightbox({ pill, onClose }: { pill: ZoomPill | null; onClose: ()
       <div style={{ textAlign: 'center', color: '#fff' }}>
         <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: -0.4 }}>{pill.itemName}</div>
         {ap && <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.65)', fontWeight: 600, marginTop: 6 }}>{ap}</div>}
-        {pill.imageUrl && (
+        {online && pill.imageUrl && (
           <a
             href={proxiedImg(pill.imageUrl)}
             target="_blank"
