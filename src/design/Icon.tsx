@@ -31,6 +31,12 @@ export function Icon({
     ),
     plus: <path d="M12 5v14M5 12h14" {...p} />,
     back: <path d="M15 5l-7 7 7 7" {...p} />,
+    undo: (
+      <>
+        <path d="M9 7L4 12l5 5" {...p} />
+        <path d="M4 12h10.5a5.5 5.5 0 010 11H10" {...p} />
+      </>
+    ),
     chevron: <path d="M9 6l6 6-6 6" {...p} />,
     chevDown: <path d="M6 9l6 6 6-6" {...p} />,
     check: <path d="M5 12.5l4.5 4.5L19 7" {...p} />,

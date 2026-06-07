@@ -67,6 +67,7 @@ export function Btn({
   full,
   style,
   icon,
+  ariaLabel,
   type = 'button',
 }: {
   variant?: BtnVariant;
@@ -76,6 +77,7 @@ export function Btn({
   full?: boolean;
   style?: CSSProperties;
   icon?: string;
+  ariaLabel?: string;
   type?: 'button' | 'submit';
 }) {
   const base: CSSProperties = {
@@ -110,6 +112,7 @@ export function Btn({
     <button
       type={type}
       disabled={disabled}
+      aria-label={ariaLabel}
       onClick={onClick}
       onPointerDown={(e) => {
         if (!disabled) e.currentTarget.style.transform = 'scale(0.97)';
