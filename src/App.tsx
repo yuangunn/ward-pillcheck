@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useStore, uid } from './state/store';
 import { useWorkerReachable } from './state/connectivity';
+import { durBundleStatus } from './api';
 import { buildTokens, useTheme, setThemeColor } from './design/theme';
 import { HomeScreen, MedListScreen, SearchScreen, type PickedMark } from './design/screens';
 import { AddMedSheet, CopySheet, DurSheet, PatientManageSheet, MarkGallerySheet, DrawMarkSheet, DrugDetailSheet, type MedFormData } from './design/sheets';
@@ -62,6 +63,12 @@ export default function App() {
   const [topTab, setTopTab] = useState<'patients' | 'lookup'>('patients');
   const [detailPill, setDetailPill] = useState<PillResult | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // DUR 번들을 받아뒀으면 오프라인에서도 금기점검 가능 → 워커 연결 없어도 버튼 노출
+  const [durReady, setDurReady] = useState(false);
+  const checkDur = () => durBundleStatus().then((s) => setDurReady(s.downloaded));
+  useEffect(() => {
+    checkDur();
+  }, []);
   // 인앱 브라우저(카카오톡 등) 감지 — 상단 "외부 브라우저로 열기" 배너 표시용.
   const inAppInfo = useMemo(() => detectInApp(), []);
   const [inAppDismissed, setInAppDismissed] = useState(false);
@@ -322,8 +329,8 @@ export default function App() {
               <Btn variant="primary" full icon="send" onClick={() => setCopyOpen(true)} style={{ height: 48, fontSize: 15, background: '#5b5fc7' }}>
                 공유하기
               </Btn>
-              {/* 금기점검(DUR)은 워커 전용 — 인트라넷에선 숨김 */}
-              {online && (
+              {/* 금기점검(DUR): 워커 연결되거나 DUR 번들을 받아뒀으면(오프라인 가능) 노출 */}
+              {(online || durReady) && (
                 <Btn variant="ghost" full icon="shield" onClick={() => setDurOpen(true)} style={{ height: 48, fontSize: 15 }}>
                   금기 점검
                 </Btn>
@@ -375,7 +382,10 @@ export default function App() {
       <DrugDetailSheet open={!!detailPill} pill={detailPill} onClose={() => setDetailPill(null)} onZoom={(p) => setZoomPill(pillToZoom(p))} />
       <SettingsSheet
         open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
+        onClose={() => {
+          setSettingsOpen(false);
+          checkDur();
+        }}
         onFlash={flash}
         onShowGuide={() => {
           setSettingsOpen(false);
