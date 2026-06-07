@@ -1388,8 +1388,8 @@ export function DrawMarkSheet({ open, onPick, onClose }: { open: boolean; onPick
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-        <Btn variant="ghost" icon="undo" onClick={undo} disabled={!canUndo} style={{ height: 48, padding: '0 16px' }} />
-        <Btn variant="ghost" icon="trash" onClick={clearCanvas} disabled={!hasInk} style={{ height: 48, padding: '0 16px' }} />
+        <Btn variant="ghost" icon="undo" ariaLabel="되돌리기" onClick={undo} disabled={!canUndo} style={{ height: 48, padding: '0 16px' }} />
+        <Btn variant="ghost" icon="trash" ariaLabel="지우기" onClick={clearCanvas} disabled={!hasInk} style={{ height: 48, padding: '0 16px' }} />
         <Btn variant="primary" full icon="search" onClick={runSearch} disabled={!hasInk || !ready || busy} style={{ height: 48 }}>
           {ready ? '닮은 마크 찾기' : `준비 중 ${progress}%`}
         </Btn>
