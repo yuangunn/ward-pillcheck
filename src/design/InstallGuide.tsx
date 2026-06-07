@@ -396,8 +396,16 @@ export function InstallGuide({ open, onClose, browser }: { open: boolean; onClos
             );
           })}
         </div>
+        {tab === 'samsung' && (
+          <div style={{ marginTop: 18, padding: '14px 16px', borderRadius: 'var(--r-card)', background: 'var(--danger-weak)', fontSize: 13, fontWeight: 600, color: 'var(--text)', lineHeight: 1.6, wordBreak: 'keep-all' }}>
+            <b style={{ color: 'var(--danger)' }}>⚠️ “안전하지 않은 앱 차단됨” 경고가 떠도 괜찮아요</b>
+            <br />
+            삼성 인터넷이 만든 설치 파일이 <b>오래된 안드로이드 기준</b>으로 표시돼 Google Play 프로텍트가 띄우는 <b>정상 경고</b>예요(이 웹사이트를 감싼 것뿐, 위험한 앱이 아니에요).
+            <br />→ <b>‘무시하고 설치하기’</b>를 누르면 설치돼요. 경고 없이 설치하려면 위에서 <b>‘크롬’</b> 탭으로 설치하세요.
+          </div>
+        )}
         <div style={{ marginTop: 18, padding: '14px 16px', borderRadius: 'var(--r-card)', background: 'var(--primary-weak)', fontSize: 13, fontWeight: 600, color: 'var(--primary-ink)', lineHeight: 1.55, wordBreak: 'keep-all' }}>
-          💡 다른 브라우저는 메뉴에서 <b>‘홈 화면에 추가’</b> 또는 <b>‘앱 설치’</b>를 누르면 돼요. (아이폰은 사파리, 갤럭시는 삼성인터넷/크롬 권장)
+          💡 다른 브라우저는 메뉴에서 <b>‘홈 화면에 추가’</b> 또는 <b>‘앱 설치’</b>를 누르면 돼요. (아이폰은 사파리, 갤럭시는 <b>크롬 권장</b> · 삼성인터넷도 가능)
         </div>
       </div>
 
