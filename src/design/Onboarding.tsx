@@ -333,14 +333,14 @@ function obSlides(): Slide[] {
     {
       body: (
         <>
-          <ObKicker n="5">개인정보는 가리고 공유</ObKicker>
+          <ObKicker n="5">이름은 기기에만, 공유는 가려서</ObKicker>
           <ObH2>
-            이름은
+            이름 그대로,
             <br />
-            가려서 보내요.
+            안전하게.
           </ObH2>
           <ObLead>
-            공유할 땐 환자명 가운데를 <Em>자동으로 가려서</Em> 내보내요. 모든 기록은 이 기기에만 저장돼요.
+            환자 이름을 <Em>그대로 입력</Em>해 평소처럼 쓰세요. 이름은 이 기기에만 저장되고 서버로 안 보내요. 밖으로 복사·공유할 땐 <Em>자동으로 가려서</Em>(홍*동) 내보내요.
           </ObLead>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, background: 'var(--primary-weak)', borderRadius: 'var(--r-card)', padding: '18px 18px', marginTop: 20 }}>
             <div style={{ width: 48, height: 48, borderRadius: 14, background: 'var(--primary)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -372,7 +372,8 @@ function obSlides(): Slide[] {
                 ['①', '병원 공식 채널로만 공유', '개인 카톡·SNS 말고, 병원 관리 협업툴·폐쇄망에서요.'],
                 ['②', '마스킹은 보조수단', '홍*동도 병동·약과 합치면 식별될 수 있어요.'],
                 ['③', '진료·인계 목적으로만 사용', ''],
-                ['④', '도입 전 개인정보보호 담당자 확인', ''],
+                ['④', '업무폰 화면잠금·분실 주의', '환자 이름이 기기에 저장돼요. 화면잠금을 켜고 분실에 주의하세요.'],
+                ['⑤', '도입 전 개인정보보호 담당자 확인', ''],
               ] as [string, string, string][]
             ).map((r, i) => (
               <div key={i}>

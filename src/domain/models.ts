@@ -1,6 +1,6 @@
 // 도메인 데이터 모델.
-// 실명/주민번호/환자등록번호 등 식별정보 필드는 절대 두지 않는다.
-// 모든 데이터는 기기 localStorage 에만 존재한다.
+// 환자 이름(label)은 허용하되, 주민번호/환자등록번호 등 그 외 식별정보 필드는 두지 않는다.
+// 모든 데이터는 기기 localStorage 에만 존재하고(서버 전송 없음), 외부 공유 시 이름은 마스킹한다.
 
 /** 용법(1일 투여 패턴) 프리셋 + 자유입력 허용 */
 export type FrequencyCode =
@@ -45,10 +45,10 @@ export interface MedItem {
 /** 리스트 정렬 모드 (환자별 저장) */
 export type SortMode = 'manual' | 'byFrequency' | 'byTiming';
 
-/** 익명 라벨로만 식별되는 환자 */
+/** 환자(이름 또는 라벨로 식별) */
 export interface Patient {
   id: string;
-  label: string; // "환자1" 등 익명 라벨. 실명 금지.
+  label: string; // 환자 이름 또는 라벨. 기기 로컬 저장·공유 시 마스킹. 비우면 "환자N".
   meds: MedItem[]; // manual 모드의 사용자 지정 순서를 보존
   sortMode: SortMode;
   updatedAt?: number; // 지참약을 마지막으로 추가/수정/삭제한 시각(ms). 목록 최신순 정렬·표시용

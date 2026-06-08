@@ -173,7 +173,7 @@ function PatientsHeader({
         <div style={{ fontSize: 13.5, color: 'var(--primary-ink)', fontWeight: 600, letterSpacing: -0.3, lineHeight: 1.4 }}>
           모든 기록은 <b>이 기기에만</b> 저장돼요.
           <br />
-          이름·식별정보는 받지 않아요.
+          공유할 땐 환자 이름이 자동으로 가려져요.
         </div>
       </div>
 

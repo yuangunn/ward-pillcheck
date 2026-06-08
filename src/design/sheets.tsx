@@ -1210,9 +1210,9 @@ export function PatientManageSheet({
   if (!patient) return null;
   return (
     <BottomSheet open={open} onClose={onClose} title="환자 관리" maxH="60%">
-      <FieldLabel>라벨</FieldLabel>
-      <TextField value={name} onChange={setName} placeholder="환자 라벨" aria-label="환자 라벨" />
-      <p style={{ margin: '10px 2px 0', fontSize: 12.5, color: 'var(--text-weaker)', fontWeight: 600 }}>실명·식별정보는 입력하지 마세요.</p>
+      <FieldLabel>이름</FieldLabel>
+      <TextField value={name} onChange={setName} placeholder="예) 홍길동" aria-label="환자 이름" />
+      <p style={{ margin: '10px 2px 0', fontSize: 12.5, color: 'var(--text-weaker)', fontWeight: 600 }}>이름은 이 기기에만 저장되고, 밖으로 공유할 땐 자동으로 가려져요.</p>
       <div style={{ marginTop: 20 }}>
         <Btn variant="primary" full onClick={() => { onRename(name.trim() || patient.label); onClose(); }}>
           저장
@@ -1233,7 +1233,7 @@ export function PatientManageSheet({
   );
 }
 
-/** 새 환자 추가 시 라벨 입력 시트. 비우면 기본 라벨(환자N). 실명 입력은 안내로 막는다. */
+/** 새 환자 추가 시 이름 입력 시트. 이름은 기기에만 저장(공유 시 마스킹). 비우면 기본 라벨(환자N). */
 export function NewPatientSheet({
   open,
   onClose,
@@ -1262,17 +1262,17 @@ export function NewPatientSheet({
   };
   return (
     <BottomSheet open={open} onClose={onClose} title="새 환자" maxH="56%">
-      <FieldLabel>환자 라벨</FieldLabel>
+      <FieldLabel>환자 이름</FieldLabel>
       <TextField
         value={name}
         onChange={setName}
-        placeholder={defaultLabel}
-        aria-label="환자 라벨"
+        placeholder="예) 홍길동"
+        aria-label="환자 이름"
         id="new-patient-name"
         onKeyDown={(e: { key: string }) => e.key === 'Enter' && submit()}
       />
       <p style={{ margin: '10px 2px 0', fontSize: 12.5, color: 'var(--text-weaker)', fontWeight: 600, lineHeight: 1.5 }}>
-        실명·식별정보는 입력하지 마세요. 병상번호·익명 라벨을 권장해요. 비워두면 <b>{defaultLabel}</b>로 추가돼요.
+        이름은 이 기기에만 저장되고, 밖으로 공유할 땐 자동으로 가려져요. 비워두면 <b>{defaultLabel}</b>로 추가돼요.
       </p>
       <div style={{ marginTop: 20 }}>
         <Btn variant="primary" full icon="plus" onClick={submit}>
