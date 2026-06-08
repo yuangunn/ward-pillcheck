@@ -1485,12 +1485,13 @@ export function DrawMarkSheet({ open, onPick, onClose }: { open: boolean; onPick
     }
     setBusy(true);
     const feats = await ensureMarkFeatures();
-    // 후보를 넉넉히 뽑은 뒤 같은 마크코드는 가장 닮은 1장만 남겨(중복 제거) 변별력 있는 후보로.
+    // 후보를 넉넉히 뽑은 뒤 같은 마크 이미지는 가장 닮은 1장만 남긴다(중복 제거).
+    // 코드(글자값)가 아니라 이미지 id 로 묶어야 "삼각형 A" "삼각형 B"가 별개로 남는다.
     const seen = new Set<string>();
     const deduped: RankedMark[] = [];
     for (const r of rankFeaturesMulti(q, feats, 160)) {
-      if (seen.has(r.code)) continue;
-      seen.add(r.code);
+      if (seen.has(r.imgId)) continue;
+      seen.add(r.imgId);
       deduped.push(r);
       if (deduped.length >= DRAW_RESULTS_MAX) break;
     }
@@ -1567,7 +1568,7 @@ export function DrawMarkSheet({ open, onPick, onClose }: { open: boolean; onPick
                     key={o.img}
                     type="button"
                     onClick={() => {
-                      onPick({ code: o.code, img: o.img, count: 0 });
+                      onPick({ code: o.code, img: o.img, imgId: o.imgId, count: 0 });
                       onClose();
                     }}
                     style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '12px 4px', borderRadius: 'var(--r-card)', background: 'var(--card)', border: i === 0 ? '1.5px solid var(--primary)' : '1px solid var(--border)', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}

@@ -384,8 +384,8 @@ export default function App() {
           }
         }}
       />
-      <MarkGallerySheet open={galleryOpen} onClose={() => setGalleryOpen(false)} onPick={(m: MarkOption) => setPickedMark({ code: m.code, img: m.img })} />
-      <DrawMarkSheet open={drawOpen} onClose={() => setDrawOpen(false)} onPick={(m: MarkOption) => setPickedMark({ code: m.code, img: m.img })} />
+      <MarkGallerySheet open={galleryOpen} onClose={() => setGalleryOpen(false)} onPick={(m: MarkOption) => setPickedMark({ code: m.code, img: m.img, imgId: m.imgId })} />
+      <DrawMarkSheet open={drawOpen} onClose={() => setDrawOpen(false)} onPick={(m: MarkOption) => setPickedMark({ code: m.code, img: m.img, imgId: m.imgId })} />
       <DrugDetailSheet open={!!detailPill} pill={detailPill} onClose={() => setDetailPill(null)} onZoom={(p) => setZoomPill(pillToZoom(p))} />
       <SettingsSheet
         open={settingsOpen}

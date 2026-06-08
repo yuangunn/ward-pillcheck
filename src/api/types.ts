@@ -14,7 +14,8 @@ export interface PillSearchQuery {
   forms?: string[]; // 제형 부분일치 키워드(정/경질/연질 등) — 하나라도 일치
   lines?: SplitLineKind[]; // 분할선 종류(없음/일자/십자) — 하나라도 일치
   printFront?: string; // 앞면 각인 (print_front)
-  markCode?: string; // 마크 코드(갤러리 선택) — 번들 데이터셋 전용
+  markCode?: string; // 마크 코드(글자값) — 폴백/하위호환
+  markImg?: string; // 마크 이미지 id(갤러리·그리기 선택) — 같은 "실제 마크 이미지"만 매칭
   formCodeName?: string; // 제형
   pageNo?: number;
   numOfRows?: number;

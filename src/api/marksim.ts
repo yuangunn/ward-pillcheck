@@ -27,7 +27,7 @@ const HCELL = 4; // HOG 공간 셀 한 변
 const HBIN = 8; // HOG 방향 빈(무방향 0~π)
 const INK_BBOX = 0.12; // 바운딩박스 판정용 낮은 임계(가는 선 포함)
 const BLUR_RADIUS = 2; // 손그림 흔들림 흡수용 디스크립터 블러(셀 반경)
-const FEAT_VERSION = 3; // 디스크립터 알고리즘 버전(바뀌면 캐시 무효화)
+const FEAT_VERSION = 4; // 디스크립터/스키마 버전(바뀌면 캐시 무효화). v4: imgId 추가
 
 // 디스크립터 블록 가중치(각 블록 L2 정규화 후 적용). cosine 비중 조절.
 const W_INTENSITY = 1.0;
@@ -298,6 +298,7 @@ export function extractFeatureVariants(img: ImgLike): Float32Array[] {
 export interface MarkFeature {
   code: string;
   img: string;
+  imgId: string; // 같은 실제 마크 이미지 매칭/중복제거용
   vec: number[];
 }
 export interface RankedMark extends MarkFeature {
@@ -401,7 +402,7 @@ export async function ensureMarkFeatures(
     const batch = opts.slice(i, i + BATCH);
     const ids = await Promise.all(batch.map((o) => loadImageData(o.img)));
     ids.forEach((id, j) => {
-      if (id) out.push({ code: batch[j].code, img: batch[j].img, vec: Array.from(extractFeature(id)) });
+      if (id) out.push({ code: batch[j].code, img: batch[j].img, imgId: batch[j].imgId, vec: Array.from(extractFeature(id)) });
     });
     onProgress?.(Math.min(i + BATCH, opts.length), opts.length);
   }

@@ -592,6 +592,7 @@ function EmptyMedState({ onAdd }: { onAdd: () => void }) {
 export interface PickedMark {
   code: string;
   img?: string;
+  imgId?: string; // 선택한 "실제 마크 이미지" id — 같은 이미지를 쓰는 약만 매칭
 }
 
 export function SearchScreen({
@@ -645,7 +646,9 @@ export function SearchScreen({
           forms: forms.length ? forms : undefined,
           lines: lines.length ? lines : undefined,
           printFront: marking || undefined,
-          markCode: pickedMark?.code,
+          // 선택한 마크의 "이미지 id"로 매칭(같은 실제 마크만). imgId 없으면 글자값으로 폴백.
+          markImg: pickedMark?.imgId,
+          markCode: pickedMark && !pickedMark.imgId ? pickedMark.code : undefined,
         }
       : { itemName: name.trim() || undefined };
 

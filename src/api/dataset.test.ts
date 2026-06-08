@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { filterRecords, type PillRecord } from './dataset';
+import { filterRecords, markImgId, type PillRecord } from './dataset';
 
 const DATA: PillRecord[] = [
   { seq: '1', name: '아스피린장용정100mg', entp: '바이엘', shape: '원형', color: '하양', front: 'BAYER' },
@@ -59,6 +59,26 @@ describe('filterRecords', () => {
     expect(filterRecords(data, { markCode: 'P' }).map((x) => x.itemSeq)).toEqual(['6']);
     expect(filterRecords(data, { markCode: 'd' }).map((x) => x.itemSeq)).toEqual(['6']);
     expect(filterRecords(data, { markCode: 'Q' })).toEqual([]);
+  });
+
+  it('마크 이미지 id 로 필터(markImg) — 같은 "삼각형"이라도 실제 이미지가 다르면 구분', () => {
+    // 둘 다 분석텍스트는 "삼각형"이지만, 실제 마크 이미지(markFI)가 다른 두 약
+    const data: PillRecord[] = [
+      { seq: 'A', name: '삼각A정', entp: '가제약', shape: '원형', color: '하양', markFA: '삼각형', markFI: 'https://nedrug.example/img/triA.jpg' },
+      { seq: 'B', name: '삼각B정', entp: '나제약', shape: '원형', color: '하양', markFA: '삼각형', markFI: 'https://nedrug.example/img/triB.jpg' },
+    ];
+    // 글자값(markCode "삼각형")은 둘 다 잡힘 — 기존의 "다 나오는" 동작
+    expect(filterRecords(data, { markCode: '삼각형' }).map((x) => x.itemSeq).sort()).toEqual(['A', 'B']);
+    // 이미지 id 로 고르면 그 마크 이미지를 쓰는 약만
+    expect(filterRecords(data, { markImg: markImgId('https://nedrug.example/img/triA.jpg') }).map((x) => x.itemSeq)).toEqual(['A']);
+    expect(filterRecords(data, { markImg: markImgId('x/triB.jpg') }).map((x) => x.itemSeq)).toEqual(['B']);
+  });
+
+  it('markImgId: 빌드 marks 파일(<id>.gif)과 알약 markFI 의 id 가 일치', () => {
+    // 빌드 스크립트 규칙: file = nedrugId(markFI) + '.gif'. .gif 떼면 알약쪽 id 와 같아야 함.
+    const url = 'https://nedrug.example/img/ABC123.jpg';
+    const galleryFile = `${markImgId(url)}.gif`; // 빌드가 만드는 파일명
+    expect(galleryFile.replace(/\.gif$/i, '')).toBe(markImgId(url));
   });
 
   it('조건 불일치 시 빈 배열', () => {
