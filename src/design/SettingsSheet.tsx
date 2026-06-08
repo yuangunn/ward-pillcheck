@@ -17,6 +17,7 @@ import { useWorkerReachable } from '../state/connectivity';
 import { useDataset } from '../state/useDataset';
 import { getTeamsTarget, setTeamsTarget, getAllowedDomains, setAllowedDomains, isAllowedTeamsTarget, TEAMS_TARGET_GUIDE } from '../state/teamsTarget';
 import { getEmbedMode, setEmbedMode } from '../api/markEmbed';
+import { getCollectMode, setCollectMode, sampleCount, exportSamples, clearSamples } from '../state/drawSamples';
 
 // 내려받기 용량(배포본 기준 근사) — 사용자 안내용.
 const DL_PILLS_MB = 11; // pills.json
@@ -57,12 +58,32 @@ export function SettingsSheet({ open, onClose, onFlash, onShowGuide }: { open: b
   const [allowed, setAllowed] = useState(getAllowedDomains().join(', '));
   const teamsInvalid = teams.trim().length > 0 && !isAllowedTeamsTarget(teams);
   const [embed, setEmbed] = useState(getEmbedMode());
+  const [collect, setCollect] = useState(getCollectMode());
+  const [sampleN, setSampleN] = useState(0);
   const stopRef = useRef(false);
+
+  // 수집한 그림 표본을 JSON 파일로 내려받기(학습 파이프라인 투입용)
+  const exportDraw = async () => {
+    const samples = await exportSamples();
+    if (!samples.length) {
+      onFlash?.('수집된 그림이 없어요');
+      return;
+    }
+    const blob = new Blob([JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), samples }, null, 0)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ward-pillcheck-draw-samples-${samples.length}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    onFlash?.(`${samples.length}건 내보냈어요`);
+  };
 
   const refresh = async () => {
     setDet(await detailsStatus());
     setDur(await durBundleStatus());
     setPhotos(await cachedPhotoCount());
+    setSampleN(await sampleCount());
     try {
       const e = await navigator.storage?.estimate?.();
       if (e?.usage != null) setUsage(`${(e.usage / 1048576).toFixed(0)} MB`);
@@ -302,6 +323,32 @@ export function SettingsSheet({ open, onClose, onFlash, onShowGuide }: { open: b
           </span>
         </span>
       </button>
+
+      {/* 그림 데이터 수집(옵트인) — 향후 학습용 진짜 손그림 모으기 */}
+      <button
+        type="button"
+        role="switch"
+        aria-checked={collect}
+        aria-label="그림 데이터 수집"
+        onClick={() => { const v = !collect; setCollect(v); setCollectMode(v); }}
+        style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', marginTop: 10, padding: '12px 14px', borderRadius: 'var(--r-card)', background: 'var(--fill)', border: '1px solid var(--border)', cursor: 'pointer', textAlign: 'left', WebkitTapHighlightColor: 'transparent' }}
+      >
+        <span style={{ flexShrink: 0, width: 44, height: 26, borderRadius: 999, background: collect ? 'var(--primary)' : 'var(--border)', position: 'relative', transition: 'background .2s' }}>
+          <span style={{ position: 'absolute', top: 3, left: collect ? 21 : 3, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left .2s' }} />
+        </span>
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ display: 'block', fontSize: 14, fontWeight: 800, color: 'var(--text)' }}>그림 데이터 수집(학습용)</span>
+          <span style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-weaker)', lineHeight: 1.45, marginTop: 2 }}>
+            켜면 그려서찾기에서 그린 그림과 <b>고른 마크</b>를 이 기기에 모아요(개인정보 아님·서버 전송 없음). 모이면 AI 학습에 쓸 수 있어요. 현재 <b>{sampleN}</b>건.
+          </span>
+        </span>
+      </button>
+      {sampleN > 0 && (
+        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+          <Btn variant="secondary" onClick={exportDraw} style={{ flex: 1, height: 44, fontSize: 14 }}>내보내기({sampleN})</Btn>
+          <Btn variant="line" onClick={async () => { await clearSamples(); setSampleN(0); onFlash?.('수집 그림을 지웠어요'); }} style={{ flex: '0 0 auto', height: 44, fontSize: 14, color: 'var(--danger)', borderColor: 'var(--danger-weak)' }}>지우기</Btn>
+        </div>
+      )}
 
       {onShowGuide && (
         <button
