@@ -46,7 +46,7 @@ export function formatMedLine(med: MedItem): string {
 // ── 인계 공유 포맷(개인정보 보호 + 시점 범주화) ────────────────
 
 /**
- * 환자 라벨 가운데를 가린다(실명 저장 대비). 첫·끝 글자만 남기고 나머지는 *.
+ * 환자 이름/라벨 가운데를 가린다(외부 공유 시 마스킹). 첫·끝 글자만 남기고 나머지는 *.
  * 예) 환자1 → 환*1, 김철수 → 김*수
  */
 export function blindLabel(label: string): string {

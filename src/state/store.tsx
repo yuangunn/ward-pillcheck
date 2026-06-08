@@ -42,7 +42,7 @@ export function nextPatientLabel(patients: Patient[]): string {
   return `환자${n}`;
 }
 
-// 입력 라벨을 받되, 비면 다음 기본 라벨(환자N). 실명 방지는 UI 안내로 유도.
+// 입력한 이름/라벨을 쓰되, 비면 다음 기본 라벨(환자N). 이름은 기기 로컬·공유 시 마스킹.
 function createPatient(existing: Patient[], label?: string): Patient {
   return {
     id: uid(),

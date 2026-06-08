@@ -1095,7 +1095,7 @@ export function CopySheet({ open, onClose, label, meds }: { open: boolean; onClo
       </Btn>
       <p style={{ margin: '8px 2px 0', fontSize: 12, color: 'var(--text-weaker)', fontWeight: 600, lineHeight: 1.45 }}>
         {teamsTarget
-          ? `대상: ${teamsTarget} — 원내 전송이라 환자 라벨 그대로 보내요(보내기만 탭).`
+          ? `대상: ${teamsTarget} — 원내 전송이라 환자 이름 그대로 보내요(보내기만 탭).`
           : '“Teams로 보내기”를 누르면 보낼 대상을 물어봐요. (설정 ⚙️에서도 지정 가능)'}
       </p>
     </BottomSheet>
@@ -1210,9 +1210,9 @@ export function PatientManageSheet({
   if (!patient) return null;
   return (
     <BottomSheet open={open} onClose={onClose} title="환자 관리" maxH="60%">
-      <FieldLabel>라벨</FieldLabel>
-      <TextField value={name} onChange={setName} placeholder="환자 라벨" aria-label="환자 라벨" />
-      <p style={{ margin: '10px 2px 0', fontSize: 12.5, color: 'var(--text-weaker)', fontWeight: 600 }}>실명·식별정보는 입력하지 마세요.</p>
+      <FieldLabel>이름</FieldLabel>
+      <TextField value={name} onChange={setName} placeholder="예) 홍길동" aria-label="환자 이름" />
+      <p style={{ margin: '10px 2px 0', fontSize: 12.5, color: 'var(--text-weaker)', fontWeight: 600 }}>이름은 이 기기에만 저장되고, 밖으로 공유할 땐 자동으로 가려져요.</p>
       <div style={{ marginTop: 20 }}>
         <Btn variant="primary" full onClick={() => { onRename(name.trim() || patient.label); onClose(); }}>
           저장
@@ -1233,7 +1233,7 @@ export function PatientManageSheet({
   );
 }
 
-/** 새 환자 추가 시 라벨 입력 시트. 비우면 기본 라벨(환자N). 실명 입력은 안내로 막는다. */
+/** 새 환자 추가 시 이름 입력 시트. 이름은 기기에만 저장(공유 시 마스킹). 비우면 기본 라벨(환자N). */
 export function NewPatientSheet({
   open,
   onClose,
@@ -1247,7 +1247,14 @@ export function NewPatientSheet({
 }) {
   const [name, setName] = useState('');
   useEffect(() => {
-    if (open) setName('');
+    if (!open) return;
+    setName('');
+    // 시트가 다 올라온 뒤(슬라이드 ~0.3s) 포커스. 화면 밖(translateY)으로 마운트된 입력칸에
+    // 즉시 autoFocus 하면 브라우저가 그 칸을 보이려 스크롤을 당겨 시트가 튀어오르는 글리치가 난다.
+    const t = setTimeout(() => {
+      (document.getElementById('new-patient-name') as HTMLInputElement | null)?.focus({ preventScroll: true });
+    }, 340);
+    return () => clearTimeout(t);
   }, [open]);
   const submit = () => {
     onAdd(name.trim() || defaultLabel);
@@ -1255,17 +1262,17 @@ export function NewPatientSheet({
   };
   return (
     <BottomSheet open={open} onClose={onClose} title="새 환자" maxH="56%">
-      <FieldLabel>환자 라벨</FieldLabel>
+      <FieldLabel>환자 이름</FieldLabel>
       <TextField
         value={name}
         onChange={setName}
-        placeholder={defaultLabel}
-        aria-label="환자 라벨"
-        autoFocus
+        placeholder="예) 홍길동"
+        aria-label="환자 이름"
+        id="new-patient-name"
         onKeyDown={(e: { key: string }) => e.key === 'Enter' && submit()}
       />
       <p style={{ margin: '10px 2px 0', fontSize: 12.5, color: 'var(--text-weaker)', fontWeight: 600, lineHeight: 1.5 }}>
-        실명·식별정보는 입력하지 마세요. 병상번호·익명 라벨을 권장해요. 비워두면 <b>{defaultLabel}</b>로 추가돼요.
+        이름은 이 기기에만 저장되고, 밖으로 공유할 땐 자동으로 가려져요. 비워두면 <b>{defaultLabel}</b>로 추가돼요.
       </p>
       <div style={{ marginTop: 20 }}>
         <Btn variant="primary" full icon="plus" onClick={submit}>

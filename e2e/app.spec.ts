@@ -215,13 +215,13 @@ test('이름 검색 탭 전환', async ({ page }) => {
   await expect(page.getByText('타이레놀정500mg')).toBeVisible();
 });
 
-test('새 환자 추가 → 라벨 입력 시트 → 입력한 라벨로 환자 생성', async ({ page }) => {
+test('새 환자 추가 → 이름 입력 시트 → 입력한 이름으로 환자 생성', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: '새 환자 추가' }).click();
-  // 라벨 입력 시트
+  // 이름 입력 시트
   const sheet = page.getByRole('dialog', { name: '새 환자' });
   await expect(sheet).toBeVisible();
-  await sheet.getByLabel('환자 라벨').fill('301-1');
+  await sheet.getByLabel('환자 이름').fill('301-1');
   await sheet.getByRole('button', { name: '추가' }).click();
   // 환자명은 이름수정 버튼으로 표시
   await expect(page.getByRole('button', { name: '이름 수정' })).toContainText('301-1');
