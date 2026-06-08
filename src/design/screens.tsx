@@ -499,7 +499,7 @@ function MedTextView({
         <div key={gi} style={{ marginBottom: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '2px 2px 6px' }}>
             <span style={{ fontSize: 13 * s, fontWeight: 800, color: 'var(--primary-ink)', letterSpacing: -0.3, whiteSpace: 'nowrap' }}>
-              {g.timings.join(' · ')}
+              {(g.freqLabel ? [g.freqLabel, ...g.timings] : g.timings).join(' · ')}
             </span>
             <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
             <span style={{ fontSize: 11.5 * s, fontWeight: 700, color: 'var(--text-weaker)' }}>{g.meds.length}</span>
@@ -529,7 +529,7 @@ function MedTextView({
                   <span className="med-name" style={{ fontSize: 14.5 * s, fontWeight: 700, color: 'var(--text-strong)', letterSpacing: -0.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {stripIngredient(m.name)}
                   </span>
-                  {freqShareTag(m.frequency) && (
+                  {!g.freqLabel && freqShareTag(m.frequency) && (
                     <span style={{ fontSize: 11.5 * s, fontWeight: 800, color: 'var(--primary-ink)', letterSpacing: -0.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {freqShareTag(m.frequency)}
                     </span>

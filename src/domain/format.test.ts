@@ -114,14 +114,23 @@ describe('freqShareTag', () => {
     expect(freqShareTag('TID')).toBe('');
     expect(freqShareTag('HS')).toBe('');
   });
-  it('비표준 용법은 상세까지 압축', () => {
-    expect(freqShareTag('주 1회(월)')).toBe('주1회·월');
-    expect(freqShareTag('격일(홀수일)')).toBe('격일·홀수일');
-    expect(freqShareTag('필요시(통증 시)')).toBe('필요시·통증 시');
+  it('비표준 용법은 약어 + 상세(QW/월·PRN/사유)', () => {
+    expect(freqShareTag('주 1회(월)')).toBe('QW/월');
+    expect(freqShareTag('주 1회 월요일')).toBe('QW/월요일');
+    expect(freqShareTag('주 1회')).toBe('QW');
+    expect(freqShareTag('필요시(통증 시)')).toBe('PRN/통증 시');
+    expect(freqShareTag('필요시')).toBe('PRN');
   });
-  it('괄호 없는 비표준/자유입력은 그대로', () => {
-    expect(freqShareTag('필요시')).toBe('필요시');
+  it('격일/홀수일/짝수일/2일에한번은 QOD로 통일(홀·짝은 구분 보존)', () => {
+    expect(freqShareTag('격일')).toBe('QOD');
+    expect(freqShareTag('2일에 한번')).toBe('QOD');
+    expect(freqShareTag('홀수일')).toBe('QOD/홀수일');
+    expect(freqShareTag('짝수일')).toBe('QOD/짝수일');
+    expect(freqShareTag('격일(홀수일)')).toBe('QOD/홀수일');
+  });
+  it('기타(ETC) 자유입력: 괄호는 압축, 그 외 원문', () => {
     expect(freqShareTag('5일 복용 2일 휴약')).toBe('5일 복용 2일 휴약');
+    expect(freqShareTag('기타(식전 30분)')).toBe('기타·식전 30분');
   });
 });
 
@@ -197,7 +206,7 @@ describe('buildListText (블라인드 + 시점 범주화)', () => {
     expect(buildListText('환자1', [{ ...med, memo: '   ' }], { appearance: false })).toBe('[환*1]\n<8am>\n암로디핀정 1T');
   });
 
-  it('비표준 용법은 줄 앞에 [태그] 로 보존(표준은 태그 없음)', () => {
+  it('비표준 용법은 용법별 별도 섹션(헤더=약어+시점, 줄에는 태그 없음)', () => {
     const weekly: MedItem = {
       ...base,
       name: '메토트렉세이트정',
@@ -207,10 +216,45 @@ describe('buildListText (블라인드 + 시점 범주화)', () => {
       shape: '',
       marking: '',
     };
-    expect(buildListText('환자1', [weekly])).toBe('[환*1]\n<8am>\n[주1회·월] 메토트렉세이트정 1T');
-    // 필요시(사유)는 필요시 시점 그룹 + 태그에 사유 보존
+    // 주1회 → <QW/월 8am> 별도 섹션
+    expect(buildListText('환자1', [weekly])).toBe('[환*1]\n<QW/월 8am>\n메토트렉세이트정 1T');
+    // 필요시(사유) → <PRN/사유> (필요시 시점은 헤더에서 생략)
     const prn: MedItem = { ...weekly, name: '트리돌정', frequency: '필요시(통증 시)', timings: ['필요시'] };
-    expect(buildListText('환자1', [prn])).toBe('[환*1]\n<필요시>\n[필요시·통증 시] 트리돌정 1T');
+    expect(buildListText('환자1', [prn])).toBe('[환*1]\n<PRN/통증 시>\n트리돌정 1T');
+    // 격일 → <QOD ...>
+    const qod: MedItem = { ...weekly, name: '와파린정', frequency: '홀수일', timings: ['저녁식후'] };
+    expect(buildListText('환자1', [qod])).toBe('[환*1]\n<QOD/홀수일 6pm>\n와파린정 1T');
+  });
+
+  it('표준 시점 그룹이 먼저, 비표준 용법 섹션이 뒤(QW→QOD→PRN 순)', () => {
+    const mk = (id: string, name: string, frequency: string, timings: string[]): MedItem => ({
+      ...base,
+      id,
+      name,
+      frequency,
+      timings,
+      color: '',
+      shape: '',
+      marking: '',
+    });
+    const meds: MedItem[] = [
+      mk('1', '아침약', 'QD', ['아침식후']),
+      mk('2', '필요시약', '필요시', ['필요시']),
+      mk('3', '주1회약', '주 1회(월)', ['아침식후']),
+    ];
+    expect(buildListText('환자1', meds)).toBe(
+      [
+        '[환*1]',
+        '<8am>',
+        '아침약 1T',
+        '',
+        '<QW/월 8am>',
+        '주1회약 1T',
+        '',
+        '<PRN>',
+        '필요시약 1T',
+      ].join('\n'),
+    );
   });
 
   it('각인의 분할선 대시·공백 런이 겉모습에서 정리된다', () => {
