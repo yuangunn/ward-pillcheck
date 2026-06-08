@@ -151,12 +151,23 @@ describe('App 리디자인 통합 (목 모드)', () => {
     });
   });
 
-  it('새 환자 추가 후 해당 환자 화면으로 이동', async () => {
+  it('새 환자 추가: 라벨 비우면 기본(환자2)으로 생성 후 이동', async () => {
     const user = userEvent.setup();
     renderApp();
     await user.click(screen.getByRole('button', { name: '새 환자 추가' }));
-    // 환자2 상세 화면(헤더 제목은 이름수정 버튼)
+    // 라벨 입력 시트 → 비운 채 추가 → 기본 라벨(환자2)
+    await user.click(await screen.findByRole('button', { name: '추가' }));
     const titleBtn = await screen.findByRole('button', { name: '이름 수정' });
     expect(titleBtn).toHaveTextContent('환자2');
+  });
+
+  it('새 환자 추가: 입력한 라벨로 생성 후 이동', async () => {
+    const user = userEvent.setup();
+    renderApp();
+    await user.click(screen.getByRole('button', { name: '새 환자 추가' }));
+    await user.type(await screen.findByLabelText('환자 라벨'), '301-1');
+    await user.click(screen.getByRole('button', { name: '추가' }));
+    const titleBtn = await screen.findByRole('button', { name: '이름 수정' });
+    expect(titleBtn).toHaveTextContent('301-1');
   });
 });

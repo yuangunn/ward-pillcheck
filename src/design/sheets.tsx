@@ -1153,6 +1153,49 @@ export function PatientManageSheet({
   );
 }
 
+/** 새 환자 추가 시 라벨 입력 시트. 비우면 기본 라벨(환자N). 실명 입력은 안내로 막는다. */
+export function NewPatientSheet({
+  open,
+  onClose,
+  defaultLabel,
+  onAdd,
+}: {
+  open: boolean;
+  onClose: () => void;
+  defaultLabel: string;
+  onAdd: (label: string) => void;
+}) {
+  const [name, setName] = useState('');
+  useEffect(() => {
+    if (open) setName('');
+  }, [open]);
+  const submit = () => {
+    onAdd(name.trim() || defaultLabel);
+    onClose();
+  };
+  return (
+    <BottomSheet open={open} onClose={onClose} title="새 환자" maxH="56%">
+      <FieldLabel>환자 라벨</FieldLabel>
+      <TextField
+        value={name}
+        onChange={setName}
+        placeholder={defaultLabel}
+        aria-label="환자 라벨"
+        autoFocus
+        onKeyDown={(e: { key: string }) => e.key === 'Enter' && submit()}
+      />
+      <p style={{ margin: '10px 2px 0', fontSize: 12.5, color: 'var(--text-weaker)', fontWeight: 600, lineHeight: 1.5 }}>
+        실명·식별정보는 입력하지 마세요. 병상번호·익명 라벨을 권장해요. 비워두면 <b>{defaultLabel}</b>로 추가돼요.
+      </p>
+      <div style={{ marginTop: 20 }}>
+        <Btn variant="primary" full icon="plus" onClick={submit}>
+          추가
+        </Btn>
+      </div>
+    </BottomSheet>
+  );
+}
+
 export function MarkGallerySheet({ open, onClose, onPick }: { open: boolean; onClose: () => void; onPick: (m: MarkOption) => void }) {
   const [input, setInput] = useState(''); // 입력 중 값(타이핑마다 검색하지 않음)
   const [query, setQuery] = useState(''); // 적용된 검색어(검색 버튼/엔터로만 갱신)

@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useStore, uid } from './state/store';
+import { useStore, uid, nextPatientLabel } from './state/store';
 import { useWorkerReachable } from './state/connectivity';
 import { durBundleStatus } from './api';
 import { buildTokens, useTheme, setThemeColor } from './design/theme';
 import { HomeScreen, MedListScreen, SearchScreen, type PickedMark } from './design/screens';
-import { AddMedSheet, CopySheet, DurSheet, PatientManageSheet, MarkGallerySheet, DrawMarkSheet, DrugDetailSheet, type MedFormData } from './design/sheets';
+import { AddMedSheet, CopySheet, DurSheet, PatientManageSheet, NewPatientSheet, MarkGallerySheet, DrawMarkSheet, DrugDetailSheet, type MedFormData } from './design/sheets';
 import { SettingsSheet } from './design/SettingsSheet';
 import { Onboarding, isStandalone } from './design/Onboarding';
 import { InstallGuide } from './design/InstallGuide';
@@ -56,6 +56,7 @@ export default function App() {
   const [copyOpen, setCopyOpen] = useState(false);
   const [durOpen, setDurOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
+  const [newPatientOpen, setNewPatientOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [drawOpen, setDrawOpen] = useState(false);
   const [pickedMark, setPickedMark] = useState<PickedMark | null>(null);
@@ -160,9 +161,9 @@ export default function App() {
     setRoute(next);
   };
 
-  // 새 환자 추가 → 생성 후 해당 환자 화면으로
-  const newPatient = () => {
-    dispatch({ type: 'ADD_PATIENT' });
+  // 새 환자 추가 → 라벨 입력 시트 → 생성 후 해당 환자 화면으로
+  const addPatient = (label: string) => {
+    dispatch({ type: 'ADD_PATIENT', label });
     setNavNew(true);
   };
   useEffect(() => {
@@ -316,7 +317,7 @@ export default function App() {
       {route.name === 'home' && topTab === 'patients' && (
         <div style={BAR_WRAP}>
           <div style={{ pointerEvents: 'auto' }}>
-            <Btn variant="primary" full icon="plus" onClick={newPatient}>
+            <Btn variant="primary" full icon="plus" onClick={() => setNewPatientOpen(true)}>
               새 환자 추가
             </Btn>
           </div>
@@ -365,6 +366,12 @@ export default function App() {
         meds={activePatient?.meds || []}
       />
       <DurSheet open={durOpen} onClose={() => setDurOpen(false)} meds={activePatient?.meds || []} />
+      <NewPatientSheet
+        open={newPatientOpen}
+        onClose={() => setNewPatientOpen(false)}
+        defaultLabel={nextPatientLabel(patients)}
+        onAdd={addPatient}
+      />
       <PatientManageSheet
         open={manageOpen}
         onClose={() => setManageOpen(false)}

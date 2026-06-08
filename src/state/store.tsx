@@ -12,7 +12,7 @@ import { initialState, loadState, saveState } from './persist';
 // 앱 전역 상태: Context + useReducer + localStorage 동기화.
 
 type Action =
-  | { type: 'ADD_PATIENT' }
+  | { type: 'ADD_PATIENT'; label?: string }
   | { type: 'REMOVE_PATIENT'; patientId: string }
   | { type: 'RENAME_PATIENT'; patientId: string; label: string }
   | { type: 'SELECT_PATIENT'; patientId: string }
@@ -29,8 +29,8 @@ function uid(): string {
   );
 }
 
-function nextPatientLabel(patients: Patient[]): string {
-  // "환자N" 중 사용되지 않은 가장 작은 N
+/** 다음 기본 환자 라벨("환자N" 중 사용되지 않은 가장 작은 N). 입력란 placeholder·기본값용. */
+export function nextPatientLabel(patients: Patient[]): string {
   const used = new Set(
     patients
       .map((p) => /^환자(\d+)$/.exec(p.label)?.[1])
@@ -42,10 +42,11 @@ function nextPatientLabel(patients: Patient[]): string {
   return `환자${n}`;
 }
 
-function createPatient(existing: Patient[]): Patient {
+// 입력 라벨을 받되, 비면 다음 기본 라벨(환자N). 실명 방지는 UI 안내로 유도.
+function createPatient(existing: Patient[], label?: string): Patient {
   return {
     id: uid(),
-    label: nextPatientLabel(existing),
+    label: label?.trim() || nextPatientLabel(existing),
     meds: [],
     sortMode: 'manual',
     updatedAt: Date.now(),
@@ -81,7 +82,7 @@ function seedState(state: AppState): AppState {
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'ADD_PATIENT': {
-      const patient = createPatient(state.patients);
+      const patient = createPatient(state.patients, action.label);
       return {
         ...state,
         patients: [...state.patients, patient],
