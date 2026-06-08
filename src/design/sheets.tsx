@@ -1247,7 +1247,14 @@ export function NewPatientSheet({
 }) {
   const [name, setName] = useState('');
   useEffect(() => {
-    if (open) setName('');
+    if (!open) return;
+    setName('');
+    // 시트가 다 올라온 뒤(슬라이드 ~0.3s) 포커스. 화면 밖(translateY)으로 마운트된 입력칸에
+    // 즉시 autoFocus 하면 브라우저가 그 칸을 보이려 스크롤을 당겨 시트가 튀어오르는 글리치가 난다.
+    const t = setTimeout(() => {
+      (document.getElementById('new-patient-name') as HTMLInputElement | null)?.focus({ preventScroll: true });
+    }, 340);
+    return () => clearTimeout(t);
   }, [open]);
   const submit = () => {
     onAdd(name.trim() || defaultLabel);
@@ -1261,7 +1268,7 @@ export function NewPatientSheet({
         onChange={setName}
         placeholder={defaultLabel}
         aria-label="환자 라벨"
-        autoFocus
+        id="new-patient-name"
         onKeyDown={(e: { key: string }) => e.key === 'Enter' && submit()}
       />
       <p style={{ margin: '10px 2px 0', fontSize: 12.5, color: 'var(--text-weaker)', fontWeight: 600, lineHeight: 1.5 }}>
