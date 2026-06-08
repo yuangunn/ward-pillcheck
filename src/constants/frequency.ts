@@ -53,6 +53,20 @@ export function isFreqChipSelected(code: string, freq: string): boolean {
   return freqDetailFamily(freq) === code;
 }
 
+/**
+ * 인계/표시용 비표준 용법 태그.
+ * - 표준(QD/BID/TID/QID/HS): 시점 헤더로 충분하므로 빈 문자열.
+ * - 비표준: 저장된 설명을 압축. "주 1회(월)"→"주1회·월", "필요시(통증 시)"→"필요시·통증 시".
+ *   괄호 없는 자유입력(기타·"필요시")은 그대로 둔다.
+ */
+export function freqShareTag(frequency: string): string {
+  const f = (frequency || '').trim();
+  if (!f || STANDARD_FREQ.has(f)) return '';
+  const m = /^(.*?)\(\s*(.+?)\s*\)\s*$/.exec(f);
+  if (m) return `${m[1].trim().replace(/\s+/g, '')}·${m[2].trim()}`;
+  return f;
+}
+
 /** 용법 코드의 메타(없으면 기본값) */
 export function freqMeta(code: FrequencyCode): FrequencyPreset {
   return (

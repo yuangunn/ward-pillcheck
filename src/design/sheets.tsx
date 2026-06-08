@@ -10,7 +10,7 @@ import {
   isFreqChipSelected,
 } from '../constants/frequency';
 import { TIMING_PRESETS, timingOrder } from '../constants/timing';
-import { blindLabel, buildListText, tidyText } from '../domain/format';
+import { blindLabel, buildListText, cleanMarking, tidyText } from '../domain/format';
 import { shapeLabel } from '../domain/shape';
 import { splitLineKind, SPLIT_LINE_LABEL } from '../domain/splitLine';
 import type { MedItem, Patient } from '../domain/models';
@@ -451,7 +451,7 @@ export function AddMedSheet({
       setTimings(source.timings?.length ? source.timings : ['아침식후']);
       setColor(source.color || '');
       setShape(source.shape || '');
-      setMarking(source.marking || '');
+      setMarking(cleanMarking(source.marking || ''));
       setMemo(source.memo || '');
     } else if (source.__kind === 'manual') {
       setCount(1);
@@ -471,8 +471,8 @@ export function AddMedSheet({
       setTimings(['아침식후']);
       setColor(source.colorClass1 || '');
       setShape(source.drugShape || '');
-      // 글리프 가독성: 앞면 각인 우선(없으면 뒷면), 끝의 구분자는 제거
-      setMarking((source.printFront || source.printBack || '').replace(/^[\s/\-,]+|[\s/\-,]+$/g, ''));
+      // 글리프 가독성: 앞면 각인 우선(없으면 뒷면). 분할선 대시 런·연속 공백까지 정리.
+      setMarking(cleanMarking(source.printFront || source.printBack || ''));
       setMemo('');
     }
     setShowAppear(false);
@@ -553,7 +553,7 @@ export function AddMedSheet({
       name: finalName,
       color,
       shape,
-      marking,
+      marking: cleanMarking(marking),
       doseUnit,
       imageUrl: source.__kind === 'pill' ? source.itemImage : source.imageUrl,
       tabletCount: count,
@@ -776,7 +776,7 @@ export function AddMedSheet({
       >
         <span style={{ fontSize: 14.5, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.4 }}>겉모습 (색·모양·각인)</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-weak)', fontSize: 13.5, fontWeight: 700, overflow: 'hidden' }}>
-          {[color, shape, marking].filter(Boolean).join('/') || '없음'}
+          {[color, shape, cleanMarking(marking)].filter(Boolean).join('/') || '없음'}
           <Icon name={showAppear ? 'chevDown' : 'chevron'} size={17} />
         </span>
       </button>

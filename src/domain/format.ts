@@ -1,13 +1,25 @@
 import type { MedItem } from './models';
+import { freqShareTag } from '../constants/frequency';
 
 /** 정제 수 표시: 0.5 → "0.5", 1 → "1" (불필요한 소수점 제거) */
 export function formatTabletCount(count: number): string {
   return Number.isInteger(count) ? String(count) : String(count);
 }
 
+/** 각인 텍스트 정리: 분할선/구분용 대시·언더바 런 → 공백, 연속 공백 → 1칸, 양끝 구분자 제거.
+ *  예) "Neurontin®----------300mgVLE" → "Neurontin® 300mgVLE", "DW분할선FX      40" → "DW분할선FX 40" */
+export function cleanMarking(s?: string): string {
+  if (!s) return '';
+  return s
+    .replace(/[-_]{2,}/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/^[\s/\-,]+|[\s/\-,]+$/g, '')
+    .trim();
+}
+
 /** (색/모양/각인) 괄호 묶음. 값이 하나도 없으면 빈 문자열. */
 export function formatAppearance(med: Pick<MedItem, 'color' | 'shape' | 'marking'>): string {
-  const parts = [med.color, med.shape, med.marking].filter(
+  const parts = [med.color, med.shape, cleanMarking(med.marking)].filter(
     (v): v is string => !!v && v.trim() !== '',
   );
   return parts.length ? `(${parts.join('/')})` : '';
@@ -89,15 +101,19 @@ export interface ShareOpts {
   mask?: boolean; // 환자 라벨 가운데 가리기. 미지정/true=가림(기본), false=원문 노출
 }
 
-/** 공유용 약 한 줄: 용법·시점 제거, 이름/용량(+옵션에 따라 성분·겉모습)·메모 */
+/** 공유용 약 한 줄: 비표준 용법 태그 + 이름/용량(+옵션에 따라 성분·겉모습) + 메모.
+ *  표준 용법(QD~QID/HS)은 시점 헤더(<8am> 등)로 충분해 태그 생략. 비표준(주1회·격일·
+ *  필요시·기타)은 입력한 상세까지 [주1회·월]·[필요시·통증시]처럼 줄 앞에 붙여 인계에 보존. */
 function shareMedLine(med: MedItem, opts: ShareOpts): string {
   const unit = med.doseUnit || 'T';
   const name = opts.ingredient ? med.name : stripIngredient(med.name);
   const head = `${name} ${formatTabletCount(med.tabletCount)}${unit}`;
   const appearance = opts.appearance === false ? '' : formatAppearance(med);
-  const line = appearance ? `${head} ${appearance}` : head;
+  const body = appearance ? `${head} ${appearance}` : head;
+  const tag = freqShareTag(med.frequency);
+  const prefix = tag ? `[${tag}] ` : '';
   const memo = med.memo?.trim() ? ` ※${med.memo.trim()}` : '';
-  return `${line}${memo}`;
+  return `${prefix}${body}${memo}`;
 }
 
 /** 복용시점 패턴으로 묶은 그룹. 화면 텍스트 뷰와 인계 공유가 함께 사용한다. */

@@ -379,24 +379,37 @@ export default {
       if (target.hostname !== 'nedrug.mfds.go.kr') {
         return json({ error: 'forbidden host' }, env, 403);
       }
-      let res: Response;
-      try {
-        // nedrug 은 브라우저 UA/Referer 없는 요청을 막는 경우가 있어 헤더를 부여
-        res = await fetch(target.toString(), {
-          headers: {
-            'User-Agent':
-              'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148',
-            Referer: 'https://nedrug.mfds.go.kr/',
-            Accept: 'image/avif,image/webp,image/png,image/*,*/*;q=0.8',
-          },
-        });
-      } catch {
-        // 프록시 fetch 자체 실패 → 브라우저가 원본을 직접 받도록 리다이렉트(새 탭/이미지 모두 깨지지 않음)
-        return Response.redirect(target.toString(), 302);
+      // CF→nedrug 경로가 느리고(20초대) 간헐 403 인 환경이라:
+      //  (1) cacheEverything 으로 성공 응답을 CF 엣지에 7일 보관 → 같은 사진 재요청은 nedrug 안 거치고 즉시.
+      //  (2) 12초 타임아웃 + 최대 3회 재시도로 일시적 지연/403 을 복구.
+      // nedrug 은 브라우저 UA/Referer 없는 요청을 막으므로 헤더를 부여.
+      const imgHeaders = {
+        'User-Agent':
+          'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148',
+        Referer: 'https://nedrug.mfds.go.kr/',
+        Accept: 'image/avif,image/webp,image/png,image/*,*/*;q=0.8',
+      };
+      let res: Response | null = null;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 12000);
+        try {
+          const r = await fetch(target.toString(), {
+            headers: imgHeaders,
+            signal: ctrl.signal,
+            cf: { cacheEverything: true, cacheTtl: 604800 },
+          });
+          res = r;
+          if (r.ok) break; // 성공 — 종료. 403/5xx 면 다음 시도.
+        } catch {
+          /* 타임아웃/네트워크 실패 — 다음 시도 */
+        } finally {
+          clearTimeout(timer);
+        }
       }
-      // nedrug↔CF 간 TLS 실패(525) 등 업스트림 5xx → JSON 대신 원본으로 폴백 리다이렉트.
-      // (새 탭으로 열었을 때 {"error":"img 525"} 가 그대로 렌더되던 문제 방지)
-      if (!res.ok) return Response.redirect(target.toString(), 302);
+      // 끝내 못 받으면(전부 타임아웃/실패) 원본으로 폴백 리다이렉트(최후수단).
+      // 정상 응답이 아니어도(403/5xx) 마찬가지 — 새 탭에 JSON 에러가 렌더되던 문제 방지.
+      if (!res || !res.ok) return Response.redirect(target.toString(), 302);
       const ct = (res.headers.get('content-type') || 'image/jpeg').split(';')[0].trim();
       const body = await res.arrayBuffer();
       return new Response(body, {
