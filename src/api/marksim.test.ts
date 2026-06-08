@@ -53,9 +53,9 @@ describe('cosineSim', () => {
 
 describe('rankFeatures', () => {
   const feats = [
-    { code: 'SQ', img: 'sq', vec: Array.from(extractFeature(makeImg(64, 64, square(32, 32, 12)))) },
-    { code: 'VB', img: 'vb', vec: Array.from(extractFeature(makeImg(64, 64, vbar(32, 4)))) },
-    { code: 'HB', img: 'hb', vec: Array.from(extractFeature(makeImg(64, 64, hbar(32, 4)))) },
+    { code: 'SQ', img: 'sq', imgId: 'sq', vec: Array.from(extractFeature(makeImg(64, 64, square(32, 32, 12)))) },
+    { code: 'VB', img: 'vb', imgId: 'vb', vec: Array.from(extractFeature(makeImg(64, 64, vbar(32, 4)))) },
+    { code: 'HB', img: 'hb', imgId: 'hb', vec: Array.from(extractFeature(makeImg(64, 64, hbar(32, 4)))) },
   ];
 
   it('질의(사각형)와 가장 닮은 것이 1순위', () => {

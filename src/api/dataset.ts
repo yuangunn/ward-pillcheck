@@ -253,6 +253,7 @@ export function filterRecords(
   const lines = q.lines ?? [];
   const print = q.printFront?.trim().toUpperCase();
   const markCode = q.markCode?.trim();
+  const markImg = q.markImg?.trim();
 
   const out: PillResult[] = [];
   for (const r of data) {
@@ -278,6 +279,7 @@ export function filterRecords(
         .join(' ');
       if (!hay.includes(print)) continue;
     }
+    if (markImg && !markImgIdsOf(r).includes(markImg)) continue;
     if (markCode && !markCodesOf(r).includes(markCode)) continue;
     out.push(rec2result(r));
     if (out.length >= limit) break;
@@ -292,9 +294,24 @@ function markCodesOf(r: PillRecord): string[] {
   );
 }
 
+/**
+ * 마크 이미지 URL → 정규 id(파일명 영숫자). 빌드 marks 의 file(`<nedrugId>.gif`)에서
+ * `.gif` 를 떼면 알약 markFI/markBI 의 nedrugId 와 같아지도록 맞춘다.
+ * 이 id 로 매칭하면 "같은 실제 마크 이미지"만 골라낼 수 있다(글자값 "삼각형" 뭉침 방지).
+ */
+export function markImgId(url?: string): string {
+  return (String(url ?? '').split('/').pop() || '').replace(/[^a-zA-Z0-9]/g, '');
+}
+
+/** 한 레코드의 마크 이미지 id 목록(앞/뒤) */
+function markImgIdsOf(r: PillRecord): string[] {
+  return [markImgId(r.markFI), markImgId(r.markBI)].filter(Boolean);
+}
+
 export interface MarkOption {
   code: string;
   img: string; // 대표 마크 이미지
+  imgId: string; // 마크 이미지 id(같은 실제 마크 매칭용)
   count: number;
 }
 let markOptions: MarkOption[] | null = null;
@@ -308,7 +325,7 @@ export async function getMarkOptions(): Promise<MarkOption[]> {
     if (res.ok) {
       const arr = (await res.json()) as { code: string; file: string; count: number }[];
       if (arr.length) {
-        markOptions = arr.map((m) => ({ code: m.code, img: `${BASE}data/marks/${m.file}`, count: m.count }));
+        markOptions = arr.map((m) => ({ code: m.code, img: `${BASE}data/marks/${m.file}`, imgId: m.file.replace(/\.gif$/i, ''), count: m.count }));
         return markOptions;
       }
     }
@@ -336,7 +353,7 @@ export async function getMarkOptions(): Promise<MarkOption[]> {
   }
   markOptions = [...map.entries()]
     .filter(([, v]) => v.img)
-    .map(([code, v]) => ({ code, img: proxiedImg(v.img)!, count: v.count }))
+    .map(([code, v]) => ({ code, img: proxiedImg(v.img)!, imgId: markImgId(v.img), count: v.count }))
     .sort((a, b) => b.count - a.count);
   return markOptions;
 }

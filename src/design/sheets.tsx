@@ -17,6 +17,7 @@ import type { MedItem, Patient } from '../domain/models';
 import { drugApi, getMarkOptions, isInjectionName, proxiedImg, type DrugDetail, type MarkOption, type PillResult } from '../api';
 import { useWorkerReachable } from '../state/connectivity';
 import { ensureMarkFeatures, featuresFromCanvas, rankFeaturesMulti, type RankedMark } from '../api';
+import { getEmbedMode, ensureMarkEmbeddings, rankByEmbedding } from '../api/markEmbed';
 import { analyzeInteractions, fetchDurMap, type InteractionResult } from '../api/dur';
 import { getTeamsTarget, setTeamsTarget, teamsDeepLink, isAllowedTeamsTarget, TEAMS_TARGET_GUIDE } from '../state/teamsTarget';
 import { getShareOptions, setShareOptions, type ShareOptions } from '../state/shareOptions';
@@ -1418,7 +1419,8 @@ export function DrawMarkSheet({ open, onPick, onClose }: { open: boolean; onPick
     if (remaining === 0) setResults(null);
   };
 
-  // 열릴 때: 캔버스 초기화 + 마크 특징 DB 준비(최초 1회 디코딩, 이후 캐시)
+  const embedMode = getEmbedMode(); // 실험: ONNX 임베딩 매칭(옵트인)
+  // 열릴 때: 캔버스 초기화 + 마크 특징 DB 준비(최초 1회, 이후 캐시). 모드별로 다른 DB.
   useEffect(() => {
     if (!open) return;
     setReady(false);
@@ -1427,13 +1429,16 @@ export function DrawMarkSheet({ open, onPick, onClose }: { open: boolean; onPick
     setShowAll(false);
     requestAnimationFrame(clearCanvas);
     let alive = true;
-    ensureMarkFeatures((d, t) => alive && setProgress(t ? Math.round((d / t) * 100) : 0)).then(() => {
-      if (alive) setReady(true);
-    });
+    const prep = embedMode
+      ? ensureMarkEmbeddings((d, t) => alive && setProgress(t ? Math.round((d / t) * 100) : 0))
+      : ensureMarkFeatures((d, t) => alive && setProgress(t ? Math.round((d / t) * 100) : 0));
+    prep
+      .then(() => alive && setReady(true))
+      .catch(() => alive && setReady(true)); // 모델 다운로드 실패해도 UI 멈춤 방지
     return () => {
       alive = false;
     };
-  }, [open]);
+  }, [open, embedMode]);
 
   const pos = (e: React.PointerEvent) => {
     const c = canvasRef.current!;
@@ -1478,19 +1483,22 @@ export function DrawMarkSheet({ open, onPick, onClose }: { open: boolean; onPick
   const runSearch = async () => {
     const c = canvasRef.current;
     if (!c) return;
-    const q = featuresFromCanvas(c);
+    const q = featuresFromCanvas(c); // 잉크 유무 판정 겸용
     if (!q) {
       setResults([]);
       return;
     }
     setBusy(true);
-    const feats = await ensureMarkFeatures();
-    // 후보를 넉넉히 뽑은 뒤 같은 마크코드는 가장 닮은 1장만 남겨(중복 제거) 변별력 있는 후보로.
+    // 모드별 후보 랭킹: 기본=HOG(획·비트맵), 실험=ONNX 임베딩.
+    const ranked = embedMode
+      ? await rankByEmbedding(c, 160).catch(() => [] as RankedMark[])
+      : rankFeaturesMulti(q, await ensureMarkFeatures(), 160);
+    // 같은 마크 이미지는 가장 닮은 1장만(이미지 id 기준 중복 제거): "삼각형 A/B" 별개 유지.
     const seen = new Set<string>();
     const deduped: RankedMark[] = [];
-    for (const r of rankFeaturesMulti(q, feats, 160)) {
-      if (seen.has(r.code)) continue;
-      seen.add(r.code);
+    for (const r of ranked) {
+      if (seen.has(r.imgId)) continue;
+      seen.add(r.imgId);
       deduped.push(r);
       if (deduped.length >= DRAW_RESULTS_MAX) break;
     }
@@ -1507,6 +1515,11 @@ export function DrawMarkSheet({ open, onPick, onClose }: { open: boolean; onPick
         약에 새겨진 <b style={{ color: 'var(--text-strong)' }}>그림(마크)</b>을 <b style={{ color: 'var(--text-strong)' }}>화면 가득 크게</b> 그려보세요. 닮은 마크를 찾아드려요.
         <br />
         <span style={{ fontSize: 12.5, color: 'var(--text-weaker)' }}>마크가 있는 약만 검색돼요 · 결과는 “닮은 후보”예요.</span>
+        {embedMode && (
+          <span style={{ display: 'inline-block', marginLeft: 6, fontSize: 11, fontWeight: 800, color: 'var(--warn-ink)', background: 'var(--warn-weak)', padding: '1px 7px', borderRadius: 8 }}>
+            AI 임베딩(실험)
+          </span>
+        )}
       </p>
 
       <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
@@ -1567,7 +1580,7 @@ export function DrawMarkSheet({ open, onPick, onClose }: { open: boolean; onPick
                     key={o.img}
                     type="button"
                     onClick={() => {
-                      onPick({ code: o.code, img: o.img, count: 0 });
+                      onPick({ code: o.code, img: o.img, imgId: o.imgId, count: 0 });
                       onClose();
                     }}
                     style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '12px 4px', borderRadius: 'var(--r-card)', background: 'var(--card)', border: i === 0 ? '1.5px solid var(--primary)' : '1px solid var(--border)', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}

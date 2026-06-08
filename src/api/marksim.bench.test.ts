@@ -100,6 +100,7 @@ describe('그려서 찾기 정확도 — 회전 탐색 vs 단발', () => {
   const templates: MarkFeature[] = names.map((name) => ({
     code: name,
     img: name,
+    imgId: name,
     vec: Array.from(extractFeature(renderGlyph(name))),
   }));
 
