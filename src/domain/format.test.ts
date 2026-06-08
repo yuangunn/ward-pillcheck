@@ -142,6 +142,27 @@ describe('buildListText (블라인드 + 시점 범주화)', () => {
     );
   });
 
+  it('옵션: 환자명 가리기 끄면 라벨 원문 노출(기본은 가림)', () => {
+    const med: MedItem = { ...base, name: '트라젠타정', timings: ['아침식후'] };
+    // 겉모습 OFF 로 깔끔히 비교
+    expect(buildListText('김철수', [med], { appearance: false })).toBe('[김*수]\n<8am>\n트라젠타정 1T');
+    expect(buildListText('김철수', [med], { appearance: false, mask: true })).toBe('[김*수]\n<8am>\n트라젠타정 1T');
+    // mask:false → 원문
+    expect(buildListText('김철수', [med], { appearance: false, mask: false })).toBe('[김철수]\n<8am>\n트라젠타정 1T');
+    // 약 없을 때도 동일
+    expect(buildListText('환자2', [], { mask: false })).toBe('[환자2]');
+  });
+
+  it('메모(특이사항)는 약(겉모습) 뒤에 ※로 붙는다', () => {
+    const med: MedItem = { ...base, name: '암로디핀정', timings: ['아침식후'], memo: 'SBP 130 이상시 복용' };
+    // 겉모습 뒤에 메모
+    expect(buildListText('환자1', [med])).toBe('[환*1]\n<8am>\n암로디핀정 1T (흰/원형/Bayer) ※SBP 130 이상시 복용');
+    // 겉모습 OFF 면 용량 뒤 바로 메모
+    expect(buildListText('환자1', [med], { appearance: false })).toBe('[환*1]\n<8am>\n암로디핀정 1T ※SBP 130 이상시 복용');
+    // 공백뿐인 메모는 무시
+    expect(buildListText('환자1', [{ ...med, memo: '   ' }], { appearance: false })).toBe('[환*1]\n<8am>\n암로디핀정 1T');
+  });
+
   it('명세 예시와 일치: 시점 패턴별 그룹·시간순 정렬', () => {
     const mk = (
       id: string,
