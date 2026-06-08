@@ -5,9 +5,11 @@ import {
   formatTabletCount,
   buildListText,
   blindLabel,
+  cleanMarking,
   stripIngredient,
   tidyText,
 } from './format';
+import { freqShareTag } from '../constants/frequency';
 import type { MedItem } from './models';
 
 const base: MedItem = {
@@ -91,6 +93,38 @@ describe('blindLabel', () => {
   });
 });
 
+describe('cleanMarking', () => {
+  it('분할선 대시 런 → 공백, 연속 공백 → 1칸', () => {
+    expect(cleanMarking('Neurontin®----------300mgVLE')).toBe('Neurontin® 300mgVLE');
+    expect(cleanMarking('DW분할선FX                          40')).toBe('DW분할선FX 40');
+  });
+  it('단일 대시는 보존, 양끝 구분자 제거', () => {
+    expect(cleanMarking('FX-40')).toBe('FX-40');
+    expect(cleanMarking('  /Bayer/ ')).toBe('Bayer');
+  });
+  it('빈 값은 빈 문자열', () => {
+    expect(cleanMarking(undefined)).toBe('');
+    expect(cleanMarking('   ')).toBe('');
+  });
+});
+
+describe('freqShareTag', () => {
+  it('표준 용법(QD~QID/HS)은 태그 없음', () => {
+    expect(freqShareTag('QD')).toBe('');
+    expect(freqShareTag('TID')).toBe('');
+    expect(freqShareTag('HS')).toBe('');
+  });
+  it('비표준 용법은 상세까지 압축', () => {
+    expect(freqShareTag('주 1회(월)')).toBe('주1회·월');
+    expect(freqShareTag('격일(홀수일)')).toBe('격일·홀수일');
+    expect(freqShareTag('필요시(통증 시)')).toBe('필요시·통증 시');
+  });
+  it('괄호 없는 비표준/자유입력은 그대로', () => {
+    expect(freqShareTag('필요시')).toBe('필요시');
+    expect(freqShareTag('5일 복용 2일 휴약')).toBe('5일 복용 2일 휴약');
+  });
+});
+
 describe('stripIngredient', () => {
   it('성분 괄호 제거', () => {
     expect(stripIngredient('트라젠타정(리나글립틴)')).toBe('트라젠타정');
@@ -161,6 +195,35 @@ describe('buildListText (블라인드 + 시점 범주화)', () => {
     expect(buildListText('환자1', [med], { appearance: false })).toBe('[환*1]\n<8am>\n암로디핀정 1T ※SBP 130 이상시 복용');
     // 공백뿐인 메모는 무시
     expect(buildListText('환자1', [{ ...med, memo: '   ' }], { appearance: false })).toBe('[환*1]\n<8am>\n암로디핀정 1T');
+  });
+
+  it('비표준 용법은 줄 앞에 [태그] 로 보존(표준은 태그 없음)', () => {
+    const weekly: MedItem = {
+      ...base,
+      name: '메토트렉세이트정',
+      frequency: '주 1회(월)',
+      timings: ['아침식후'],
+      color: '',
+      shape: '',
+      marking: '',
+    };
+    expect(buildListText('환자1', [weekly])).toBe('[환*1]\n<8am>\n[주1회·월] 메토트렉세이트정 1T');
+    // 필요시(사유)는 필요시 시점 그룹 + 태그에 사유 보존
+    const prn: MedItem = { ...weekly, name: '트리돌정', frequency: '필요시(통증 시)', timings: ['필요시'] };
+    expect(buildListText('환자1', [prn])).toBe('[환*1]\n<필요시>\n[필요시·통증 시] 트리돌정 1T');
+  });
+
+  it('각인의 분할선 대시·공백 런이 겉모습에서 정리된다', () => {
+    const med: MedItem = {
+      ...base,
+      name: '뉴론틴캡슐',
+      frequency: 'QD',
+      timings: ['아침식후'],
+      color: '노랑',
+      shape: '장방형',
+      marking: 'Neurontin®----------300mgVLE',
+    };
+    expect(buildListText('환자1', [med])).toBe('[환*1]\n<8am>\n뉴론틴캡슐 1T (노랑/장방형/Neurontin® 300mgVLE)');
   });
 
   it('명세 예시와 일치: 시점 패턴별 그룹·시간순 정렬', () => {

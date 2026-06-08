@@ -5,6 +5,7 @@ import { COLOR_OPTIONS, SHAPE_OPTIONS, FORM_OPTIONS } from '../constants/appeara
 import { shapeLabel } from '../domain/shape';
 import { splitLineKind, SPLIT_LINE_OPTIONS, SPLIT_LINE_LABEL, SPLIT_LINE_SYMBOL, type SplitLineKind } from '../domain/splitLine';
 import { groupMedsByTiming, stripIngredient, type TimingGroup } from '../domain/format';
+import { freqShareTag } from '../constants/frequency';
 import type { MedItem, Patient } from '../domain/models';
 import { drugApi, proxiedImg, searchInjections, isInjectionName, type PermitDrug, type PillResult, type PillSearchQuery } from '../api';
 import { useDataset } from '../state/useDataset';
@@ -528,6 +529,11 @@ function MedTextView({
                   <span className="med-name" style={{ fontSize: 14.5 * s, fontWeight: 700, color: 'var(--text-strong)', letterSpacing: -0.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {stripIngredient(m.name)}
                   </span>
+                  {freqShareTag(m.frequency) && (
+                    <span style={{ fontSize: 11.5 * s, fontWeight: 800, color: 'var(--primary-ink)', letterSpacing: -0.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {freqShareTag(m.frequency)}
+                    </span>
+                  )}
                   {m.memo?.trim() && (
                     <span style={{ fontSize: 12 * s, fontWeight: 700, color: 'var(--primary-ink)', letterSpacing: -0.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       ※ {m.memo.trim()}

@@ -6,6 +6,7 @@ import {
   type ReactNode,
 } from 'react';
 import { Icon, PillGlyph } from './Icon';
+import { cleanMarking } from '../domain/format';
 
 /**
  * 화면별 스크롤 영역. 헤더는 바깥(고정)에 두고 이 안의 리스트만 스크롤되게 한다.
@@ -457,7 +458,7 @@ export function Lightbox({ pill, onClose }: { pill: ZoomPill | null; onClose: ()
     } else setShow(false);
   }, [pill]);
   if (!pill) return null;
-  const ap = [pill.color, pill.drugShape, pill.marking].filter(Boolean).join(' · ');
+  const ap = [pill.color, pill.drugShape, cleanMarking(pill.marking)].filter(Boolean).join(' · ');
   // 워커(인터넷) 연결 안 되면(인트라넷) 프록시 사진을 못 받으니 글리프만 보여주고 새 탭 링크 숨김.
   const online = useWorkerReachable() !== false;
   const realImg = online && pill.imageUrl && !imgFailed ? proxiedImg(pill.imageUrl) : undefined;

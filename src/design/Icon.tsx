@@ -144,6 +144,8 @@ export function swatchFor(colorLabel?: string): string {
 export function cleanMark(s?: string): string {
   if (!s) return '';
   return s
+    .replace(/[-_]{2,}/g, ' ') // 분할선 대시 런 → 공백(글리프에 '----' 가 차던 문제)
+    .replace(/\s+/g, ' ')
     .trim()
     .replace(/^[\s/\-,]+|[\s/\-,]+$/g, '')
     .slice(0, 6);
