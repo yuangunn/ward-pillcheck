@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { registerSW } from 'virtual:pwa-register';
 import App from './App';
 import { StoreProvider } from './state/store';
+import { ErrorBoundary } from './design/ErrorBoundary';
 import './styles/global.css';
 
 // 새 배포 자동 반영: 새 SW 감지 시 즉시 적용+리로드, 1시간마다 업데이트 점검.
@@ -19,8 +20,10 @@ const updateSW = registerSW({
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <StoreProvider>
-      <App />
-    </StoreProvider>
+    <ErrorBoundary>
+      <StoreProvider>
+        <App />
+      </StoreProvider>
+    </ErrorBoundary>
   </React.StrictMode>,
 );
