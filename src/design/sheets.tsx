@@ -18,6 +18,7 @@ import { drugApi, getMarkOptions, isInjectionName, proxiedImg, type DrugDetail, 
 import { useWorkerReachable } from '../state/connectivity';
 import { ensureMarkFeatures, featuresFromCanvas, rankFeaturesMulti, type RankedMark } from '../api';
 import { getEmbedMode, ensureMarkEmbeddings, rankByEmbedding } from '../api/markEmbed';
+import { getCollectMode, addSample, type StrokePt } from '../state/drawSamples';
 import { analyzeInteractions, fetchDurMap, type InteractionResult } from '../api/dur';
 import { getTeamsTarget, setTeamsTarget, teamsDeepLink, isAllowedTeamsTarget, TEAMS_TARGET_GUIDE } from '../state/teamsTarget';
 import { getShareOptions, setShareOptions, type ShareOptions } from '../state/shareOptions';
@@ -1382,6 +1383,7 @@ export function DrawMarkSheet({ open, onPick, onClose }: { open: boolean; onPick
   const drawing = useRef(false);
   const last = useRef<{ x: number; y: number } | null>(null);
   const history = useRef<ImageData[]>([]); // 획 단위 스냅샷(되돌리기용)
+  const strokes = useRef<StrokePt[][]>([]); // 획 좌표(데이터 수집·향후 학습용)
   const [hasInk, setHasInk] = useState(false);
   const [canUndo, setCanUndo] = useState(false);
   const [brush, setBrush] = useState(6);
@@ -1400,6 +1402,7 @@ export function DrawMarkSheet({ open, onPick, onClose }: { open: boolean; onPick
     ctx.fillStyle = '#fff';
     ctx.fillRect(0, 0, c.width, c.height);
     history.current = [];
+    strokes.current = [];
     setHasInk(false);
     setCanUndo(false);
     setResults(null);
@@ -1412,6 +1415,7 @@ export function DrawMarkSheet({ open, onPick, onClose }: { open: boolean; onPick
     const ctx = c?.getContext('2d');
     if (!c || !ctx || !history.current.length) return;
     const prev = history.current.pop()!;
+    strokes.current.pop();
     ctx.putImageData(prev, 0, 0);
     const remaining = history.current.length;
     setCanUndo(remaining > 0);
@@ -1455,7 +1459,9 @@ export function DrawMarkSheet({ open, onPick, onClose }: { open: boolean; onPick
     if (history.current.length > 24) history.current.shift();
     c.setPointerCapture(e.pointerId);
     drawing.current = true;
-    last.current = pos(e);
+    const p0 = pos(e);
+    last.current = p0;
+    strokes.current.push([[Math.round(p0.x), Math.round(p0.y)]]); // 새 획 시작점 기록
     setHasInk(true);
     setCanUndo(true);
   };
@@ -1474,10 +1480,30 @@ export function DrawMarkSheet({ open, onPick, onClose }: { open: boolean; onPick
     ctx.lineTo(p.x, p.y);
     ctx.stroke();
     last.current = p;
+    strokes.current[strokes.current.length - 1]?.push([Math.round(p.x), Math.round(p.y)]);
   };
   const end = () => {
     drawing.current = false;
     last.current = null;
+  };
+
+  // 데이터 수집(옵트인): 고른 마크를 약한 라벨로 (획+비트맵, 마크 id) 저장. 향후 학습용.
+  const saveSampleIfCollecting = (o: RankedMark) => {
+    if (!getCollectMode()) return;
+    const c = canvasRef.current;
+    if (!c || !strokes.current.length) return;
+    try {
+      void addSample({
+        strokes: strokes.current.map((s) => s.slice()),
+        png: c.toDataURL('image/png'),
+        markImgId: o.imgId,
+        markCode: o.code,
+        w: c.width,
+        h: c.height,
+      });
+    } catch {
+      /* 수집 실패는 검색 흐름에 영향 없음 */
+    }
   };
 
   const runSearch = async () => {
@@ -1580,6 +1606,7 @@ export function DrawMarkSheet({ open, onPick, onClose }: { open: boolean; onPick
                     key={o.img}
                     type="button"
                     onClick={() => {
+                      saveSampleIfCollecting(o);
                       onPick({ code: o.code, img: o.img, imgId: o.imgId, count: 0 });
                       onClose();
                     }}
