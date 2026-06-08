@@ -16,6 +16,7 @@ import { onDatasetProgress } from '../api/dataset';
 import { useWorkerReachable } from '../state/connectivity';
 import { useDataset } from '../state/useDataset';
 import { getTeamsTarget, setTeamsTarget, getAllowedDomains, setAllowedDomains, isAllowedTeamsTarget, TEAMS_TARGET_GUIDE } from '../state/teamsTarget';
+import { getEmbedMode, setEmbedMode } from '../api/markEmbed';
 
 // 내려받기 용량(배포본 기준 근사) — 사용자 안내용.
 const DL_PILLS_MB = 11; // pills.json
@@ -55,6 +56,7 @@ export function SettingsSheet({ open, onClose, onFlash, onShowGuide }: { open: b
   const [teams, setTeams] = useState(getTeamsTarget());
   const [allowed, setAllowed] = useState(getAllowedDomains().join(', '));
   const teamsInvalid = teams.trim().length > 0 && !isAllowedTeamsTarget(teams);
+  const [embed, setEmbed] = useState(getEmbedMode());
   const stopRef = useRef(false);
 
   const refresh = async () => {
@@ -279,6 +281,27 @@ export function SettingsSheet({ open, onClose, onFlash, onShowGuide }: { open: b
         aria-label="허용 병원 도메인"
         style={{ width: '100%', boxSizing: 'border-box', height: 48, padding: '0 14px', borderRadius: 'var(--r-btn)', border: '1.5px solid var(--border)', background: 'var(--fill)', color: 'var(--text)', fontSize: 15, fontFamily: 'inherit', fontWeight: 600, letterSpacing: -0.3, outline: 'none' }}
       />
+
+      {/* 실험: ONNX 임베딩 마크 매칭 (옵트인) */}
+      <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.4, margin: '24px 0 4px' }}>실험 기능</div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={embed}
+        aria-label="AI 임베딩 마크 매칭"
+        onClick={() => { const v = !embed; setEmbed(v); setEmbedMode(v); }}
+        style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '12px 14px', borderRadius: 'var(--r-card)', background: 'var(--fill)', border: '1px solid var(--border)', cursor: 'pointer', textAlign: 'left', WebkitTapHighlightColor: 'transparent' }}
+      >
+        <span style={{ flexShrink: 0, width: 44, height: 26, borderRadius: 999, background: embed ? 'var(--primary)' : 'var(--border)', position: 'relative', transition: 'background .2s' }}>
+          <span style={{ position: 'absolute', top: 3, left: embed ? 21 : 3, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left .2s' }} />
+        </span>
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ display: 'block', fontSize: 14, fontWeight: 800, color: 'var(--text)' }}>그려서 찾기 — AI 임베딩(ONNX)</span>
+          <span style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-weaker)', lineHeight: 1.45, marginTop: 2 }}>
+            켜면 그려서찾기가 온디바이스 AI 모델로 매칭해요. ⚠️ <b>실험적</b> — 자체 측정상 기본 방식보다 정확도가 낮았어요. 켤 때 모델(~5MB)을 1회 받아요(인터넷 필요).
+          </span>
+        </span>
+      </button>
 
       {onShowGuide && (
         <button
