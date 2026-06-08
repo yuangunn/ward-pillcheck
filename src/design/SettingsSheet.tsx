@@ -15,7 +15,7 @@ import {
 import { onDatasetProgress } from '../api/dataset';
 import { useWorkerReachable } from '../state/connectivity';
 import { useDataset } from '../state/useDataset';
-import { getTeamsTarget, setTeamsTarget } from '../state/teamsTarget';
+import { getTeamsTarget, setTeamsTarget, getAllowedDomains, setAllowedDomains, isAllowedTeamsTarget, TEAMS_TARGET_GUIDE } from '../state/teamsTarget';
 
 // 내려받기 용량(배포본 기준 근사) — 사용자 안내용.
 const DL_PILLS_MB = 11; // pills.json
@@ -53,6 +53,8 @@ export function SettingsSheet({ open, onClose, onFlash, onShowGuide }: { open: b
   const downloading = !!prog;
   const [photoProg, setPhotoProg] = useState<{ done: number; total: number } | null>(null);
   const [teams, setTeams] = useState(getTeamsTarget());
+  const [allowed, setAllowed] = useState(getAllowedDomains().join(', '));
+  const teamsInvalid = teams.trim().length > 0 && !isAllowedTeamsTarget(teams);
   const stopRef = useRef(false);
 
   const refresh = async () => {
@@ -246,11 +248,35 @@ export function SettingsSheet({ open, onClose, onFlash, onShowGuide }: { open: b
         inputMode="email"
         value={teams}
         onChange={(e) => {
-          setTeams(e.target.value);
-          setTeamsTarget(e.target.value);
+          const v = e.target.value;
+          setTeams(v);
+          // 허용 도메인(.ac.kr/.ac 또는 등록 병원 도메인)일 때만 저장. 그 외엔 보관 안 함.
+          setTeamsTarget(!v.trim() || isAllowedTeamsTarget(v) ? v : '');
         }}
-        placeholder="예) ward3-handover@hospital.org"
+        placeholder="예) ward3-handover@hospital.ac.kr"
         aria-label="Teams 대상 이메일"
+        style={{ width: '100%', boxSizing: 'border-box', height: 48, padding: '0 14px', borderRadius: 'var(--r-btn)', border: `1.5px solid ${teamsInvalid ? 'var(--danger)' : 'var(--border)'}`, background: 'var(--fill)', color: 'var(--text)', fontSize: 15, fontFamily: 'inherit', fontWeight: 600, letterSpacing: -0.3, outline: 'none' }}
+      />
+      {teamsInvalid && (
+        <p role="alert" style={{ margin: '6px 2px 0', fontSize: 12.5, color: 'var(--danger)', fontWeight: 700, letterSpacing: -0.2, lineHeight: 1.45 }}>
+          {TEAMS_TARGET_GUIDE}
+        </p>
+      )}
+
+      <div style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.3, margin: '14px 0 4px' }}>허용 병원 도메인 추가</div>
+      <p style={{ margin: '0 0 8px', fontSize: 12.5, color: 'var(--text-weak)', fontWeight: 600, lineHeight: 1.5 }}>
+        대학·대학병원(<b>.ac.kr</b>/<b>.ac</b>)은 기본 허용돼요. 그 외 우리 병원 도메인이 있으면 쉼표로 추가하세요. (예: snuh.org)
+      </p>
+      <input
+        type="text"
+        inputMode="email"
+        value={allowed}
+        onChange={(e) => {
+          setAllowed(e.target.value);
+          setAllowedDomains(e.target.value);
+        }}
+        placeholder="예) snuh.org, amc.seoul.kr"
+        aria-label="허용 병원 도메인"
         style={{ width: '100%', boxSizing: 'border-box', height: 48, padding: '0 14px', borderRadius: 'var(--r-btn)', border: '1.5px solid var(--border)', background: 'var(--fill)', color: 'var(--text)', fontSize: 15, fontFamily: 'inherit', fontWeight: 600, letterSpacing: -0.3, outline: 'none' }}
       />
 
