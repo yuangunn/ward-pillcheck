@@ -18,7 +18,7 @@ import { drugApi, getMarkOptions, isInjectionName, proxiedImg, type DrugDetail, 
 import { useWorkerReachable } from '../state/connectivity';
 import { ensureMarkFeatures, featuresFromCanvas, rankFeaturesMulti, type RankedMark } from '../api';
 import { analyzeInteractions, fetchDurMap, type InteractionResult } from '../api/dur';
-import { getTeamsTarget, setTeamsTarget, teamsDeepLink } from '../state/teamsTarget';
+import { getTeamsTarget, setTeamsTarget, teamsDeepLink, isAllowedTeamsTarget, TEAMS_TARGET_GUIDE } from '../state/teamsTarget';
 import { getShareOptions, setShareOptions, type ShareOptions } from '../state/shareOptions';
 
 const TIMING_DEFAULTS: Record<number, string[]> = {
@@ -849,7 +849,9 @@ function TeamsTargetPrompt({
   onCancel: () => void;
 }) {
   const [val, setVal] = useState('');
-  const ok = val.trim().includes('@');
+  const trimmed = val.trim();
+  const ok = isAllowedTeamsTarget(trimmed);
+  const showGuide = trimmed.length > 0 && !ok; // 입력은 했는데 허용 도메인이 아님
   return (
     <div
       role="dialog"
@@ -863,26 +865,71 @@ function TeamsTargetPrompt({
           어디로 보낼까요?
         </h3>
         <p style={{ margin: '0 0 14px', fontSize: 13, color: 'var(--text-weak)', fontWeight: 600, letterSpacing: -0.3, lineHeight: 1.5 }}>
-          우리 <b style={{ color: 'var(--text-strong)' }}>병동 공용 Teams 계정</b>이나 <b style={{ color: 'var(--text-strong)' }}>본인 Teams 이메일</b>을 입력하면 그 대화방이 열려요. (설정 ⚙️에서 언제든 바꿀 수 있어요)
+          우리 <b style={{ color: 'var(--text-strong)' }}>병동 공용 Teams 계정</b>이나 <b style={{ color: 'var(--text-strong)' }}>본인 병원 Teams 이메일</b>을 입력하면 그 대화방이 열려요. (설정 ⚙️에서 언제든 바꿀 수 있어요)
         </p>
         <TextField
           value={val}
           onChange={setVal}
-          placeholder="예) ward7@hospital.org"
+          placeholder="예) ward7@hospital.ac.kr"
           autoFocus
           type="email"
           inputMode="email"
           aria-label="Teams 대상 이메일"
           onKeyDown={(e: React.KeyboardEvent) => {
-            if (e.key === 'Enter' && ok) onSave(val.trim());
+            if (e.key === 'Enter' && ok) onSave(trimmed);
           }}
         />
+        {showGuide && (
+          <p role="alert" style={{ margin: '8px 2px 0', fontSize: 12.5, color: 'var(--danger)', fontWeight: 700, letterSpacing: -0.2, lineHeight: 1.45 }}>
+            {TEAMS_TARGET_GUIDE}
+          </p>
+        )}
         <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
           <Btn variant="ghost" full onClick={onSkip}>
             새 채팅으로 열기
           </Btn>
-          <Btn variant="primary" full onClick={() => onSave(val.trim())} disabled={!ok} style={{ background: '#5b5fc7' }}>
+          <Btn variant="primary" full onClick={() => ok && onSave(trimmed)} disabled={!ok} style={{ background: '#5b5fc7' }}>
             저장하고 보내기
+          </Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** 범용 확인 팝업(예/아니오). 개인정보 유출 경고 등에 사용. */
+function ConfirmDialog({
+  title,
+  body,
+  confirmLabel,
+  onConfirm,
+  onCancel,
+}: {
+  title: string;
+  body: string;
+  confirmLabel: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      style={{ position: 'absolute', inset: 0, zIndex: 270, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+    >
+      <div onClick={onCancel} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }} />
+      <div style={{ position: 'relative', width: '100%', maxWidth: 340, background: 'var(--bg)', borderRadius: 20, padding: 20, boxShadow: '0 12px 44px rgba(0,0,0,0.32)' }}>
+        <h3 style={{ margin: '0 0 8px', fontSize: 17, fontWeight: 800, color: 'var(--danger)', letterSpacing: -0.4, display: 'flex', alignItems: 'center', gap: 7 }}>
+          <Icon name="warn" size={19} /> {title}
+        </h3>
+        <p style={{ margin: '0 0 16px', fontSize: 13.5, color: 'var(--text-weak)', fontWeight: 600, letterSpacing: -0.3, lineHeight: 1.55 }}>{body}</p>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Btn variant="ghost" full onClick={onCancel}>
+            취소
+          </Btn>
+          <Btn variant="primary" full onClick={onConfirm}>
+            {confirmLabel}
           </Btn>
         </div>
       </div>
@@ -931,7 +978,11 @@ export function CopySheet({ open, onClose, label, meds }: { open: boolean; onClo
   const [teamsPrompt, setTeamsPrompt] = useState(false);
   const [opts, setOpts] = useState<ShareOptions>(getShareOptions);
   const [optsOpen, setOptsOpen] = useState(false);
-  const text = useMemo(() => buildListText(label, meds, opts), [label, meds, opts]);
+  const [confirmShare, setConfirmShare] = useState<null | 'copy' | 'share'>(null);
+  // 외부 복사·공유는 항상 마스킹 강제(환자명 가림). Teams(원내)만 원문 라벨 전송.
+  const baseOpts = { ingredient: opts.ingredient, appearance: opts.appearance };
+  const maskedText = useMemo(() => buildListText(label, meds, { ...baseOpts, mask: true }), [label, meds, opts.ingredient, opts.appearance]);
+  const teamsText = useMemo(() => buildListText(label, meds, { ...baseOpts, mask: false }), [label, meds, opts.ingredient, opts.appearance]);
   useEffect(() => {
     if (open) {
       setTeamsTargetState(getTeamsTarget());
@@ -940,6 +991,7 @@ export function CopySheet({ open, onClose, label, meds }: { open: boolean; onClo
       setCopied(false);
       setTeamsPrompt(false);
       setOptsOpen(false);
+      setConfirmShare(null);
     }
   }, [open]);
   const toggleOpt = (key: keyof ShareOptions) => {
@@ -949,11 +1001,24 @@ export function CopySheet({ open, onClose, label, meds }: { open: boolean; onClo
   };
   const canShare = typeof navigator !== 'undefined' && !!navigator.share;
   const launchTeams = (target?: string) => {
-    const url = teamsDeepLink(text, target);
+    const url = teamsDeepLink(teamsText, target); // 원내 전송 = 원문(마스킹 안 함)
+    let w: Window | null = null;
     try {
-      window.open(url, '_blank', 'noopener');
+      w = window.open(url, '_blank'); // noopener 없이 열어 핸들 확보(빈 탭 정리용)
     } catch {
-      window.location.href = url;
+      /* 아래 폴백 */
+    }
+    if (w) {
+      // Teams 앱으로 핸드오프된 직후 빈 탭 정리(best-effort — 브라우저 정책상 항상 닫히진 않음)
+      setTimeout(() => {
+        try {
+          w?.close();
+        } catch {
+          /* ignore */
+        }
+      }, 1200);
+    } else {
+      window.location.href = url; // 팝업 차단 시 같은 탭으로 폴백
     }
   };
   const openTeams = () => {
@@ -969,20 +1034,23 @@ export function CopySheet({ open, onClose, label, meds }: { open: boolean; onClo
     setTeamsPrompt(false);
     launchTeams(email);
   };
-  const doCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch {
-      /* ignore */
-    }
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
-  };
-  const doShare = async () => {
-    try {
-      if (navigator.share) await navigator.share({ text });
-    } catch {
-      /* ignore */
+  // 복사/공유는 개인정보 유출 확인 팝업을 거친 뒤 실행(항상 마스킹된 텍스트).
+  const runShare = async (kind: 'copy' | 'share') => {
+    setConfirmShare(null);
+    if (kind === 'copy') {
+      try {
+        await navigator.clipboard.writeText(maskedText);
+      } catch {
+        /* ignore */
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } else {
+      try {
+        if (navigator.share) await navigator.share({ text: maskedText });
+      } catch {
+        /* ignore */
+      }
     }
   };
   return (
@@ -990,7 +1058,7 @@ export function CopySheet({ open, onClose, label, meds }: { open: boolean; onClo
     <BottomSheet open={open} onClose={onClose} title="인계용 텍스트" maxH="78%">
       <p style={{ margin: '0 0 14px', fontSize: 14, color: 'var(--text-weak)', fontWeight: 600, letterSpacing: -0.3 }}>그대로 복사해 인계 메모/메신저에 붙여넣으세요.</p>
       <pre style={{ margin: 0, padding: 16, borderRadius: 'var(--r-card)', background: 'var(--fill)', color: 'var(--text)', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 280, overflowY: 'auto' }}>
-        {text}
+        {maskedText}
       </pre>
 
       <button
@@ -1001,33 +1069,45 @@ export function CopySheet({ open, onClose, label, meds }: { open: boolean; onClo
       >
         <span style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.3 }}>공유 상세설정</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, color: 'var(--text-weaker)' }}>
-          {[opts.ingredient && '성분명', opts.appearance && '겉모습', !opts.mask && '환자명노출'].filter(Boolean).join('·') || '기본'}
+          {[opts.ingredient && '성분명', opts.appearance && '겉모습'].filter(Boolean).join('·') || '기본'}
           <Icon name={optsOpen ? 'chevDown' : 'chevron'} size={16} />
         </span>
       </button>
       {optsOpen && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 4 }}>
-          <ShareToggle label="환자명 가리기" hint={`개인정보 보호 — 끄면 라벨이 그대로 나가요 (예: ${blindLabel(label) || '환*1'})`} on={opts.mask} onToggle={() => toggleOpt('mask')} />
           <ShareToggle label="성분명 표시" hint="예) 트라젠타정(리나글립틴)" on={opts.ingredient} onToggle={() => toggleOpt('ingredient')} />
           <ShareToggle label="겉모습 표시" hint="색·모양·각인 예) (하양/원형/Bayer)" on={opts.appearance} onToggle={() => toggleOpt('appearance')} />
         </div>
       )}
 
+      <p style={{ margin: '10px 2px 0', fontSize: 12, color: 'var(--text-weaker)', fontWeight: 600, lineHeight: 1.45 }}>
+        복사·공유 시 환자명은 <b>자동으로 가려서</b>(예: {blindLabel(label) || '환*1'}) 나가요.
+      </p>
+
       <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-        {canShare && <Btn variant="ghost" icon="share" onClick={doShare} style={{ flex: '0 0 auto', width: 54, padding: 0 }} />}
-        <Btn variant="primary" full icon={copied ? 'check' : 'copy'} onClick={doCopy}>
+        {canShare && <Btn variant="ghost" icon="share" onClick={() => setConfirmShare('share')} style={{ flex: '0 0 auto', width: 54, padding: 0 }} />}
+        <Btn variant="primary" full icon={copied ? 'check' : 'copy'} onClick={() => setConfirmShare('copy')}>
           {copied ? '복사됐어요' : '복사하기'}
         </Btn>
       </div>
       <Btn variant="primary" full icon="send" onClick={openTeams} style={{ marginTop: 8, background: '#5b5fc7' }}>
-        Teams로 보내기
+        Teams로 보내기 (원내)
       </Btn>
       <p style={{ margin: '8px 2px 0', fontSize: 12, color: 'var(--text-weaker)', fontWeight: 600, lineHeight: 1.45 }}>
         {teamsTarget
-          ? `대상: ${teamsTarget} — Teams가 열리고 내용이 입력돼요(보내기만 탭).`
+          ? `대상: ${teamsTarget} — 원내 전송이라 환자 라벨 그대로 보내요(보내기만 탭).`
           : '“Teams로 보내기”를 누르면 보낼 대상을 물어봐요. (설정 ⚙️에서도 지정 가능)'}
       </p>
     </BottomSheet>
+    {confirmShare && (
+      <ConfirmDialog
+        title="개인정보 유출 주의"
+        body="환자명은 가려서 나가지만, 카카오톡·문자·이메일 등 외부로 공유하면 처방·복약 정보가 유출될 수 있어요. 병원 인계 용도로만 사용하세요."
+        confirmLabel={confirmShare === 'copy' ? '가린 채 복사' : '가린 채 공유'}
+        onConfirm={() => runShare(confirmShare)}
+        onCancel={() => setConfirmShare(null)}
+      />
+    )}
     {teamsPrompt && (
       <TeamsTargetPrompt
         onSave={saveTeamsTarget}

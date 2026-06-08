@@ -1,5 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { teamsDeepLink, getTeamsTarget, setTeamsTarget } from './teamsTarget';
+import {
+  teamsDeepLink,
+  getTeamsTarget,
+  setTeamsTarget,
+  isAllowedTeamsTarget,
+  setAllowedDomains,
+  getAllowedDomains,
+} from './teamsTarget';
 
 describe('teamsTarget', () => {
   beforeEach(() => localStorage.clear());
@@ -34,5 +41,31 @@ describe('teamsTarget', () => {
     const query = url.split('?')[1];
     expect(query).toContain('%20');
     expect(query).not.toContain('+');
+  });
+});
+
+describe('isAllowedTeamsTarget (대상 도메인 제한)', () => {
+  beforeEach(() => localStorage.clear());
+
+  it('.ac.kr / .ac 로 끝나는 대학·대학병원 계정은 허용', () => {
+    expect(isAllowedTeamsTarget('ward7@snu.ac.kr')).toBe(true);
+    expect(isAllowedTeamsTarget('me@bbb.ac')).toBe(true);
+    expect(isAllowedTeamsTarget('  ME@Hosp.AC.KR ')).toBe(true); // 대소문자·공백 무시
+  });
+
+  it('원외 일반 계정은 차단', () => {
+    expect(isAllowedTeamsTarget('me@gmail.com')).toBe(false);
+    expect(isAllowedTeamsTarget('me@hospital.org')).toBe(false);
+    expect(isAllowedTeamsTarget('not-an-email')).toBe(false);
+    expect(isAllowedTeamsTarget('@ac.kr')).toBe(false); // 로컬파트 없음
+    expect(isAllowedTeamsTarget('me@')).toBe(false);
+  });
+
+  it('설정에 등록한 병원 도메인은 허용(서브도메인 포함)', () => {
+    setAllowedDomains('snuh.org, amc.seoul.kr');
+    expect(getAllowedDomains()).toEqual(['snuh.org', 'amc.seoul.kr']);
+    expect(isAllowedTeamsTarget('nurse@snuh.org')).toBe(true);
+    expect(isAllowedTeamsTarget('nurse@mail.snuh.org')).toBe(true); // 서브도메인
+    expect(isAllowedTeamsTarget('nurse@other.org')).toBe(false);
   });
 });

@@ -2,6 +2,7 @@
 // 딥링크로 Teams 를 열어 인계 텍스트를 입력창에 자동으로 채운다(전송은 사용자가 탭).
 
 const KEY = 'ward-pillcheck:teamsTarget';
+const ALLOWED_KEY = 'ward-pillcheck:teamsAllowedDomains';
 
 export function getTeamsTarget(): string {
   try {
@@ -19,6 +20,45 @@ export function setTeamsTarget(v: string): void {
   } catch {
     /* ignore */
   }
+}
+
+/** 설정에서 추가한 우리 병원 허용 도메인 목록(쉼표/공백 구분). 예: "snuh.org amc.seoul.kr" */
+export function getAllowedDomains(): string[] {
+  try {
+    return (localStorage.getItem(ALLOWED_KEY) ?? '')
+      .split(/[,\s]+/)
+      .map((s) => s.trim().toLowerCase().replace(/^@/, ''))
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+export function setAllowedDomains(v: string): void {
+  try {
+    const t = v.trim();
+    if (t) localStorage.setItem(ALLOWED_KEY, t);
+    else localStorage.removeItem(ALLOWED_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** 대상 계정이 허용 도메인이 아닐 때 보여줄 안내 문구. */
+export const TEAMS_TARGET_GUIDE =
+  '병원 공용 Teams 혹은 본인 병원 Teams 계정을 입력하세요. (대학·대학병원 .ac.kr/.ac 또는 설정에 등록한 병원 도메인)';
+
+/**
+ * Teams 대상 허용 여부: 학교·대학병원(.ac.kr/.ac)으로 끝나거나,
+ * 설정에 등록한 우리 병원 도메인으로 끝나면 허용. (원외 일반 계정 차단)
+ */
+export function isAllowedTeamsTarget(email: string): boolean {
+  const e = email.trim().toLowerCase();
+  const at = e.indexOf('@');
+  if (at < 1 || at === e.length - 1) return false; // 로컬·도메인이 모두 있어야 함
+  const domain = e.slice(at + 1);
+  if (/\.ac\.kr$/.test(domain) || /\.ac$/.test(domain)) return true;
+  return getAllowedDomains().some((d) => domain === d || domain.endsWith('.' + d));
 }
 
 /**

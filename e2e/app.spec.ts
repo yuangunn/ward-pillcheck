@@ -126,8 +126,29 @@ test('Teams 보내기: 대상 미지정 시 입력 팝업', async ({ page }) => 
   await expect(prompt).toBeVisible();
   await expect(prompt.getByLabel('Teams 대상 이메일')).toBeVisible();
   await expect(prompt.getByRole('button', { name: '저장하고 보내기' })).toBeDisabled();
+  // 원외 일반 도메인(.org)은 차단 — 안내 뜨고 버튼 비활성
   await prompt.getByLabel('Teams 대상 이메일').fill('ward7@hospital.org');
+  await expect(prompt.getByRole('button', { name: '저장하고 보내기' })).toBeDisabled();
+  await expect(prompt.getByText(/병원 공용 Teams/)).toBeVisible();
+  // 대학·대학병원(.ac.kr) 계정은 허용
+  await prompt.getByLabel('Teams 대상 이메일').fill('ward7@hospital.ac.kr');
   await expect(prompt.getByRole('button', { name: '저장하고 보내기' })).toBeEnabled();
+});
+
+test('복사하기: 개인정보 유출 확인 팝업 → 가린 채 복사', async ({ page }) => {
+  await page.goto('/');
+  await page.getByText('환자1').click();
+  await page.getByRole('button', { name: '약 검색해서 추가' }).click();
+  await page.getByLabel('각인').fill('Bayer');
+  await page.getByText('아스피린장용정100mg').click();
+  await page.getByRole('dialog', { name: '리스트에 추가' }).getByRole('button', { name: '환자 리스트에 추가' }).click();
+  await page.getByRole('button', { name: '공유하기' }).click();
+  await page.getByRole('dialog', { name: '인계용 텍스트' }).getByRole('button', { name: '복사하기' }).click();
+  // 확인 팝업이 뜨고, 확인하면 '복사됐어요'
+  const confirm = page.getByRole('dialog', { name: '개인정보 유출 주의' });
+  await expect(confirm).toBeVisible();
+  await confirm.getByRole('button', { name: '가린 채 복사' }).click();
+  await expect(page.getByRole('button', { name: '복사됐어요' })).toBeVisible();
 });
 
 test('공유 상세설정: 겉모습 토글 → 미리보기 반영', async ({ page }) => {
