@@ -1095,7 +1095,7 @@ export function CopySheet({ open, onClose, label, meds }: { open: boolean; onClo
       </Btn>
       <p style={{ margin: '8px 2px 0', fontSize: 12, color: 'var(--text-weaker)', fontWeight: 600, lineHeight: 1.45 }}>
         {teamsTarget
-          ? `대상: ${teamsTarget} — 원내 전송이라 환자 라벨 그대로 보내요(보내기만 탭).`
+          ? `대상: ${teamsTarget} — 원내 전송이라 환자 이름 그대로 보내요(보내기만 탭).`
           : '“Teams로 보내기”를 누르면 보낼 대상을 물어봐요. (설정 ⚙️에서도 지정 가능)'}
       </p>
     </BottomSheet>
