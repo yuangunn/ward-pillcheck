@@ -4,6 +4,7 @@ import {
   FREQ_DETAIL_CODES,
   freqDetailFamily,
   isFreqChipSelected,
+  isStandardFreq,
 } from './frequency';
 
 describe('frequency 비정형 용법', () => {
@@ -28,6 +29,19 @@ describe('frequency 비정형 용법', () => {
     expect(freqDetailFamily('격일 저녁')).toBe('QOD');
     expect(freqDetailFamily('주 1회 (월)')).toBe('QW');
     expect(freqDetailFamily('5일 복용 2일 휴약')).toBe('ETC');
+  });
+
+  it('홀수일/짝수일/2일에 한번 등 격일 동의어도 QOD 계열', () => {
+    expect(freqDetailFamily('홀수일')).toBe('QOD');
+    expect(freqDetailFamily('짝수일')).toBe('QOD');
+    expect(freqDetailFamily('2일에 한번')).toBe('QOD');
+    expect(freqDetailFamily('이틀에 한번')).toBe('QOD');
+  });
+
+  it('isStandardFreq: 표준 코드만 true', () => {
+    for (const c of ['QD', 'BID', 'TID', 'QID', 'HS']) expect(isStandardFreq(c)).toBe(true);
+    for (const c of ['QW', 'QOD', 'PRN', '주 1회(월)', '홀수일', '필요시', '기타'])
+      expect(isStandardFreq(c)).toBe(false);
   });
 
   it('칩 선택: 표준은 정확 일치, 비정형은 계열 일치', () => {
