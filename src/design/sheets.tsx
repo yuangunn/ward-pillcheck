@@ -10,7 +10,7 @@ import {
   isFreqChipSelected,
 } from '../constants/frequency';
 import { TIMING_PRESETS, timingOrder } from '../constants/timing';
-import { buildListText, tidyText } from '../domain/format';
+import { blindLabel, buildListText, tidyText } from '../domain/format';
 import { shapeLabel } from '../domain/shape';
 import { splitLineKind, SPLIT_LINE_LABEL } from '../domain/splitLine';
 import type { MedItem, Patient } from '../domain/models';
@@ -56,6 +56,7 @@ export interface MedFormData {
   doseUnit?: string;
   frequency: string;
   timings: string[];
+  memo?: string;
 }
 
 export type ManualSource = {
@@ -433,6 +434,7 @@ export function AddMedSheet({
   const [color, setColor] = useState('');
   const [shape, setShape] = useState('');
   const [marking, setMarking] = useState('');
+  const [memo, setMemo] = useState('');
   const [showAppear, setShowAppear] = useState(false);
   const [customInput, setCustomInput] = useState('');
   const [showCustom, setShowCustom] = useState(false);
@@ -450,6 +452,7 @@ export function AddMedSheet({
       setColor(source.color || '');
       setShape(source.shape || '');
       setMarking(source.marking || '');
+      setMemo(source.memo || '');
     } else if (source.__kind === 'manual') {
       setCount(1);
       setDoseUnit(source.defaultUnit || 'T');
@@ -459,6 +462,7 @@ export function AddMedSheet({
       setColor('');
       setShape('');
       setMarking('');
+      setMemo('');
     } else {
       setCount(1);
       setDoseUnit(source.formCodeName?.includes('캡슐') ? 'C' : 'T');
@@ -469,6 +473,7 @@ export function AddMedSheet({
       setShape(source.drugShape || '');
       // 글리프 가독성: 앞면 각인 우선(없으면 뒷면), 끝의 구분자는 제거
       setMarking((source.printFront || source.printBack || '').replace(/^[\s/\-,]+|[\s/\-,]+$/g, ''));
+      setMemo('');
     }
     setShowAppear(false);
     setShowCustom(false);
@@ -554,6 +559,7 @@ export function AddMedSheet({
       tabletCount: count,
       frequency: freq,
       timings: timings.length ? timings : ['필요시'],
+      memo: memo.trim() || undefined,
     });
   };
 
@@ -749,6 +755,18 @@ export function AddMedSheet({
             </Btn>
           </div>
         )}
+      </Section>
+
+      <Section label="메모 (특이사항)">
+        <TextField
+          value={memo}
+          onChange={setMemo}
+          placeholder="예) SBP 130 이상시 복용, 아침약만 6:30am"
+          aria-label="복약 메모"
+        />
+        <div style={{ fontSize: 12, color: 'var(--text-weaker)', fontWeight: 600, margin: '6px 2px 0', letterSpacing: -0.2 }}>
+          인계 복사 시 약 뒤에 <b>※메모</b> 로 함께 나가요.
+        </div>
       </Section>
 
       <button
@@ -983,12 +1001,13 @@ export function CopySheet({ open, onClose, label, meds }: { open: boolean; onClo
       >
         <span style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.3 }}>공유 상세설정</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, color: 'var(--text-weaker)' }}>
-          {[opts.ingredient && '성분명', opts.appearance && '겉모습'].filter(Boolean).join('·') || '기본'}
+          {[opts.ingredient && '성분명', opts.appearance && '겉모습', !opts.mask && '환자명노출'].filter(Boolean).join('·') || '기본'}
           <Icon name={optsOpen ? 'chevDown' : 'chevron'} size={16} />
         </span>
       </button>
       {optsOpen && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 4 }}>
+          <ShareToggle label="환자명 가리기" hint={`개인정보 보호 — 끄면 라벨이 그대로 나가요 (예: ${blindLabel(label) || '환*1'})`} on={opts.mask} onToggle={() => toggleOpt('mask')} />
           <ShareToggle label="성분명 표시" hint="예) 트라젠타정(리나글립틴)" on={opts.ingredient} onToggle={() => toggleOpt('ingredient')} />
           <ShareToggle label="겉모습 표시" hint="색·모양·각인 예) (하양/원형/Bayer)" on={opts.appearance} onToggle={() => toggleOpt('appearance')} />
         </div>

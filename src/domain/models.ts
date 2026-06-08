@@ -38,6 +38,7 @@ export interface MedItem {
   doseUnit?: string; // 용량 단위. 기본 'T'(정). 주사약 'U'(단위)·'mL'·'회분' 등
   frequency: FrequencyCode;
   timings: TimingCode[]; // 복용시점. 1일 투여횟수만큼(QD=1, BID=2, TID=3, QID=4)
+  memo?: string; // 특이사항/복약 메모. 예) "SBP 130 이상시 복용", "아침약만 6:30am"
   createdAt: number;
 }
 

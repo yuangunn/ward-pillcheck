@@ -5,12 +5,14 @@ export interface ShareOptions {
   ingredient: boolean;
   /** 겉모습(색/모양/각인) 괄호 포함 여부 */
   appearance: boolean;
+  /** 환자 라벨 가리기(개인정보 보호). 기본 켜짐 */
+  mask: boolean;
 }
 
 const KEY = 'ward-pillcheck:shareOptions';
 
-// 기본값: 성분명은 빼고(간결), 겉모습은 표시.
-export const DEFAULT_SHARE_OPTIONS: ShareOptions = { ingredient: false, appearance: true };
+// 기본값: 성분명은 빼고(간결), 겉모습은 표시, 환자명은 가림(개인정보 보호).
+export const DEFAULT_SHARE_OPTIONS: ShareOptions = { ingredient: false, appearance: true, mask: true };
 
 export function getShareOptions(): ShareOptions {
   try {
@@ -20,6 +22,7 @@ export function getShareOptions(): ShareOptions {
     return {
       ingredient: parsed.ingredient ?? DEFAULT_SHARE_OPTIONS.ingredient,
       appearance: parsed.appearance ?? DEFAULT_SHARE_OPTIONS.appearance,
+      mask: parsed.mask ?? DEFAULT_SHARE_OPTIONS.mask,
     };
   } catch {
     return { ...DEFAULT_SHARE_OPTIONS };

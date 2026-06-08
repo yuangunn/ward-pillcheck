@@ -82,19 +82,22 @@ const LATE = 99999; // 매핑 없는 시점 정렬 위치(맨 뒤)
 const clockLabel = (t: string): string => TIMING_CLOCK[t] ?? t;
 const clockMin = (t: string): number => TIMING_MIN[t] ?? LATE;
 
-/** 인계 공유 옵션: 성분명·겉모습 포함 여부 */
+/** 인계 공유 옵션: 성분명·겉모습 포함 여부, 환자 라벨 가리기 */
 export interface ShareOpts {
   ingredient?: boolean; // 품목명의 성분 괄호(…) 포함
   appearance?: boolean; // 겉모습(색/모양/각인) 포함
+  mask?: boolean; // 환자 라벨 가운데 가리기. 미지정/true=가림(기본), false=원문 노출
 }
 
-/** 공유용 약 한 줄: 용법·시점 제거, 이름/용량(+옵션에 따라 성분·겉모습) */
+/** 공유용 약 한 줄: 용법·시점 제거, 이름/용량(+옵션에 따라 성분·겉모습)·메모 */
 function shareMedLine(med: MedItem, opts: ShareOpts): string {
   const unit = med.doseUnit || 'T';
   const name = opts.ingredient ? med.name : stripIngredient(med.name);
   const head = `${name} ${formatTabletCount(med.tabletCount)}${unit}`;
   const appearance = opts.appearance === false ? '' : formatAppearance(med);
-  return appearance ? `${head} ${appearance}` : head;
+  const line = appearance ? `${head} ${appearance}` : head;
+  const memo = med.memo?.trim() ? ` ※${med.memo.trim()}` : '';
+  return `${line}${memo}`;
 }
 
 /** 복용시점 패턴으로 묶은 그룹. 화면 텍스트 뷰와 인계 공유가 함께 사용한다. */
@@ -144,7 +147,7 @@ export function groupMedsByTiming(meds: MedItem[]): TimingGroup[] {
  * - 성분명·용법코드·시점목록은 생략(헤더가 시점을 대신함)
  */
 export function buildListText(label: string, meds: MedItem[], opts: ShareOpts = {}): string {
-  const head = `[${blindLabel(label)}]`;
+  const head = `[${opts.mask === false ? label.trim() : blindLabel(label)}]`;
   if (!meds.length) return head;
   const blocks = groupMedsByTiming(meds).map(
     (g) => `<${g.header}>\n${g.meds.map((m) => shareMedLine(m, opts)).join('\n')}`,

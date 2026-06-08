@@ -524,8 +524,15 @@ function MedTextView({
                 }}
               >
                 <PillGlyph color={m.color} shape={m.shape} marking="" size={dot} />
-                <span className="med-name" style={{ flex: 1, minWidth: 0, fontSize: 14.5 * s, fontWeight: 700, color: 'var(--text-strong)', letterSpacing: -0.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {stripIngredient(m.name)}
+                <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  <span className="med-name" style={{ fontSize: 14.5 * s, fontWeight: 700, color: 'var(--text-strong)', letterSpacing: -0.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {stripIngredient(m.name)}
+                  </span>
+                  {m.memo?.trim() && (
+                    <span style={{ fontSize: 12 * s, fontWeight: 700, color: 'var(--primary-ink)', letterSpacing: -0.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      ※ {m.memo.trim()}
+                    </span>
+                  )}
                 </span>
                 <span style={{ flexShrink: 0, fontSize: 13.5 * s, fontWeight: 800, color: 'var(--primary-ink)', letterSpacing: -0.2 }}>
                   {m.tabletCount}

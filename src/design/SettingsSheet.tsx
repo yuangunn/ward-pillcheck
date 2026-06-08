@@ -20,7 +20,7 @@ import { getTeamsTarget, setTeamsTarget } from '../state/teamsTarget';
 // 내려받기 용량(배포본 기준 근사) — 사용자 안내용.
 const DL_PILLS_MB = 11; // pills.json
 const DL_DETAIL_MB = 137; // details.json.gz(압축)
-const DL_TOTAL_LABEL = '약 150MB+'; // 검색+상세+금기 룰셋(DUR 크기는 배포 빌드에서 확정)
+const DL_TOTAL_LABEL = '약 150MB'; // 검색 11MB + 상세 137MB + 금기 룰셋(DUR) 0.7MB
 const STORE_TOTAL_LABEL = '약 600MB'; // 해제 후 IndexedDB 사용량 근사
 
 // 오프라인/인트라넷용 설정: 검색 + 허가사항 상세 + DUR 룰셋을 기기에 받아두기.
