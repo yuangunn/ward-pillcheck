@@ -451,6 +451,9 @@ export interface ZoomPill {
 export function Lightbox({ pill, onClose }: { pill: ZoomPill | null; onClose: () => void }) {
   const [show, setShow] = useState(false);
   const [imgFailed, setImgFailed] = useState(false);
+  // ⚠️ 모든 훅은 조기 return(!pill) "위"에서 항상 같은 순서로 호출해야 한다(Rules of Hooks).
+  // 워커(인터넷) 연결 안 되면(인트라넷) 프록시 사진을 못 받으니 글리프만 보여주고 새 탭 링크 숨김.
+  const online = useWorkerReachable() !== false;
   useEffect(() => {
     if (pill) {
       setImgFailed(false);
@@ -459,8 +462,6 @@ export function Lightbox({ pill, onClose }: { pill: ZoomPill | null; onClose: ()
   }, [pill]);
   if (!pill) return null;
   const ap = [pill.color, pill.drugShape, cleanMarking(pill.marking)].filter(Boolean).join(' · ');
-  // 워커(인터넷) 연결 안 되면(인트라넷) 프록시 사진을 못 받으니 글리프만 보여주고 새 탭 링크 숨김.
-  const online = useWorkerReachable() !== false;
   const realImg = online && pill.imageUrl && !imgFailed ? proxiedImg(pill.imageUrl) : undefined;
   // 뒷면 각인이 따로 있으면 앞/뒤 두 글리프로 표시(사진 없을 때)
   const showBack = !realImg && !!pill.markingBack && pill.markingBack !== pill.marking;
