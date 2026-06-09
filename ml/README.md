@@ -41,3 +41,24 @@ python ml/export_marks.py --onnx ml/out/markembed.onnx \
 - 합성 데이터: **온더플라이면 0**(원본 마크 2.6MB만). 디스크 저장 시 ~90~220MB.
 - 학습 체크포인트(개발 PC): ~25~35MB(일시적).
 - **앱 추가분: ONNX 모델 ~1~5MB(int8/fp16) + 임베딩 ~0.1~0.5MB.** lazy 로드면 기본 번들 0.
+
+## 로컬 GPU 학습 (RTX 50시리즈 / Blackwell)
+> ⚠️ RTX 5070 Ti 등 50시리즈(sm_120)는 **CUDA 12.8 빌드 torch** 필요. 기본 휠은 "no kernel image" 에러.
+
+```bash
+# 1) torch (Blackwell = cu128). 나머지는 PyPI.
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+pip install onnx onnxruntime onnxscript pillow numpy
+python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))"  # True, RTX 5070 Ti
+
+# 2) 공정 비교(작은 CNN, 빠름) — HOG 대비 신호 확인
+python ml/run_experiment.py --img 96 --per-class 48 --epochs 30
+
+# 3) 본격 학습(MobileNetV3, 224px) — GPU
+python ml/train.py --epochs 50 --per-class 200 --emb-dim 256 --batch 128 \
+  --real <수집한-ward-pillcheck-draw-samples-*.json>   # 실데이터 있으면
+python ml/export_marks.py   # → ml/out/embeddings.json
+# Windows 에서 DataLoader 문제 시 train.py num_workers=0
+```
+산출물(`ml/out/markembed.onnx`, `embeddings.json`)을 `public/`에 두고 `src/api/markEmbed.ts` 의
+`MODEL_URL`·입력크기·임베딩을 맞추면 same-origin 으로 로드(오프라인 OK).
