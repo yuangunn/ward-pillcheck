@@ -1,8 +1,9 @@
 // 실험적(옵트인): 온디바이스 ONNX 임베딩 기반 마크 매칭.
-// MobileNetV3-small(224px·3ch ImageNet정규화, ~4.3MB)을 마크의 합성 손그림으로 학습(ml/train.py).
-// 자체 합성 벤치(held-out): Recall@1 100% (출고 TinyNet 84% / 현재 HOG 32%).
-//   ⚠️ 평가가 학습과 같은 "합성 증강" 분포라 100%는 과적합 신호 — 실제 손그림 우위는 미검증이다.
-//   합성 벤치는 포화됨. 설정 '그림 데이터 수집'으로 실데이터 모아 재평가해야 진짜로 판정된다.
+// MobileNetV3-large(224px·3ch ImageNet정규화, ~12.6MB)을 마크의 합성 손그림으로 학습
+// (ml/train.py, augment v2 풀스펙트럼 + ArcFace). 합성 벤치 Recall@1: 쉬운 99.9% /
+// 어려운 98.9% / 극악(미학습) 82.2% vs HOG 32%·15%·6%.
+//   ⚠️ 합성 기준이라 강건성 향상은 실사용 도움 신호일 뿐 증명은 아니다.
+//   실제 손그림 우위는 설정 '그림 데이터 수집'으로 실데이터 모아 재평가해야 판정된다.
 // 모델·임베딩은 same-origin 번들(public/models, 프리캐시 제외). ort 런타임/wasm 만 CDN 동적 로드.
 
 import type { MarkFeature, RankedMark } from './marksim';

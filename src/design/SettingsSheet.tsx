@@ -319,7 +319,7 @@ export function SettingsSheet({ open, onClose, onFlash, onShowGuide }: { open: b
         <span style={{ flex: 1, minWidth: 0 }}>
           <span style={{ display: 'block', fontSize: 14, fontWeight: 800, color: 'var(--text)' }}>그려서 찾기 — AI 임베딩(ONNX)</span>
           <span style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-weaker)', lineHeight: 1.45, marginTop: 2 }}>
-            켜면 그려서찾기가 <b>학습된 온디바이스 AI 모델</b>로 매칭해요. 자체 합성 벤치에선 기본보다 정확(100% vs 32%)했지만 이 수치는 합성 한정이라, 실제 손그림 체감은 확인 중이에요(⚠️ 실험적). 켤 때 모델(~4.3MB) 1회 로드(인터넷 필요).
+            켜면 그려서찾기가 <b>학습된 온디바이스 AI 모델</b>로 매칭해요. 강화 학습으로 다양·왜곡된 손그림에도 강건(합성 벤치 98%+ vs 기본 HOG 15~32%)하지만 이 수치는 합성 한정이라, 실제 손그림 체감은 확인 중이에요(⚠️ 실험적). 켤 때 모델(~12.6MB) 1회 로드(인터넷 필요).
           </span>
         </span>
       </button>
