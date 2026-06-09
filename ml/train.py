@@ -107,6 +107,7 @@ def main() -> None:
     ap.add_argument("--batch", type=int, default=64)
     ap.add_argument("--lr", type=float, default=3e-4)
     ap.add_argument("--out", default="ml/out")
+    ap.add_argument("--workers", type=int, default=0, help="DataLoader workers (Windows 권장 0; 속도 필요시 4)")
     args = ap.parse_args()
 
     os.makedirs(args.out, exist_ok=True)
@@ -117,7 +118,7 @@ def main() -> None:
     print(f"마크 {len(marks)}종 · 합성 {len(marks)*args.per_class} · 실데이터 {len(real)} · device={device}")
 
     ds = MarkDataset(marks, real, args.per_class)
-    dl = DataLoader(ds, batch_size=args.batch, shuffle=True, num_workers=4, drop_last=True)
+    dl = DataLoader(ds, batch_size=args.batch, shuffle=True, num_workers=args.workers, drop_last=True)
 
     net = EmbedNet(args.emb_dim).to(device)
     head = nn.Linear(args.emb_dim, len(marks)).to(device)
@@ -144,6 +145,7 @@ def main() -> None:
     torch.onnx.export(
         net, dummy, onnx_path, input_names=["input"], output_names=["embedding"],
         opset_version=17, dynamic_axes={"input": {0: "batch"}, "embedding": {0: "batch"}},
+        dynamo=False,
     )
     with open(os.path.join(args.out, "classes.json"), "w", encoding="utf-8") as f:
         json.dump([{"imgId": m[0], "code": m[1]} for m in marks], f, ensure_ascii=False)

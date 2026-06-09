@@ -142,6 +142,7 @@ def main():
     ap.add_argument("--emb", type=int, default=128)
     ap.add_argument("--eval-q", type=int, default=6)
     ap.add_argument("--out", default="ml/out")
+    ap.add_argument("--workers", type=int, default=0, help="DataLoader workers (Windows 권장 0)")
     args = ap.parse_args()
     os.makedirs(args.out, exist_ok=True)
     torch.manual_seed(0)
@@ -207,7 +208,7 @@ def main():
     opt = torch.optim.AdamW(list(net.parameters()) + list(head.parameters()), lr=1e-3)
     lossf = nn.CrossEntropyLoss()
     dl = DataLoader(SynthDS(bases, args.per_class, args.img), batch_size=args.batch,
-                    shuffle=True, num_workers=4, drop_last=True)
+                    shuffle=True, num_workers=args.workers, drop_last=True)
     for ep in range(args.epochs):
         net.train(); head.train(); t0 = time.time(); run = cor = tot = 0
         for x, y in dl:
@@ -223,7 +224,7 @@ def main():
         # export ONNX + embeddings.json
         dummy = torch.randn(1, 1, args.img, args.img)
         onnx_p = os.path.join(args.out, "markembed.onnx")
-        torch.onnx.export(net, dummy, onnx_p, input_names=["input"], output_names=["embedding"], opset_version=17)
+        torch.onnx.export(net, dummy, onnx_p, input_names=["input"], output_names=["embedding"], opset_version=17, dynamo=False)
         embs = [{"imgId": ids[i], "code": codes[i], "vec": [round(float(x), 5) for x in _l2(tn_embed(bases[i]))]} for i in range(N)]
         with open(os.path.join(args.out, "embeddings.json"), "w", encoding="utf-8") as f:
             json.dump({"img": args.img, "emb": args.emb, "marks": embs}, f, ensure_ascii=False)

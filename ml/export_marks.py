@@ -41,9 +41,10 @@ def main() -> None:
         v = sess.run(None, {inp: tensor(load_base(path))})[0][0]
         v = v / (np.linalg.norm(v) or 1.0)
         out.append({"imgId": imgId, "code": code, "vec": [round(float(x), 5) for x in v]})
-    with open(args.out, "w", encoding="utf-8") as f:
-        json.dump(out, f, ensure_ascii=False)
     dim = len(out[0]["vec"]) if out else 0
+    # markEmbed.ts 로더가 기대하는 래핑 포맷 {img, emb, marks}. (run_experiment.py 와 동일)
+    with open(args.out, "w", encoding="utf-8") as f:
+        json.dump({"img": OUT, "emb": dim, "marks": out}, f, ensure_ascii=False)
     print(f"임베딩 {len(out)}종 × {dim}d → {args.out}")
 
 

@@ -26,4 +26,9 @@ blob-report/
 # ML 파이프라인 출력물(학습 산출물·미리보기)
 ml/_preview/
 ml/out/
+ml/out_*/
 ml/__pycache__/
+ml/.venv/
+
+# 플러그인/스킬 스크래치 작업 폴더
+_workspace/
