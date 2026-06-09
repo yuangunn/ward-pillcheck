@@ -19,14 +19,22 @@ WORK = 256  # 작업 해상도
 
 
 def list_marks(marks_dir: str, marks_json: str) -> List[Tuple[str, str, str]]:
-    """[(imgId, code, path)] — marks.json(file,code) 기준, 실제 존재하는 파일만."""
+    """[(imgId, code, path)] — marks.json(file,code) 기준, 실제 존재하는 파일만.
+
+    같은 이미지 파일을 가리키는 중복 항목(시각은 같고 코드만 다름)은 첫 항목만 남긴다.
+    동일 이미지를 서로 다른 클래스로 학습시키면 분류가 깨지므로 '이미지 1장 = 1클래스'.
+    (marks.json 431항목 ≈ 224 유니크 이미지)
+    """
     with open(marks_json, encoding="utf-8") as f:
         arr = json.load(f)
-    out = []
+    out: List[Tuple[str, str, str]] = []
+    seen: set[str] = set()
     for m in arr:
         p = os.path.join(marks_dir, m["file"])
-        if os.path.exists(p):
-            out.append((m["file"].rsplit(".", 1)[0], m.get("code", ""), p))
+        if m["file"] in seen or not os.path.exists(p):
+            continue
+        seen.add(m["file"])
+        out.append((m["file"].rsplit(".", 1)[0], m.get("code", ""), p))
     return out
 
 
