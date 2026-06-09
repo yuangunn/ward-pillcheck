@@ -12,7 +12,9 @@ import type { MarkFeature, RankedMark } from './marksim';
 
 const FLAG_KEY = 'ward-pillcheck:embedMode';
 // SqueezeNet 1.0 (~5MB) — 검증된 ONNX 모델 zoo. 켤 때 1회 받아 캐시.
-const MODEL_URL = 'https://github.com/onnx/models/raw/main/validated/vision/classification/squeezenet/model/squeezenet1.0-7.onnx';
+// ⚠️ github.com/.../raw/ 는 302 리다이렉트의 CORS 헤더가 비어 브라우저 fetch 가 막힌다.
+//    리다이렉트 최종 호스트(media.githubusercontent.com, ACAO:*)를 직접 받는다.
+const MODEL_URL = 'https://media.githubusercontent.com/media/onnx/models/main/validated/vision/classification/squeezenet/model/squeezenet1.0-7.onnx';
 const MODEL_KEY = 'onnxmodel:squeezenet1.0-7';
 // onnxruntime-web 는 번들하지 않고 CDN 에서 런타임 동적 로드(토글 켤 때만, 인터넷 필요).
 // → 앱 번들/프리캐시에 26MB wasm 이 들어가지 않게 한다.
