@@ -5,6 +5,7 @@ import { COLOR_OPTIONS, SHAPE_OPTIONS, FORM_OPTIONS } from '../constants/appeara
 import { shapeLabel } from '../domain/shape';
 import { splitLineKind, SPLIT_LINE_OPTIONS, SPLIT_LINE_LABEL, SPLIT_LINE_SYMBOL, type SplitLineKind } from '../domain/splitLine';
 import { groupMedsByTiming, stripIngredient, type TimingGroup } from '../domain/format';
+import { narrowResults } from '../domain/narrow';
 import { freqShareTag } from '../constants/frequency';
 import type { MedItem, Patient } from '../domain/models';
 import { drugApi, proxiedImg, searchInjections, isInjectionName, type PermitDrug, type PillResult, type PillSearchQuery } from '../api';
@@ -23,6 +24,10 @@ function fmtDate(iso?: string): string {
 
 const AVATAR_TINTS = ['#2f6bff', '#11b386', '#7c5cff', '#ff7a3d', '#e84393', '#0fa3b1'];
 const avatarTint = (i: number) => AVATAR_TINTS[i % AVATAR_TINTS.length];
+
+// 결과 내 재검색: 넉넉히 가져와(FETCH_CAP) 메모리에서 좁히고, 화면엔 RENDER_CAP 개만 렌더.
+const FETCH_CAP = 500;
+const RENDER_CAP = 50;
 
 /** 환자 색은 정렬 순서가 바뀌어도 고정되도록 라벨 숫자 기반으로 부여 */
 function avatarTintFor(p: Patient): string {
@@ -629,6 +634,7 @@ export function SearchScreen({
   const [loading, setLoading] = useState(false);
   const [injResults, setInjResults] = useState<PermitDrug[]>([]);
   const [injLoading, setInjLoading] = useState(false);
+  const [narrow, setNarrow] = useState(''); // 결과 내 재검색어(client-side 좁히기)
 
   const toggleColor = (c: string) => setColors((cs) => (cs.includes(c) ? cs.filter((x) => x !== c) : [...cs, c]));
   const toggleForm = (f: string) => setForms((fs) => (fs.includes(f) ? fs.filter((x) => x !== f) : [...fs, f]));
@@ -649,8 +655,9 @@ export function SearchScreen({
           // 선택한 마크의 "이미지 id"로 매칭(같은 실제 마크만). imgId 없으면 글자값으로 폴백.
           markImg: pickedMark?.imgId,
           markCode: pickedMark && !pickedMark.imgId ? pickedMark.code : undefined,
+          numOfRows: FETCH_CAP, // 결과 내 재검색용 풀(메모리). 렌더는 RENDER_CAP.
         }
-      : { itemName: name.trim() || undefined };
+      : { itemName: name.trim() || undefined, numOfRows: FETCH_CAP };
 
   const reqId = useRef(0);
   const key = JSON.stringify(query);
@@ -679,6 +686,11 @@ export function SearchScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, active, mode]);
 
+  // 검색 조건이 바뀌면(=새 검색) 결과 내 재검색어는 초기화.
+  useEffect(() => {
+    setNarrow('');
+  }, [key, mode]);
+
   // 주사제(허가정보 이름검색)
   useEffect(() => {
     if (mode !== 'injection' || !name.trim()) {
@@ -702,8 +714,12 @@ export function SearchScreen({
     setForms([]);
     setLines([]);
     setMarking('');
+    setNarrow('');
     onClearMark();
   };
+
+  // 결과 내 재검색: 받아온 결과 풀(최대 FETCH_CAP)을 키워드로 좁힌다. 빈 검색어면 그대로.
+  const shown = useMemo(() => narrowResults(results, narrow), [results, narrow]);
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -895,8 +911,37 @@ export function SearchScreen({
       )}
 
       <div style={{ padding: '8px 16px 0', display: mode === 'injection' ? 'none' : 'block' }}>
-        {active && !loading && (
-          <div style={{ padding: '0 4px 12px', fontSize: 13.5, fontWeight: 700, color: 'var(--text-weaker)' }}>{results.length}개 찾음</div>
+        {active && !loading && results.length > 0 && (
+          <div style={{ padding: '0 0 12px' }}>
+            {/* 결과 내 재검색 — 받아온 결과를 키워드로 즉시 좁힘(서버 재조회 없음) */}
+            <div style={{ position: 'relative' }}>
+              <input
+                type="text"
+                value={narrow}
+                onChange={(e) => setNarrow(e.target.value)}
+                placeholder="결과 내 검색 (이름·회사·성분·각인)"
+                aria-label="결과 내 재검색"
+                style={{ width: '100%', boxSizing: 'border-box', height: 42, padding: narrow ? '0 38px 0 14px' : '0 14px', borderRadius: 'var(--r-btn)', border: '1.5px solid var(--border)', background: 'var(--fill)', color: 'var(--text)', fontSize: 14.5, fontFamily: 'inherit', fontWeight: 600, letterSpacing: -0.3, outline: 'none' }}
+              />
+              {narrow && (
+                <button
+                  type="button"
+                  onClick={() => setNarrow('')}
+                  aria-label="결과 내 검색 지우기"
+                  style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', width: 28, height: 28, borderRadius: '50%', border: 'none', background: 'transparent', color: 'var(--text-weaker)', fontSize: 16, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            <div style={{ padding: '8px 4px 0', fontSize: 13.5, fontWeight: 700, color: 'var(--text-weaker)' }}>
+              {narrow.trim()
+                ? `${shown.length}개 (전체 ${results.length}개 중)`
+                : results.length > RENDER_CAP
+                  ? `${results.length}개 중 ${RENDER_CAP}개 표시 · 결과 내 검색으로 좁혀보세요`
+                  : `${results.length}개 찾음`}
+            </div>
+          </div>
         )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--list-gap)' }}>
           {active && loading && (
@@ -909,8 +954,15 @@ export function SearchScreen({
               색·모양을 바꿔보세요.
             </div>
           )}
+          {active && !loading && results.length > 0 && narrow.trim() && shown.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '36px 0', color: 'var(--text-weak)', fontSize: 14.5, fontWeight: 600 }}>
+              결과 내 ‘{narrow.trim()}’에 해당하는 약이 없어요.
+              <br />
+              검색어를 바꿔보세요.
+            </div>
+          )}
           {!loading &&
-            results.map((p) => (
+            shown.slice(0, RENDER_CAP).map((p) => (
               <ResultCard
                 key={p.itemSeq}
                 pill={p}
