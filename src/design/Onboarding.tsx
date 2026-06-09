@@ -244,7 +244,7 @@ function obSlides(): Slide[] {
             <Icon name="chevron" size={26} style={{ color: 'var(--text-weaker)' }} />
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: '12px 14px', borderRadius: 16, border: '1.5px solid var(--primary)', background: 'var(--primary-weak)' }}>
               <MarkGlyph option={{ code: '+' }} size={40} />
-              <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--primary-ink)' }}>98%</span>
+              <Icon name="check" size={18} stroke="var(--primary-ink)" sw={2.6} />
             </div>
           </div>
         </>

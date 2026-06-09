@@ -6,9 +6,9 @@ import {
   isStandardFreq,
 } from '../constants/frequency';
 
-/** 정제 수 표시: 0.5 → "0.5", 1 → "1" (불필요한 소수점 제거) */
+/** 정제 수 표시: 1 → "1", 0.5 → "0.5" (JS String 이 이미 불필요한 소수점 없이 처리) */
 export function formatTabletCount(count: number): string {
-  return Number.isInteger(count) ? String(count) : String(count);
+  return String(count);
 }
 
 /** 각인 텍스트 정리: 분할선/구분용 대시·언더바 런 → 공백, 연속 공백 → 1칸, 양끝 구분자 제거.

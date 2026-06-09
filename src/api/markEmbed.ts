@@ -13,7 +13,11 @@ const FLAG_KEY = 'ward-pillcheck:embedMode';
 const BASE = (import.meta.env.BASE_URL as string) ?? '/';
 const MODEL_URL = `${BASE}models/markembed.onnx`; // 번들, same-origin(=CORS 무관, IDB 캐시 후 오프라인)
 const EMB_URL = `${BASE}models/embeddings.json`;
-const MODEL_KEY = 'onnxmodel:markembed-v1';
+// ⚠️ 모델(public/models/markembed.onnx) 교체 시 반드시 이 버전을 올릴 것.
+// 안 그러면 옛 모델이 IDB 에 캐시된 채로 새 embeddings.json(다른 모델 산출)과 섞여
+// 질의·템플릿 임베딩이 서로 다른 모델에서 나와 코사인이 무의미해진다(검색이 조용히 깨짐).
+// v1: TinyNet(96·128d) · v2: MobileNetV3-small · v3: MobileNetV3-large(224·256d)
+const MODEL_KEY = 'onnxmodel:markembed-v3';
 // onnxruntime-web 은 번들하지 않고 CDN 에서 런타임 동적 로드(켤 때만, 인터넷 1회) → 앱 번들 0 영향.
 const ORT_CDN = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.26.0/dist/ort.min.mjs';
 const WASM_CDN = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.26.0/dist/';

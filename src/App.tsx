@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore, uid, nextPatientLabel } from './state/store';
 import { useWorkerReachable } from './state/connectivity';
 import { durBundleStatus } from './api';
@@ -146,9 +146,11 @@ export default function App() {
   const patients = state.patients;
   const activePatient: Patient | null = patients.find((p) => p.id === route.patientId) ?? null;
 
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const flash = (m: string) => {
     setToast(m);
-    setTimeout(() => setToast(''), 1700);
+    if (toastTimer.current) clearTimeout(toastTimer.current); // 연타 시 이전 타이머가 새 토스트를 일찍 지우지 않게
+    toastTimer.current = setTimeout(() => setToast(''), 1700);
   };
   const go = (next: Route) => {
     setDir(DEPTH[next.name] >= DEPTH[route.name] ? 'fwd' : 'back');
