@@ -22,3 +22,8 @@ test-results/
 playwright-report/
 blob-report/
 .playwright/
+
+# ML 파이프라인 출력물(학습 산출물·미리보기)
+ml/_preview/
+ml/out/
+ml/__pycache__/
