@@ -134,6 +134,20 @@ const SAMPLE: PillResult[] = [
     itemImage: '',
   },
   {
+    // 혼동문자 데모: 각인 'SOH' → 헷갈려 '50H'(S↔5, O↔0)로 입력해도 잡힘
+    itemSeq: '202400412',
+    itemName: '컨퓨즈데모정',
+    entpName: '한국샘플',
+    drugShape: '원형',
+    colorClass1: '하양',
+    printFront: 'SOH',
+    printBack: '',
+    formCodeName: '나정',
+    etcOtcName: '전문의약품',
+    className: '기타',
+    itemImage: '',
+  },
+  {
     // 각인 180° 뒤집힘 데모: 각인 'SIH' → 거꾸로 'HIS' 로 검색해도 잡힘
     itemSeq: '202400318',
     itemName: '미소론정',
@@ -200,7 +214,8 @@ function imprintHay(p: PillResult): string {
   return [p.printFront, p.printBack].map((v) => (v ?? '').toUpperCase()).join(' ');
 }
 
-function matches(p: PillResult, q: PillSearchQuery): boolean {
+/** 각인 외 조건(번들 filterRecords 와 동일) */
+function matchesNonPrint(p: PillResult, q: PillSearchQuery): boolean {
   if (q.itemName && !includesCI(p.itemName, q.itemName)) return false;
   if (q.entpName && !includesCI(p.entpName, q.entpName)) return false;
   if (q.drugShape && p.drugShape !== q.drugShape) return false;
@@ -209,8 +224,6 @@ function matches(p: PillResult, q: PillSearchQuery): boolean {
   if (q.colors?.length && !q.colors.some((c) => (p.colorClass1 ?? '').includes(c))) return false;
   if (q.forms?.length && !q.forms.some((f) => (p.formCodeName ?? '').includes(f))) return false;
   if (q.lines?.length && !q.lines.includes(splitLineKind(p.lineFront, p.lineBack))) return false;
-  // 각인: 앞/뒤 합본에 그대로 또는 180° 뒤집어 일치(예: SIH ↔ HIS)
-  if (q.printFront && !imprintHas(imprintHay(p), q.printFront.toUpperCase()).hit) return false;
   return true;
 }
 
@@ -220,10 +233,19 @@ export function createMockClient(): DrugApi {
   return {
     async searchPills(query: PillSearchQuery): Promise<PillResult[]> {
       await delay(300); // 로딩 UI 확인용 지연
-      const print = query.printFront?.toUpperCase();
-      return SAMPLE.filter((p) => matches(p, query)).map((p) =>
-        print && imprintHas(imprintHay(p), print).flipped ? { ...p, printFlipMatch: true } : p,
-      );
+      const print = query.printFront?.trim().toUpperCase();
+      const allowFuzzy = !!print && print.length >= 3; // 번들과 동일: 3글자+ 만 혼동문자 매칭
+      const exact: PillResult[] = [];
+      const fuzzy: PillResult[] = [];
+      for (const p of SAMPLE) {
+        if (!matchesNonPrint(p, query)) continue;
+        if (!print) { exact.push(p); continue; }
+        const m = imprintHas(imprintHay(p), print, { fuzzy: allowFuzzy });
+        if (!m.hit) continue;
+        const tagged = m.flipped ? { ...p, printFlipMatch: true } : m.fuzzy ? { ...p, printFuzzyMatch: true } : p;
+        (m.fuzzy ? fuzzy : exact).push(tagged);
+      }
+      return exact.concat(fuzzy); // 정확/뒤집힘 먼저, 혼동문자 매칭은 뒤
     },
     async getDetail(itemSeq: string, _itemName?: string): Promise<DrugDetail | null> {
       await delay(200);

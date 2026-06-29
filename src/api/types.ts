@@ -45,6 +45,8 @@ export interface PillResult {
   markBackAnal?: string; // 뒤면 마크 분석 텍스트
   /** 검색 매칭 주석: 각인이 '그대로'가 아니라 180° 뒤집어야 일치한 경우 true (예: SIH↔HIS). 결과카드 표시용 */
   printFlipMatch?: boolean;
+  /** 검색 매칭 주석: 혼동문자 정규화(0↔O↔D 등)로만 일치한 경우 true (예: 0LT↔DLT). 결과카드 표시용 */
+  printFuzzyMatch?: boolean;
 }
 
 /** e약은요 상세 정보 (itemSeq 로 연결) */

@@ -1110,6 +1110,11 @@ function ResultCard({
                 ↕ 거꾸로 보면 일치
               </span>
             )}
+            {pill.printFuzzyMatch && (
+              <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 800, color: 'var(--warn-ink)', background: 'var(--warn-weak)', borderRadius: 6, padding: '1px 6px', whiteSpace: 'nowrap' }}>
+                ≈ 비슷한 각인
+              </span>
+            )}
           </div>
         )}
         {markImg && (
