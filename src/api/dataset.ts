@@ -379,3 +379,14 @@ export async function searchDataset(q: PillSearchQuery): Promise<PillResult[]> {
   if (status !== 'ready' || !records) return [];
   return filterRecords(records, q, q.numOfRows ?? 50);
 }
+
+/** itemSeq → 성분(ingr) 매핑(성분 중복 점검용). 번들 데이터에서, 완전 오프라인. 로드 보장 후. */
+export async function getIngredientMap(seqs: string[]): Promise<Map<string, string>> {
+  await ensureDataset();
+  const want = new Set(seqs);
+  const map = new Map<string, string>();
+  for (const r of records ?? []) {
+    if (want.has(r.seq) && r.ingr) map.set(r.seq, r.ingr);
+  }
+  return map;
+}

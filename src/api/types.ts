@@ -71,6 +71,11 @@ export interface DrugApi {
   searchPills(query: PillSearchQuery): Promise<PillResult[]>;
   /** 상세 (카드 탭 시 lazy 로드). itemName 주면 성분 조회 신뢰도↑. 없으면 null */
   getDetail(itemSeq: string, itemName?: string): Promise<DrugDetail | null>;
+  /**
+   * itemSeq → 성분 문자열 매핑(성분 중복 점검용). 완전 오프라인.
+   * 성분 데이터가 없는 구현(워커 등)은 미구현(선택)이며, 그 경우 성분중복은 점검하지 않는다.
+   */
+  getIngredients?(seqs: string[]): Promise<Map<string, string>>;
 }
 
 /** API 호출 실패 시 던지는 표준 에러 */
