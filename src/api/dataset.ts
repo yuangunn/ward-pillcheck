@@ -254,10 +254,14 @@ export function filterRecords(
   const forms = (q.forms ?? []).map((f) => f.trim()).filter(Boolean);
   const lines = q.lines ?? [];
   const print = q.printFront?.trim().toUpperCase();
+  // 혼동문자 정규화 매칭은 3글자 이상에서만(1~2글자는 후보가 과도하게 늘어 변별력↓).
+  const allowFuzzy = !!print && print.length >= 3;
   const markCode = q.markCode?.trim();
   const markImg = q.markImg?.trim();
 
-  const out: PillResult[] = [];
+  // 정확/뒤집힘 일치는 exact, 혼동문자로만 일치하면 fuzzy 로 분리해 exact 를 앞에 둔다(관련도순).
+  const exact: PillResult[] = [];
+  const fuzzy: PillResult[] = [];
   for (const r of data) {
     if (name && !r.name.includes(name)) continue;
     if (entp && !r.entp.includes(entp)) continue;
@@ -274,26 +278,30 @@ export function filterRecords(
     }
     if (lines.length && !lines.includes(splitLineKind(r.lineF, r.lineB))) continue;
     let flipMatch = false;
+    let fuzzyMatch = false;
     if (print) {
       // 각인은 실제 인쇄된 각인(앞/뒤)만 검색한다.
       // 마크(그림) 속 글자/로고는 별도의 "마크로 찾기/그려서 찾기"가 담당하므로
       // 여기서는 markFA/markBA 를 제외한다(예: "Bayer" 입력 시 Bayer 마크가 끼지 않음).
-      // 거꾸로 집은 알약 대비: 그대로 또는 180° 뒤집어 일치하면 통과(예: 각인 SIH ↔ 검색어 HIS).
+      // 거꾸로 집은 알약 대비: 그대로/180°뒤집힘 일치. 추가로 3글자+ 는 혼동문자(0↔O↔D 등) 정규화 매칭.
       const hay = [r.front, r.back]
         .map((v) => (v ?? '').toUpperCase())
         .join(' ');
-      const m = imprintHas(hay, print);
+      const m = imprintHas(hay, print, { fuzzy: allowFuzzy });
       if (!m.hit) continue;
       flipMatch = m.flipped;
+      fuzzyMatch = m.fuzzy;
     }
     if (markImg && !markImgIdsOf(r).includes(markImg)) continue;
     if (markCode && !markCodesOf(r).includes(markCode)) continue;
     const res = rec2result(r);
     if (flipMatch) res.printFlipMatch = true;
-    out.push(res);
-    if (out.length >= limit) break;
+    if (fuzzyMatch) res.printFuzzyMatch = true;
+    (fuzzyMatch ? fuzzy : exact).push(res);
+    // exact 가 limit 을 채우면 더 볼 필요 없음. 아니면 fuzzy 도 모아 뒤에 붙인다.
+    if (exact.length >= limit) break;
   }
-  return out;
+  return exact.concat(fuzzy).slice(0, limit);
 }
 
 /** 한 레코드의 마크 코드 목록(앞/뒤, 콤마 분리) */

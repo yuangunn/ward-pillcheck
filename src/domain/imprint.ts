@@ -44,14 +44,44 @@ export function imprintFlip180(s: string): string | null {
 
 /**
  * 각인 hay(앞/뒤 각인 합본, 대문자)에 term 이 '그대로' 또는 '180° 뒤집어' 들어있는지.
- * - hit: 둘 중 하나라도 포함
- * - flipped: 그대로는 없고 뒤집어야만 일치한 경우 true (표시/강조용)
+ * - hit: 일치 여부
+ * - flipped: 그대로는 없고 뒤집어야만 일치(표시/강조용)
+ * - fuzzy: 그대로·뒤집힘 모두 아니고 혼동문자 정규화로만 일치(표시용). opts.fuzzy 일 때만 시도.
  * term 은 대문자 가정(호출부에서 .toUpperCase()).
  */
-export function imprintHas(hayUpper: string, termUpper: string): { hit: boolean; flipped: boolean } {
-  if (!termUpper) return { hit: false, flipped: false };
-  if (hayUpper.includes(termUpper)) return { hit: true, flipped: false };
+export function imprintHas(
+  hayUpper: string,
+  termUpper: string,
+  opts?: { fuzzy?: boolean },
+): { hit: boolean; flipped: boolean; fuzzy: boolean } {
+  if (!termUpper) return { hit: false, flipped: false, fuzzy: false };
+  if (hayUpper.includes(termUpper)) return { hit: true, flipped: false, fuzzy: false };
   const f = imprintFlip180(termUpper);
-  if (f && hayUpper.includes(f)) return { hit: true, flipped: true };
-  return { hit: false, flipped: false };
+  if (f && hayUpper.includes(f)) return { hit: true, flipped: true, fuzzy: false };
+  if (opts?.fuzzy) {
+    const ct = imprintCanonical(termUpper);
+    if (ct && imprintCanonical(hayUpper).includes(ct)) return { hit: true, flipped: false, fuzzy: true };
+  }
+  return { hit: false, flipped: false, fuzzy: false };
+}
+
+/**
+ * 사람·OCR 이 흔히 혼동하는 글자 그룹 → 대표문자로 정규화하는 맵.
+ * 같은 그룹은 한 대표문자로 모아, 한 글자 오독/마모(예: 'DLT'를 '0LT'로 읽음)에도 매칭되게 한다.
+ * 그룹: 0/O/D, 1/I/L, 5/S, 8/B, 2/Z, 6/G. (널리 알려진 혼동쌍만 — 과확장 방지)
+ */
+const CONFUSABLE: Record<string, string> = {
+  O: '0', D: '0', // ↔ 0
+  I: '1', L: '1', // ↔ 1
+  S: '5',
+  B: '8',
+  Z: '2',
+  G: '6',
+};
+
+/** 혼동문자를 대표문자로 치환한 정규형(대문자). 예: 'DLT'→'01T', '0LT'→'01T'(→ 서로 일치). */
+export function imprintCanonical(s: string): string {
+  let out = '';
+  for (const ch of s.toUpperCase()) out += CONFUSABLE[ch] ?? ch;
+  return out;
 }

@@ -47,3 +47,16 @@ test('각인 180° 뒤집힘 — HIS 로 검색하면 각인 SIH 약이 "거꾸�
   await expect(page.getByText('미소론정')).toBeVisible();
   await expect(page.getByText('거꾸로 보면 일치')).toHaveCount(0);
 });
+
+test('각인 혼동문자 — 50H 로 검색하면 각인 SOH 약이 "비슷한 각인" 배지와 함께 나온다', async ({ page }) => {
+  await openSearch(page);
+
+  await page.getByLabel('각인').fill('50H'); // S↔5, O↔0
+  await expect(page.getByText('컨퓨즈데모정')).toBeVisible();
+  await expect(page.getByText('비슷한 각인')).toBeVisible();
+
+  // 정확(SOH) 검색은 배지 없이 동일 약
+  await page.getByLabel('각인').fill('SOH');
+  await expect(page.getByText('컨퓨즈데모정')).toBeVisible();
+  await expect(page.getByText('비슷한 각인')).toHaveCount(0);
+});

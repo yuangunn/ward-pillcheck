@@ -125,4 +125,33 @@ describe('filterRecords', () => {
     ];
     expect(filterRecords(data, { printFront: 'PAR' })).toEqual([]);
   });
+
+  it('각인 혼동문자 매칭(3글자+) — 0LT 로 DLT 각인을 잡고 fuzzy 표시', () => {
+    const data: PillRecord[] = [
+      { seq: 'D', name: '둘록정', entp: 'X', shape: '원형', color: '하양', front: 'DLT 60' },
+    ];
+    const r = filterRecords(data, { printFront: '0LT 60' }); // 0↔D
+    expect(r.map((x) => x.itemSeq)).toEqual(['D']);
+    expect(r[0].printFuzzyMatch).toBe(true);
+    // 정확 일치는 fuzzy 표시 없음
+    expect(filterRecords(data, { printFront: 'DLT' })[0].printFuzzyMatch).toBeUndefined();
+  });
+
+  it('혼동문자 매칭은 1~2글자엔 적용 안 함(변별력 보호)', () => {
+    const data: PillRecord[] = [
+      { seq: 'S', name: '에스정', entp: 'X', shape: '원형', color: '하양', front: 'S' },
+    ];
+    expect(filterRecords(data, { printFront: '5' })).toEqual([]); // 1글자 → fuzzy 미적용
+  });
+
+  it('정확/뒤집힘 일치가 혼동문자 매칭보다 앞 순서로 정렬', () => {
+    const data: PillRecord[] = [
+      { seq: 'F', name: '퍼지약', entp: 'X', shape: '원형', color: '하양', front: '0LT' }, // 0LT (fuzzy 대상)
+      { seq: 'E', name: '정확약', entp: 'X', shape: '원형', color: '하양', front: 'DLT' }, // 정확
+    ];
+    const r = filterRecords(data, { printFront: 'DLT' });
+    expect(r.map((x) => x.itemSeq)).toEqual(['E', 'F']); // 정확(E) 먼저, 혼동(F) 뒤
+    expect(r[0].printFuzzyMatch).toBeUndefined();
+    expect(r[1].printFuzzyMatch).toBe(true);
+  });
 });
