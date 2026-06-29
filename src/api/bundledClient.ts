@@ -1,5 +1,5 @@
 import { type DrugApi, type DrugDetail, type PillResult, type PillSearchQuery } from './types';
-import { searchDataset, getIngredientMap } from './dataset';
+import { searchDataset, getIngredientMap, getFormMap } from './dataset';
 import { getBundledDetail } from './details';
 import { createWorkerClient } from './workerClient';
 
@@ -25,6 +25,9 @@ export function createBundledClient(apiBase: string): DrugApi {
     },
     getIngredients(seqs: string[]): Promise<Map<string, string>> {
       return getIngredientMap(seqs); // 번들 데이터, 오프라인
+    },
+    getForms(seqs: string[]): Promise<Map<string, string>> {
+      return getFormMap(seqs); // 번들 데이터, 오프라인
     },
     async getDetail(itemSeq: string, itemName?: string): Promise<DrugDetail | null> {
       const bundled = await getBundledDetail(itemSeq); // 받아둔 경우에만(네트워크 없음)
