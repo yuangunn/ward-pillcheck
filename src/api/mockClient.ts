@@ -5,6 +5,7 @@ import {
   type PillSearchQuery,
 } from './types';
 import { splitLineKind } from '../domain/splitLine';
+import { imprintHas } from '../domain/imprint';
 
 // 인증키/Worker 없이 UI 와 로직을 검증·시연하기 위한 오프라인 목 클라이언트.
 // VITE_API_BASE 가 비어 있으면 자동 선택된다.
@@ -116,6 +117,20 @@ const SAMPLE: PillResult[] = [
     className: '비타민제',
     itemImage: '',
   },
+  {
+    // 각인 180° 뒤집힘 데모: 각인 'SIH' → 거꾸로 'HIS' 로 검색해도 잡힘
+    itemSeq: '202400318',
+    itemName: '미소론정',
+    entpName: '한국샘플',
+    drugShape: '원형',
+    colorClass1: '청록',
+    printFront: 'SIH',
+    printBack: '',
+    formCodeName: '나정',
+    etcOtcName: '전문의약품',
+    className: '기타',
+    itemImage: '',
+  },
 ];
 
 const DETAILS: Record<string, DrugDetail> = {
@@ -164,15 +179,22 @@ function includesCI(haystack: string | undefined, needle: string): boolean {
   return (haystack ?? '').toLowerCase().includes(needle.toLowerCase());
 }
 
+/** 앞/뒤 각인 합본(대문자) — 번들 filterRecords 와 동일 규칙 */
+function imprintHay(p: PillResult): string {
+  return [p.printFront, p.printBack].map((v) => (v ?? '').toUpperCase()).join(' ');
+}
+
 function matches(p: PillResult, q: PillSearchQuery): boolean {
   if (q.itemName && !includesCI(p.itemName, q.itemName)) return false;
   if (q.entpName && !includesCI(p.entpName, q.entpName)) return false;
   if (q.drugShape && p.drugShape !== q.drugShape) return false;
+  if (q.shapes?.length && !q.shapes.includes(p.drugShape ?? '')) return false; // 모양 다중선택(하나라도 일치)
   if (q.colorClass1 && p.colorClass1 !== q.colorClass1) return false;
   if (q.colors?.length && !q.colors.some((c) => (p.colorClass1 ?? '').includes(c))) return false;
   if (q.forms?.length && !q.forms.some((f) => (p.formCodeName ?? '').includes(f))) return false;
   if (q.lines?.length && !q.lines.includes(splitLineKind(p.lineFront, p.lineBack))) return false;
-  if (q.printFront && !includesCI(p.printFront, q.printFront)) return false;
+  // 각인: 앞/뒤 합본에 그대로 또는 180° 뒤집어 일치(예: SIH ↔ HIS)
+  if (q.printFront && !imprintHas(imprintHay(p), q.printFront.toUpperCase()).hit) return false;
   return true;
 }
 
@@ -182,7 +204,10 @@ export function createMockClient(): DrugApi {
   return {
     async searchPills(query: PillSearchQuery): Promise<PillResult[]> {
       await delay(300); // 로딩 UI 확인용 지연
-      return SAMPLE.filter((p) => matches(p, query));
+      const print = query.printFront?.toUpperCase();
+      return SAMPLE.filter((p) => matches(p, query)).map((p) =>
+        print && imprintHas(imprintHay(p), print).flipped ? { ...p, printFlipMatch: true } : p,
+      );
     },
     async getDetail(itemSeq: string, _itemName?: string): Promise<DrugDetail | null> {
       await delay(200);

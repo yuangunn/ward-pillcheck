@@ -1,5 +1,6 @@
 import type { PillResult, PillSearchQuery } from './types';
 import { splitLineKind } from '../domain/splitLine';
+import { imprintHas } from '../domain/imprint';
 
 // 번들 낱알식별 데이터셋: GitHub Pages 의 정적 파일을 받아 IndexedDB 에 캐시하고
 // 색/모양/각인 검색을 기기에서 직접 수행한다(완전 오프라인·전체 커버).
@@ -247,6 +248,7 @@ export function filterRecords(
   const name = q.itemName?.trim();
   const entp = q.entpName?.trim();
   const shape = q.drugShape?.trim();
+  const shapes = (q.shapes ?? []).map((s) => s.trim()).filter(Boolean);
   const color = q.colorClass1?.trim();
   const colors = (q.colors ?? []).map((c) => c.trim()).filter(Boolean);
   const forms = (q.forms ?? []).map((f) => f.trim()).filter(Boolean);
@@ -260,6 +262,7 @@ export function filterRecords(
     if (name && !r.name.includes(name)) continue;
     if (entp && !r.entp.includes(entp)) continue;
     if (shape && r.shape !== shape) continue;
+    if (shapes.length && !shapes.includes(r.shape ?? '')) continue;
     if (color && !(r.color ?? '').includes(color) && !(r.color2 ?? '').includes(color)) continue;
     if (colors.length) {
       const hay = `${r.color ?? ''} ${r.color2 ?? ''}`;
@@ -270,18 +273,24 @@ export function filterRecords(
       if (!forms.some((k) => f.includes(k))) continue;
     }
     if (lines.length && !lines.includes(splitLineKind(r.lineF, r.lineB))) continue;
+    let flipMatch = false;
     if (print) {
       // 각인은 실제 인쇄된 각인(앞/뒤)만 검색한다.
       // 마크(그림) 속 글자/로고는 별도의 "마크로 찾기/그려서 찾기"가 담당하므로
       // 여기서는 markFA/markBA 를 제외한다(예: "Bayer" 입력 시 Bayer 마크가 끼지 않음).
+      // 거꾸로 집은 알약 대비: 그대로 또는 180° 뒤집어 일치하면 통과(예: 각인 SIH ↔ 검색어 HIS).
       const hay = [r.front, r.back]
         .map((v) => (v ?? '').toUpperCase())
         .join(' ');
-      if (!hay.includes(print)) continue;
+      const m = imprintHas(hay, print);
+      if (!m.hit) continue;
+      flipMatch = m.flipped;
     }
     if (markImg && !markImgIdsOf(r).includes(markImg)) continue;
     if (markCode && !markCodesOf(r).includes(markCode)) continue;
-    out.push(rec2result(r));
+    const res = rec2result(r);
+    if (flipMatch) res.printFlipMatch = true;
+    out.push(res);
     if (out.length >= limit) break;
   }
   return out;

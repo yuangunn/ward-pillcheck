@@ -8,7 +8,8 @@ import type { SplitLineKind } from '../domain/splitLine';
 export interface PillSearchQuery {
   itemName?: string; // 품목명
   entpName?: string; // 업체명
-  drugShape?: string; // 모양 (drug_shape)
+  drugShape?: string; // 모양 (drug_shape) — 단일(하위호환)
+  shapes?: string[]; // 모양 다중 선택(하나라도 일치) — 타원형/장방형처럼 분류 모호한 경우 대비
   colorClass1?: string; // 색 (color_class1) — 단일(하위호환)
   colors?: string[]; // 색 다중 선택(하나라도 일치)
   forms?: string[]; // 제형 부분일치 키워드(정/경질/연질 등) — 하나라도 일치
@@ -42,6 +43,8 @@ export interface PillResult {
   markBackImg?: string; // 뒤면 마크 이미지 URL
   markFrontAnal?: string; // 앞면 마크 분석 텍스트(마크 속 글자/기호)
   markBackAnal?: string; // 뒤면 마크 분석 텍스트
+  /** 검색 매칭 주석: 각인이 '그대로'가 아니라 180° 뒤집어야 일치한 경우 true (예: SIH↔HIS). 결과카드 표시용 */
+  printFlipMatch?: boolean;
 }
 
 /** e약은요 상세 정보 (itemSeq 로 연결) */

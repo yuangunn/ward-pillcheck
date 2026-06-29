@@ -98,4 +98,31 @@ describe('filterRecords', () => {
       printFront: 'BAYER',
     });
   });
+
+  it('모양 다중선택(shapes) — 하나라도 일치 (타원형/장방형 분류 모호 대응)', () => {
+    const r = filterRecords(DATA, { shapes: ['타원형', '장방형'] });
+    expect(r.map((x) => x.itemSeq).sort()).toEqual(['2', '4']); // 장방형(타이레놀)+타원형(자나팜)
+    // 단일 drugShape 는 그대로 동작(하위호환)
+    expect(filterRecords(DATA, { drugShape: '팔각형' }).map((x) => x.itemSeq)).toEqual(['3']);
+  });
+
+  it('각인 180° 뒤집힘 매칭 — HIS 검색 시 각인 SIH 도 잡고 flip 표시', () => {
+    const data: PillRecord[] = [
+      { seq: 'F', name: '뒤집힘테스트정', entp: 'X', shape: '원형', color: '하양', front: 'SIH' },
+    ];
+    const flip = filterRecords(data, { printFront: 'HIS' });
+    expect(flip.map((x) => x.itemSeq)).toEqual(['F']);
+    expect(flip[0].printFlipMatch).toBe(true);
+    // 그대로(SIH) 검색은 flip 표시 없음
+    const lit = filterRecords(data, { printFront: 'SIH' });
+    expect(lit.map((x) => x.itemSeq)).toEqual(['F']);
+    expect(lit[0].printFlipMatch).toBeUndefined();
+  });
+
+  it('각인 뒤집힘은 회전 가능한 글자에만 — PAR 로 RAP 각인을 잡지 않음', () => {
+    const data: PillRecord[] = [
+      { seq: 'G', name: 'RAP정', entp: 'X', shape: '원형', color: '하양', front: 'RAP' },
+    ];
+    expect(filterRecords(data, { printFront: 'PAR' })).toEqual([]);
+  });
 });

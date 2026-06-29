@@ -625,7 +625,7 @@ export function SearchScreen({
 }) {
   const [mode, setMode] = useState<'visual' | 'name' | 'injection'>('visual');
   const [colors, setColors] = useState<string[]>([]);
-  const [shape, setShape] = useState('');
+  const [shapes, setShapes] = useState<string[]>([]);
   const [forms, setForms] = useState<string[]>([]);
   const [lines, setLines] = useState<SplitLineKind[]>([]);
   const [marking, setMarking] = useState('');
@@ -637,18 +637,19 @@ export function SearchScreen({
   const [narrow, setNarrow] = useState(''); // 결과 내 재검색어(client-side 좁히기)
 
   const toggleColor = (c: string) => setColors((cs) => (cs.includes(c) ? cs.filter((x) => x !== c) : [...cs, c]));
+  const toggleShape = (s: string) => setShapes((ss) => (ss.includes(s) ? ss.filter((x) => x !== s) : [...ss, s]));
   const toggleForm = (f: string) => setForms((fs) => (fs.includes(f) ? fs.filter((x) => x !== f) : [...fs, f]));
   const toggleLine = (l: SplitLineKind) => setLines((ls) => (ls.includes(l) ? ls.filter((x) => x !== l) : [...ls, l]));
 
   const active =
     mode === 'visual'
-      ? !!(colors.length || shape || forms.length || lines.length || marking || pickedMark)
+      ? !!(colors.length || shapes.length || forms.length || lines.length || marking || pickedMark)
       : !!name.trim();
   const query: PillSearchQuery =
     mode === 'visual'
       ? {
           colors: colors.length ? colors : undefined,
-          drugShape: shape || undefined,
+          shapes: shapes.length ? shapes : undefined,
           forms: forms.length ? forms : undefined,
           lines: lines.length ? lines : undefined,
           printFront: marking || undefined,
@@ -710,7 +711,7 @@ export function SearchScreen({
 
   const reset = () => {
     setColors([]);
-    setShape('');
+    setShapes([]);
     setForms([]);
     setLines([]);
     setMarking('');
@@ -776,13 +777,13 @@ export function SearchScreen({
               <ColorChip key={o.label} option={o} selected={colors.includes(o.label)} onClick={() => toggleColor(o.label)} />
             ))}
           </div>
-          <FieldLabel>모양</FieldLabel>
+          <FieldLabel>모양 <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-weaker)' }}>(여러 개 선택 가능)</span></FieldLabel>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 22 }}>
             {SHAPE_OPTIONS.map((s) => (
               <Chip
                 key={s}
-                selected={shape === s}
-                onClick={() => setShape(shape === s ? '' : s)}
+                selected={shapes.includes(s)}
+                onClick={() => toggleShape(s)}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
               >
                 <ShapeOutline shape={s} size={18} sw={7} />
@@ -1104,6 +1105,11 @@ function ResultCard({
             각인 {pill.printFront && <>앞 <Highlighted text={pill.printFront} term={highlight} /></>}
             {pill.printFront && pill.printBack ? ' / ' : ''}
             {pill.printBack && <>뒤 <Highlighted text={pill.printBack} term={highlight} /></>}
+            {pill.printFlipMatch && (
+              <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 800, color: 'var(--primary-ink)', background: 'var(--primary-weak)', borderRadius: 6, padding: '1px 6px', whiteSpace: 'nowrap' }}>
+                ↕ 거꾸로 보면 일치
+              </span>
+            )}
           </div>
         )}
         {markImg && (
