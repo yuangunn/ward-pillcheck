@@ -20,6 +20,7 @@ import { ensureMarkFeatures, featuresFromCanvas, rankFeaturesMulti, type RankedM
 import { getEmbedMode, ensureMarkEmbeddings, rankByEmbedding } from '../api/markEmbed';
 import { getCollectMode, addSample, type StrokePt } from '../state/drawSamples';
 import { analyzeInteractions, fetchDurMap, type InteractionResult } from '../api/dur';
+import { analyzeIngredientOverlap, type IngredientOverlap } from '../domain/ingredient';
 import { getTeamsTarget, setTeamsTarget, teamsDeepLink, isAllowedTeamsTarget, TEAMS_TARGET_GUIDE } from '../state/teamsTarget';
 import { getShareOptions, setShareOptions, type ShareOptions } from '../state/shareOptions';
 
@@ -1138,20 +1139,31 @@ function DurCard({ tone, tag, title, body }: { tone: 'danger' | 'warn'; tag: str
 export function DurSheet({ open, onClose, meds }: { open: boolean; onClose: () => void; meds: MedItem[] }) {
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<InteractionResult | null>(null);
+  const [overlaps, setOverlaps] = useState<IngredientOverlap[]>([]);
   useEffect(() => {
     if (!open) return;
     setLoading(true);
     setResult(null);
+    setOverlaps([]);
     let alive = true;
-    fetchDurMap(meds)
-      .then((map) => alive && (setResult(analyzeInteractions(meds, map)), setLoading(false)))
-      .catch(() => alive && (setResult({ combos: [], flags: [] }), setLoading(false)));
+    const seqs = [...new Set(meds.map((m) => m.itemSeq).filter(Boolean))];
+    // 성분중복은 번들/mock 데이터로 완전 오프라인(워커 불필요), DUR 은 워커/번들 룰셋.
+    const overlapP = drugApi.getIngredients
+      ? drugApi.getIngredients(seqs).then((ingr) => analyzeIngredientOverlap(meds, ingr)).catch(() => [])
+      : Promise.resolve<IngredientOverlap[]>([]);
+    Promise.all([fetchDurMap(meds).then((map) => analyzeInteractions(meds, map)).catch(() => ({ combos: [], flags: [] }) as InteractionResult), overlapP])
+      .then(([dur, ov]) => {
+        if (!alive) return;
+        setResult(dur);
+        setOverlaps(ov);
+        setLoading(false);
+      });
     return () => {
       alive = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
-  const total = result ? result.combos.length + result.flags.length : 0;
+  const total = (result ? result.combos.length + result.flags.length : 0) + overlaps.length;
   return (
     <BottomSheet open={open} onClose={onClose} title="금기·중복 점검" maxH="80%">
       {loading ? (
@@ -1178,6 +1190,15 @@ export function DurSheet({ open, onClose, meds }: { open: boolean; onClose: () =
           </div>
           {result!.combos.map((c, i) => (
             <DurCard key={'c' + i} tone="danger" tag="병용금기" title={`${c.aName} + ${c.bName}`} body={c.content} />
+          ))}
+          {overlaps.map((o, i) => (
+            <DurCard
+              key={'o' + i}
+              tone="danger"
+              tag="성분중복"
+              title={o.medNames.join(' + ')}
+              body={`같은 성분(${o.ingredient})이 ${o.medNames.length}개 약에 겹쳐요 — 중복투약 여부를 확인하세요.`}
+            />
           ))}
           {result!.flags.map((f, i) => (
             <DurCard key={'f' + i} tone="warn" tag={f.kinds.map((k) => k.type).join('·')} title={f.name} body={f.kinds.map((k) => k.content).filter(Boolean).join(' / ')} />

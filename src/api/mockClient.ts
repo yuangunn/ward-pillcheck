@@ -49,6 +49,22 @@ const SAMPLE: PillResult[] = [
     formCodeName: '나정',
     etcOtcName: '전문의약품',
     className: '혈압강하제',
+    ingredient: 'Amlodipine Besylate',
+    itemImage: '',
+  },
+  {
+    // 성분중복 데모: 아모잘탄(암로디핀+로사르탄)은 노바스크(암로디핀)와 암로디핀이 겹친다
+    itemSeq: '201200777',
+    itemName: '아모잘탄정5/50mg',
+    entpName: '한미약품',
+    drugShape: '타원형',
+    colorClass1: '노랑',
+    printFront: 'AML',
+    printBack: '',
+    formCodeName: '필름코팅정',
+    etcOtcName: '전문의약품',
+    className: '혈압강하제',
+    ingredient: 'Amlodipine Camsylate/Losartan Potassium',
     itemImage: '',
   },
   {
@@ -212,6 +228,14 @@ export function createMockClient(): DrugApi {
     async getDetail(itemSeq: string, _itemName?: string): Promise<DrugDetail | null> {
       await delay(200);
       return DETAILS[itemSeq] ?? null;
+    },
+    async getIngredients(seqs: string[]): Promise<Map<string, string>> {
+      const want = new Set(seqs);
+      const map = new Map<string, string>();
+      for (const p of SAMPLE) {
+        if (want.has(p.itemSeq) && p.ingredient) map.set(p.itemSeq, p.ingredient);
+      }
+      return map;
     },
   };
 }
