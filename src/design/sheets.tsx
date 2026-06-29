@@ -21,6 +21,7 @@ import { getEmbedMode, ensureMarkEmbeddings, rankByEmbedding } from '../api/mark
 import { getCollectMode, addSample, type StrokePt } from '../state/drawSamples';
 import { analyzeInteractions, fetchDurMap, type InteractionResult } from '../api/dur';
 import { analyzeIngredientOverlap, type IngredientOverlap } from '../domain/ingredient';
+import { analyzeSplitCrush, type SplitCrushFlag } from '../domain/formulation';
 import { getTeamsTarget, setTeamsTarget, teamsDeepLink, isAllowedTeamsTarget, TEAMS_TARGET_GUIDE } from '../state/teamsTarget';
 import { getShareOptions, setShareOptions, type ShareOptions } from '../state/shareOptions';
 
@@ -1140,22 +1141,28 @@ export function DurSheet({ open, onClose, meds }: { open: boolean; onClose: () =
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<InteractionResult | null>(null);
   const [overlaps, setOverlaps] = useState<IngredientOverlap[]>([]);
+  const [splitCrush, setSplitCrush] = useState<SplitCrushFlag[]>([]);
   useEffect(() => {
     if (!open) return;
     setLoading(true);
     setResult(null);
     setOverlaps([]);
+    setSplitCrush([]);
     let alive = true;
     const seqs = [...new Set(meds.map((m) => m.itemSeq).filter(Boolean))];
-    // 성분중복은 번들/mock 데이터로 완전 오프라인(워커 불필요), DUR 은 워커/번들 룰셋.
+    // 성분중복·분할분쇄는 번들/mock 데이터로 완전 오프라인(워커 불필요), DUR 은 워커/번들 룰셋.
     const overlapP = drugApi.getIngredients
       ? drugApi.getIngredients(seqs).then((ingr) => analyzeIngredientOverlap(meds, ingr)).catch(() => [])
       : Promise.resolve<IngredientOverlap[]>([]);
-    Promise.all([fetchDurMap(meds).then((map) => analyzeInteractions(meds, map)).catch(() => ({ combos: [], flags: [] }) as InteractionResult), overlapP])
-      .then(([dur, ov]) => {
+    const splitP = drugApi.getForms
+      ? drugApi.getForms(seqs).then((forms) => analyzeSplitCrush(meds, forms)).catch(() => [])
+      : Promise.resolve<SplitCrushFlag[]>([]);
+    Promise.all([fetchDurMap(meds).then((map) => analyzeInteractions(meds, map)).catch(() => ({ combos: [], flags: [] }) as InteractionResult), overlapP, splitP])
+      .then(([dur, ov, sc]) => {
         if (!alive) return;
         setResult(dur);
         setOverlaps(ov);
+        setSplitCrush(sc);
         setLoading(false);
       });
     return () => {
@@ -1163,7 +1170,7 @@ export function DurSheet({ open, onClose, meds }: { open: boolean; onClose: () =
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
-  const total = (result ? result.combos.length + result.flags.length : 0) + overlaps.length;
+  const total = (result ? result.combos.length + result.flags.length : 0) + overlaps.length + splitCrush.length;
   return (
     <BottomSheet open={open} onClose={onClose} title="금기·중복 점검" maxH="80%">
       {loading ? (
@@ -1199,6 +1206,9 @@ export function DurSheet({ open, onClose, meds }: { open: boolean; onClose: () =
               title={o.medNames.join(' + ')}
               body={`같은 성분(${o.ingredient})이 ${o.medNames.length}개 약에 겹쳐요 — 중복투약 여부를 확인하세요.`}
             />
+          ))}
+          {splitCrush.map((s, i) => (
+            <DurCard key={'s' + i} tone="warn" tag="분할·분쇄 주의" title={s.medName} body={`${s.kind} — ${s.reason}`} />
           ))}
           {result!.flags.map((f, i) => (
             <DurCard key={'f' + i} tone="warn" tag={f.kinds.map((k) => k.type).join('·')} title={f.name} body={f.kinds.map((k) => k.content).filter(Boolean).join(' / ')} />

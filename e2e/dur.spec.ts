@@ -33,3 +33,20 @@ test('성분 중복: 노바스크 + 아모잘탄 → 암로디핀 중복 경고'
   await expect(sheet.getByText(/Amlodipine/)).toBeVisible();
   await expect(sheet.getByText('노바스크정5mg + 아모잘탄정5/50mg')).toBeVisible();
 });
+
+test('분할·분쇄 주의: 장용정(아스피린장용정)을 담으면 경고가 뜬다', async ({ page }) => {
+  await page.goto('/');
+  await page.getByText('환자1').click();
+
+  // 아스피린장용정(장용정) 추가
+  await page.getByRole('button', { name: '약 검색해서 추가' }).click();
+  await page.getByLabel('각인').fill('Bayer');
+  await page.getByText('아스피린장용정100mg').click();
+  await page.getByRole('dialog', { name: '리스트에 추가' }).getByRole('button', { name: '환자 리스트에 추가' }).click();
+
+  // 금기·중복 점검 → 분할·분쇄 주의(장용정)
+  await page.getByRole('button', { name: '금기 점검' }).click();
+  const sheet = page.getByRole('dialog', { name: '금기·중복 점검' });
+  await expect(sheet.getByText('분할·분쇄 주의')).toBeVisible();
+  await expect(sheet.getByText(/쪼개거나 갈면 위장 자극/)).toBeVisible();
+});
