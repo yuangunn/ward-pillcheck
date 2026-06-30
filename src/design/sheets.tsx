@@ -1345,6 +1345,32 @@ export function DrawMarkSheet({ open, onPick, onClose, onOpenGallery }: { open: 
   const [results, setResults] = useState<RankedMark[] | null>(null);
   const [showAll, setShowAll] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [ocr, setOcr] = useState<string | null>(null); // OCR 인식 글자(null=미시도, ''=못읽음)
+  const [ocrBusy, setOcrBusy] = useState(false);
+
+  // 그린 글자를 OCR 로 인식(Tesseract 동적 로드) → 마크 글자(코드) 검색에 재사용.
+  // 알약 사진과 달리 손글자는 흰 배경 검정 한 글자라 인식이 쉬움. 글자/숫자 마크 전용(베타).
+  const runOcr = async () => {
+    const c = canvasRef.current;
+    if (!c) return;
+    setOcrBusy(true);
+    setOcr(null);
+    try {
+      const { createWorker } = await import('tesseract.js');
+      const worker = await createWorker('eng');
+      await worker.setParameters({
+        tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
+        tessedit_pageseg_mode: '8' as never, // 8 = single word
+      });
+      const { data } = await worker.recognize(c);
+      await worker.terminate();
+      setOcr((data.text || '').toUpperCase().replace(/[^A-Z0-9]/g, '')); // 영숫자만
+    } catch {
+      setOcr(''); // 실패(오프라인 등) → 못 읽음 표시
+    } finally {
+      setOcrBusy(false);
+    }
+  };
 
   // 흰 배경으로 캔버스 초기화
   const clearCanvas = () => {
@@ -1359,6 +1385,7 @@ export function DrawMarkSheet({ open, onPick, onClose, onOpenGallery }: { open: 
     setHasInk(false);
     setCanUndo(false);
     setResults(null);
+    setOcr(null);
     setShowAll(false);
   };
 
@@ -1539,13 +1566,34 @@ export function DrawMarkSheet({ open, onPick, onClose, onOpenGallery }: { open: 
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
         <Btn variant="ghost" icon="undo" ariaLabel="되돌리기" onClick={undo} disabled={!canUndo} style={{ height: 48, padding: '0 16px' }} />
         <Btn variant="ghost" icon="trash" ariaLabel="지우기" onClick={clearCanvas} disabled={!hasInk} style={{ height: 48, padding: '0 16px' }} />
         <Btn variant="primary" full icon="search" onClick={runSearch} disabled={!hasInk || !ready || busy} style={{ height: 48 }}>
           {ready ? '닮은 마크 찾기' : `준비 중 ${progress}%`}
         </Btn>
       </div>
+
+      {/* 글자/숫자 마크: 그린 글자를 OCR 로 인식 → 마크 글자(코드) 검색(베타). 식약처가 G를 'ㄷㄱ,G'로 적어둔 것도 잡힘. */}
+      <button
+        type="button"
+        onClick={runOcr}
+        disabled={!hasInk || ocrBusy}
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', marginBottom: 16, padding: '10px', background: 'none', border: 'none', color: hasInk ? 'var(--primary-ink)' : 'var(--text-weaker)', fontSize: 13.5, fontWeight: 800, letterSpacing: -0.3, cursor: hasInk ? 'pointer' : 'default', WebkitTapHighlightColor: 'transparent' }}
+      >
+        <Icon name="edit" size={16} />
+        {ocrBusy ? '글자 인식 중…' : '✏️ 그린 게 글자/숫자면 — 글자로 인식(베타)'}
+      </button>
+      {ocr !== null && (
+        ocr ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, padding: '12px 14px', borderRadius: 'var(--r-card)', background: 'var(--primary-weak)', border: '1.5px solid var(--primary)' }}>
+            <span style={{ flex: 1, fontSize: 14.5, fontWeight: 700, color: 'var(--primary-ink)', letterSpacing: -0.3 }}>글자로 보임: «{ocr}»</span>
+            <Btn variant="primary" icon="search" onClick={() => { onPick({ code: ocr, img: '', imgId: '', count: 0 }); onClose(); }} style={{ height: 42, padding: '0 14px', fontSize: 14 }}>이 글자로 검색</Btn>
+          </div>
+        ) : (
+          <div style={{ marginBottom: 16, fontSize: 13, fontWeight: 600, color: 'var(--text-weak)', textAlign: 'center' }}>글자를 못 읽었어요. 글자/숫자가 아니면 위 ‘닮은 마크 찾기’를 쓰세요.</div>
+        )
+      )}
 
       {results && (
         <div style={{ paddingBottom: 8 }}>
