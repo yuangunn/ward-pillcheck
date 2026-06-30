@@ -137,6 +137,29 @@ describe('filterRecords', () => {
     expect(filterRecords(data, { printFront: 'DLT' })[0].printFuzzyMatch).toBeUndefined();
   });
 
+  it('관련도 정렬 — 이름 완전일치/접두가 중간부분일치보다 위', () => {
+    const data: PillRecord[] = [
+      { seq: '1', name: '메가타이레놀정', entp: 'X', shape: '원형', color: '하양' }, // 중간부분
+      { seq: '2', name: '타이레놀정500mg', entp: 'X', shape: '원형', color: '하양' }, // 접두
+      { seq: '3', name: '타이레놀', entp: 'X', shape: '원형', color: '하양' }, // 완전일치
+    ];
+    expect(filterRecords(data, { itemName: '타이레놀' }).map((x) => x.itemSeq)).toEqual(['3', '2', '1']);
+  });
+
+  it('관련도 정렬 — 각인 한 면 전체 일치가 부분일치보다 위, 짧은 각인 우선', () => {
+    const data: PillRecord[] = [
+      { seq: '1', name: 'A', entp: 'X', shape: '원형', color: '하양', front: 'MF500' }, // 부분
+      { seq: '2', name: 'B', entp: 'X', shape: '원형', color: '하양', front: 'MF 250' }, // 토큰 일치
+      { seq: '3', name: 'C', entp: 'X', shape: '원형', color: '하양', front: 'MF' }, // 한 면 전체 일치
+    ];
+    expect(filterRecords(data, { printFront: 'MF' }).map((x) => x.itemSeq)).toEqual(['3', '2', '1']);
+  });
+
+  it('색/모양만 검색이면 정렬 영향 없음(데이터 순서 유지)', () => {
+    const r = filterRecords(DATA, { colorClass1: '하양' });
+    expect(r.map((x) => x.itemSeq)).toEqual(['1', '2', '3', '5']); // 하양 4건, 데이터 순서 그대로
+  });
+
   it('혼동문자 매칭은 1~2글자엔 적용 안 함(변별력 보호)', () => {
     const data: PillRecord[] = [
       { seq: 'S', name: '에스정', entp: 'X', shape: '원형', color: '하양', front: 'S' },

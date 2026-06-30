@@ -241,7 +241,30 @@ function rec2result(r: PillRecord): PillResult {
   };
 }
 
-/** 순수 필터(테스트 대상). 색/모양/각인/이름/업체 조합. */
+/**
+ * 관련도 점수(낮을수록 위). 일치 '품질'로 정렬한다(같은 필터를 통과해도 더 딱 맞는 걸 위로).
+ * - 이름: 완전일치 < 접두 < 중간부분일치, 동점이면 짧은 이름(질의에 가까움) 먼저.
+ * - 각인: 한 면 전체 일치 < 토큰 일치 < 부분일치, 동점이면 각인 길이가 질의에 가까운 것 먼저.
+ * 이름·각인이 둘 다 없으면(색/모양만) 0 → 기존(데이터) 순서 보존.
+ */
+function relevanceScore(r: PillRecord, name?: string, printUpper?: string): number {
+  let s = 0;
+  if (name) {
+    s += r.name === name ? 0 : r.name.startsWith(name) ? 1 : 2;
+    s += r.name.length / 1000; // 동점 tiebreak: 짧은 이름 먼저
+  }
+  if (printUpper) {
+    const sides = [r.front, r.back].map((v) => (v ?? '').toUpperCase()).filter(Boolean);
+    const exactSide = sides.some((v) => v === printUpper);
+    const tokenHit = sides.some((v) => v.split(/\s+/).includes(printUpper));
+    s += exactSide ? 0 : tokenHit ? 1 : 2;
+    const lenDiffs = sides.map((v) => Math.abs(v.length - printUpper.length));
+    s += (lenDiffs.length ? Math.min(...lenDiffs) : 9) / 1000;
+  }
+  return s;
+}
+
+/** 순수 필터(테스트 대상). 색/모양/각인/이름/업체 조합. 결과는 관련도순(exact) → fuzzy. */
 export function filterRecords(
   data: PillRecord[],
   q: PillSearchQuery,
@@ -261,8 +284,8 @@ export function filterRecords(
   const markCode = q.markCode?.trim();
   const markImg = q.markImg?.trim();
 
-  // 정확/뒤집힘 일치는 exact, 혼동문자로만 일치하면 fuzzy 로 분리해 exact 를 앞에 둔다(관련도순).
-  const exact: PillResult[] = [];
+  // 정확/뒤집힘 일치는 exact(관련도순 정렬), 혼동문자로만 일치하면 fuzzy 로 분리해 뒤에 둔다.
+  const exact: { res: PillResult; score: number }[] = [];
   const fuzzy: PillResult[] = [];
   for (const r of data) {
     if (name && !r.name.includes(name)) continue;
@@ -298,12 +321,18 @@ export function filterRecords(
     if (markCode && !markCodesOf(r).includes(markCode)) continue;
     const res = rec2result(r);
     if (flipMatch) res.printFlipMatch = true;
-    if (fuzzyMatch) res.printFuzzyMatch = true;
-    (fuzzyMatch ? fuzzy : exact).push(res);
+    if (fuzzyMatch) {
+      res.printFuzzyMatch = true;
+      fuzzy.push(res);
+    } else {
+      exact.push({ res, score: relevanceScore(r, name, print) });
+    }
     // exact 가 limit 을 채우면 더 볼 필요 없음. 아니면 fuzzy 도 모아 뒤에 붙인다.
     if (exact.length >= limit) break;
   }
-  return exact.concat(fuzzy).slice(0, limit);
+  // 관련도 오름차순(안정 정렬 — 동점은 데이터 순서 유지) 후 fuzzy 를 뒤에.
+  exact.sort((a, b) => a.score - b.score);
+  return exact.map((x) => x.res).concat(fuzzy).slice(0, limit);
 }
 
 /** 한 레코드의 마크 코드 목록(앞/뒤, 콤마 분리) */
