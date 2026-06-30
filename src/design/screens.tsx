@@ -899,9 +899,17 @@ export function SearchScreen({
           )}
           <div style={{ height: 12 }} />
           <TextField value={markText} onChange={setMarkText} placeholder="마크 글자로 찾기 (예: G, MF, 삼각형)" aria-label="마크 글자" />
-          <p style={{ margin: '8px 2px 0', fontSize: 12, color: 'var(--text-weaker)', fontWeight: 600, lineHeight: 1.45 }}>
-            마크에 새겨진 글자/모양 이름으로 찾아요. 식약처가 같은 마크를 «ㄷㄱ,G»처럼 적어둔 경우, <b>G</b>로도 찾아져요.
+          <p style={{ margin: '8px 2px 6px', fontSize: 12, color: 'var(--text-weaker)', fontWeight: 600, lineHeight: 1.45 }}>
+            마크에 새겨진 글자/모양 이름으로 찾아요. 복잡한 그림 마크도 <b>모양 이름</b>으로 찾으면 돼요(식약처가 그렇게 분류). «ㄷㄱ,G»는 <b>G</b>로도.
           </p>
+          {/* 식약처 마크 분류 단어(자주 쓰는 모양) — 탭하면 그 모양 마크를 다 찾는다. 복잡 로고도 모양 이름으로 잡힘. */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {['삼각형', '마름모', '원', '화살표', '꽃잎', '왕관', '촛불', '느낌표', '태극'].map((w) => (
+              <Chip key={w} selected={markText === w} onClick={() => setMarkText(markText === w ? '' : w)}>
+                {w}
+              </Chip>
+            ))}
+          </div>
           {active && (
             <button
               type="button"

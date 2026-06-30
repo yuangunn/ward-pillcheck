@@ -66,3 +66,10 @@ test('마크 글자 — G 로 검색하면 «ㄷㄱ,G» 마크 약이 나온다'
   await page.getByLabel('마크 글자').fill('G'); // 식약처가 ㄷㄱ,G 로 적어둔 마크를 G 로 찾기
   await expect(page.getByText('동광오플록사신정')).toBeVisible();
 });
+
+test('마크 모양 단어 — 삼각형으로 복잡 로고 마크(바스티난)를 찾는다', async ({ page }) => {
+  await openSearch(page);
+  // 그려선 안 잡히는 복잡 로고도, 식약처 분류 단어 '삼각형'으로 찾힘
+  await page.getByLabel('마크 글자').fill('삼각형');
+  await expect(page.getByText('바스티난엠알서방정')).toBeVisible();
+});
