@@ -135,6 +135,21 @@ const SAMPLE: PillResult[] = [
     itemImage: '',
   },
   {
+    // 모양-단어 데모: 복잡한 로고 마크인데 식약처가 '삼각형'으로 분류 → 모양 이름 '삼각형'으로 찾아짐
+    itemSeq: '202400531',
+    itemName: '바스티난엠알서방정',
+    entpName: '세르비에코리아',
+    drugShape: '원형',
+    colorClass1: '하양',
+    printFront: '마크',
+    printBack: '',
+    formCodeName: '서방성필름코팅정',
+    etcOtcName: '전문의약품',
+    className: '기타의 순환계용약',
+    markFrontAnal: '삼각형',
+    itemImage: '',
+  },
+  {
     // 마크 글자 데모: 마크가 G 인데 식약처가 'ㄷㄱ,G' 로 기록 → 'G' 로 찾아짐
     itemSeq: '202400520',
     itemName: '동광오플록사신정',
