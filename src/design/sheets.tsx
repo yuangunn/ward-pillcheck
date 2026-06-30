@@ -1357,7 +1357,13 @@ export function DrawMarkSheet({ open, onPick, onClose, onOpenGallery }: { open: 
     setOcr(null);
     try {
       const { createWorker } = await import('tesseract.js');
-      const worker = await createWorker('eng');
+      // 자체호스팅(같은 출처) 자산 사용 → CDN 불필요. SW 프리캐시되므로 한 번 받으면 오프라인/인트라넷에서도 동작.
+      const b = import.meta.env?.BASE_URL ?? '/';
+      const worker = await createWorker('eng', 1, {
+        workerPath: `${b}tesseract/worker.min.js`,
+        corePath: `${b}tesseract/tesseract-core-simd-lstm.wasm.js`,
+        langPath: `${b}tesseract/`,
+      });
       await worker.setParameters({
         tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
         tessedit_pageseg_mode: '8' as never, // 8 = single word
