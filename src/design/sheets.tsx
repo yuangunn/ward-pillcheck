@@ -16,7 +16,7 @@ import { splitLineKind, SPLIT_LINE_LABEL } from '../domain/splitLine';
 import type { MedItem, Patient } from '../domain/models';
 import { drugApi, getMarkOptions, isInjectionName, proxiedImg, type DrugDetail, type MarkOption, type PillResult } from '../api';
 import { useWorkerReachable } from '../state/connectivity';
-import { ensureMarkFeatures, featuresFromCanvas, rankFeaturesMulti, type RankedMark } from '../api';
+import { ensureMarkFeatures, featuresFromCanvas, rankFeaturesMulti, expandByCode, type RankedMark } from '../api';
 import { getEmbedMode, ensureMarkEmbeddings, rankByEmbedding } from '../api/markEmbed';
 import { getCollectMode, addSample, type StrokePt } from '../state/drawSamples';
 import { analyzeInteractions, fetchDurMap, type InteractionResult } from '../api/dur';
@@ -1553,9 +1553,10 @@ export function DrawMarkSheet({ open, onPick, onClose }: { open: boolean; onPick
     }
     setBusy(true);
     // 모드별 후보 랭킹: 기본=HOG(획·비트맵), 실험=ONNX 임베딩.
+    const feats = await ensureMarkFeatures();
     const ranked = embedMode
       ? await rankByEmbedding(c, 160).catch(() => [] as RankedMark[])
-      : rankFeaturesMulti(q, await ensureMarkFeatures(), 160);
+      : rankFeaturesMulti(q, feats, 160);
     // 같은 마크 이미지는 가장 닮은 1장만(이미지 id 기준 중복 제거): "삼각형 A/B" 별개 유지.
     const seen = new Set<string>();
     const deduped: RankedMark[] = [];
@@ -1565,8 +1566,10 @@ export function DrawMarkSheet({ open, onPick, onClose }: { open: boolean; onPick
       deduped.push(r);
       if (deduped.length >= DRAW_RESULTS_MAX) break;
     }
+    // 형상 매칭이 놓치는 복잡 로고 보완: 상위 결과의 코드 형제 마크도 묶어 노출(예: 삼각형 로고).
+    const expanded = expandByCode(deduped, feats, 6, DRAW_RESULTS_MAX);
     setShowAll(false);
-    setResults(deduped);
+    setResults(expanded);
     setBusy(false);
   };
 

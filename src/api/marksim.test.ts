@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractFeature, cosineSim, rankFeatures, type ImgLike } from './marksim';
+import { extractFeature, cosineSim, rankFeatures, expandByCode, type ImgLike, type RankedMark, type MarkFeature } from './marksim';
 
 /** 흰 배경 + paint(x,y)==true 인 곳은 검정으로 칠한 RGBA 이미지 생성 */
 function makeImg(w: number, h: number, paint: (x: number, y: number) => boolean): ImgLike {
@@ -71,5 +71,24 @@ describe('rankFeatures', () => {
     expect(ranked).toHaveLength(2);
     expect(ranked[0].code).toBe('VB');
     expect(ranked[0].score).toBeGreaterThanOrEqual(ranked[1].score);
+  });
+});
+
+describe('expandByCode', () => {
+  const mf = (code: string, imgId: string): MarkFeature => ({ code, img: imgId, imgId, vec: [] });
+  const rm = (code: string, imgId: string, score: number): RankedMark => ({ ...mf(code, imgId), score });
+
+  it('상위 결과의 코드 형제 마크를 매칭 마크 바로 뒤에 끼운다 (삼각형 로고 보완)', () => {
+    // 형상 매칭은 깔끔한 삼각형(tri1)만 잡고, 같은 '삼각형' 코드의 복잡 로고(tri2/tri3)는 놓침
+    const ranked = [rm('삼각형', 'tri1', 0.9), rm('마름모', 'di1', 0.5)];
+    const all = [mf('삼각형', 'tri1'), mf('삼각형', 'tri2'), mf('삼각형', 'tri3'), mf('마름모', 'di1')];
+    const out = expandByCode(ranked, all, 6, 40);
+    expect(out.map((x) => x.imgId)).toEqual(['tri1', 'tri2', 'tri3', 'di1']); // 형제가 tri1 뒤에 묶임
+  });
+
+  it('max 로 캡, 이미 있는 이미지는 중복 추가 안 함', () => {
+    const ranked = [rm('A', 'a1', 0.9)];
+    const all = [mf('A', 'a1'), mf('A', 'a2'), mf('A', 'a3')];
+    expect(expandByCode(ranked, all, 6, 2).map((x) => x.imgId)).toEqual(['a1', 'a2']);
   });
 });
