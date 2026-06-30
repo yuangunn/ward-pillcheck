@@ -1331,7 +1331,7 @@ const BRUSHES: { label: string; w: number }[] = [
 const DRAW_RESULTS_INITIAL = 16; // 처음 보여줄 후보 수('더 보기'로 확장)
 const DRAW_RESULTS_MAX = 40; // dedup 후 최대 후보
 
-export function DrawMarkSheet({ open, onPick, onClose }: { open: boolean; onPick: (m: MarkOption) => void; onClose: () => void }) {
+export function DrawMarkSheet({ open, onPick, onClose, onOpenGallery }: { open: boolean; onPick: (m: MarkOption) => void; onClose: () => void; onOpenGallery: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const drawing = useRef(false);
   const last = useRef<{ x: number; y: number } | null>(null);
@@ -1585,6 +1585,15 @@ export function DrawMarkSheet({ open, onPick, onClose }: { open: boolean; onPick
               )}
             </>
           )}
+          {/* 안전망: 복잡 로고 등 그려선 안 잡히는 마크는 목록(골라서 찾기)에서 직접 고르게 */}
+          <button
+            type="button"
+            onClick={onOpenGallery}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', marginTop: 12, padding: '12px', background: 'none', border: 'none', color: 'var(--primary-ink)', fontSize: 13.5, fontWeight: 800, letterSpacing: -0.3, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+          >
+            찾는 마크가 없나요? 목록에서 고르기
+            <Icon name="chevron" size={16} />
+          </button>
         </div>
       )}
     </BottomSheet>
