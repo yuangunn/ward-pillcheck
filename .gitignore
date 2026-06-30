@@ -32,3 +32,4 @@ ml/.venv/
 
 # 플러그인/스킬 스크래치 작업 폴더
 _workspace/
+/eng.traineddata
