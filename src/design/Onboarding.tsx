@@ -167,7 +167,7 @@ function obSlides(): Slide[] {
           <p style={{ margin: '18px 0 0', fontSize: 16, fontWeight: 600, lineHeight: 1.5, color: 'rgba(255,255,255,.88)', letterSpacing: -0.3 }}>
             색·모양만으로 30초 만에 찾고,
             <br />
-            인계는 복사 한 번으로 끝내는 병동 도구
+            인계는 원내 Teams로 한 번에 보내는 병동 도구
           </p>
         </div>
       ),
@@ -278,27 +278,23 @@ function obSlides(): Slide[] {
     {
       body: (
         <>
-          <ObKicker n="3">인계는 복사 한 번</ObKicker>
+          <ObKicker n="3">인계는 원내 Teams로</ObKicker>
           <ObH2>
             옮겨 적지
             <br />
             마세요.
           </ObH2>
           <ObLead>
-            정리한 리스트가 <Em>시간대별 한 줄 텍스트</Em>로. 복사하거나 Teams로 바로 보내요.
+            정리한 리스트가 <Em>시간대별 한 줄 텍스트</Em>로. <Em>원내 Teams</Em>로 바로 보내요(병원 도메인만).
           </ObLead>
-          <pre style={{ margin: '18px 0 0', padding: 14, borderRadius: 'var(--r-card)', background: 'var(--fill)', color: 'var(--text)', fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 12, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{`[홍*동]
+          <pre style={{ margin: '18px 0 0', padding: 14, borderRadius: 'var(--r-card)', background: 'var(--fill)', color: 'var(--text)', fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 12, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{`[12-3]
 <8am>
 아스피린장용정100mg 1T (하양/원형/Bayer)
 트라젠타정 1T (분홍/원형/D5)`}</pre>
-          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, height: 46, borderRadius: 'var(--r-btn)', background: 'var(--primary)', color: '#fff', fontSize: 14.5, fontWeight: 800 }}>
-              <Icon name="copy" size={18} />
-              복사
-            </div>
-            <div style={{ flex: 1.3, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, height: 46, borderRadius: 'var(--r-btn)', background: '#5b5fc7', color: '#fff', fontSize: 14.5, fontWeight: 800 }}>
+          <div style={{ display: 'flex', marginTop: 12 }}>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, height: 46, borderRadius: 'var(--r-btn)', background: '#5b5fc7', color: '#fff', fontSize: 14.5, fontWeight: 800 }}>
               <Icon name="send" size={18} />
-              Teams로 보내기
+              Teams로 보내기 (원내)
             </div>
           </div>
         </>
@@ -333,14 +329,14 @@ function obSlides(): Slide[] {
     {
       body: (
         <>
-          <ObKicker n="5">이름은 기기에만, 공유는 가려서</ObKicker>
+          <ObKicker n="5">이름 대신 병상번호로</ObKicker>
           <ObH2>
-            이름 그대로,
+            병상번호로,
             <br />
             안전하게.
           </ObH2>
           <ObLead>
-            환자 이름을 <Em>그대로 입력</Em>해 평소처럼 쓰세요. 이름은 이 기기에만 저장되고 서버로 안 보내요. 밖으로 복사·공유할 땐 <Em>자동으로 가려서</Em>(홍*동) 내보내요.
+            환자 이름 대신 <Em>병상·베드 번호</Em>로 적기를 권장해요(이름도 입력은 가능). 라벨은 이 기기에만 저장되고 서버로 안 보내요. 인계는 <Em>원내 Teams</Em>로만 나가요.
           </ObLead>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, background: 'var(--primary-weak)', borderRadius: 'var(--r-card)', padding: '18px 18px', marginTop: 20 }}>
             <div style={{ width: 48, height: 48, borderRadius: 14, background: 'var(--primary)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -349,7 +345,7 @@ function obSlides(): Slide[] {
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 22, fontWeight: 800, letterSpacing: -0.5, color: 'var(--text-weaker)', whiteSpace: 'nowrap' }}>
               <span style={{ textDecoration: 'line-through' }}>홍길동</span>
               <Icon name="chevron" size={20} style={{ color: 'var(--primary)', flexShrink: 0 }} />
-              <span style={{ color: 'var(--primary-ink)' }}>홍*동</span>
+              <span style={{ color: 'var(--primary-ink)' }}>병상 12-3</span>
             </div>
           </div>
           <ObLead>서버 전송 없음 · 기기 저장 · 인터넷 없이(인트라넷)도 동작해요.</ObLead>
@@ -369,10 +365,10 @@ function obSlides(): Slide[] {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 22 }}>
             {(
               [
-                ['①', '병원 공식 채널로만 공유', '개인 카톡·SNS 말고, 병원 관리 협업툴·폐쇄망에서요.'],
-                ['②', '마스킹은 보조수단', '홍*동도 병동·약과 합치면 식별될 수 있어요.'],
+                ['①', '인계는 원내 Teams로만', '병원 도메인 계정으로만 보내져요. 개인 카톡·SNS·외부 공유는 막혀 있어요.'],
+                ['②', '환자는 병상번호로', '이름 대신 병상·베드 번호 권장. 이름을 적으면 병동·약과 합쳐 식별될 수 있어요.'],
                 ['③', '진료·인계 목적으로만 사용', ''],
-                ['④', '업무폰 화면잠금·분실 주의', '환자 이름이 기기에 저장돼요. 화면잠금을 켜고 분실에 주의하세요.'],
+                ['④', '업무폰 화면잠금·분실 주의', '입력한 라벨이 기기에 저장돼요. 화면잠금을 켜고 분실에 주의하세요.'],
                 ['⑤', '도입 전 개인정보보호 담당자 확인', ''],
               ] as [string, string, string][]
             ).map((r, i) => (
@@ -405,7 +401,7 @@ function obSlides(): Slide[] {
               [
                 ['색·모양·각인으로 거꾸로 찾기', '각인이 잘 안 보이면 ‘그려서 찾기’로도 찾아요.'],
                 ['글자가 작으면 ‘가＋’', '복약 리스트 화면 오른쪽 위에서 글자 크기를 키워요.'],
-                ['인계는 ‘공유하기’ 한 번', '환자 이름은 자동으로 가려서(홍*동) 내보내요.'],
+                ['인계는 원내 Teams로 한 번', '환자는 병상번호로 적고, 병원 도메인으로만 보내요.'],
                 ['인터넷 없어도(인트라넷) OK', '설정에서 미리 받아두면 오프라인 검색·상세까지.'],
               ] as [string, string][]
             ).map((r, i) => (

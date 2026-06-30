@@ -10,7 +10,7 @@ import {
   isFreqChipSelected,
 } from '../constants/frequency';
 import { TIMING_PRESETS, timingOrder } from '../constants/timing';
-import { blindLabel, buildListText, cleanMarking, tidyText } from '../domain/format';
+import { buildListText, cleanMarking, tidyText } from '../domain/format';
 import { shapeLabel } from '../domain/shape';
 import { splitLineKind, SPLIT_LINE_LABEL } from '../domain/splitLine';
 import type { MedItem, Patient } from '../domain/models';
@@ -907,46 +907,6 @@ function TeamsTargetPrompt({
   );
 }
 
-/** 범용 확인 팝업(예/아니오). 개인정보 유출 경고 등에 사용. */
-function ConfirmDialog({
-  title,
-  body,
-  confirmLabel,
-  onConfirm,
-  onCancel,
-}: {
-  title: string;
-  body: string;
-  confirmLabel: string;
-  onConfirm: () => void;
-  onCancel: () => void;
-}) {
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={title}
-      style={{ position: 'absolute', inset: 0, zIndex: 270, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
-    >
-      <div onClick={onCancel} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }} />
-      <div style={{ position: 'relative', width: '100%', maxWidth: 340, background: 'var(--bg)', borderRadius: 20, padding: 20, boxShadow: '0 12px 44px rgba(0,0,0,0.32)' }}>
-        <h3 style={{ margin: '0 0 8px', fontSize: 17, fontWeight: 800, color: 'var(--danger)', letterSpacing: -0.4, display: 'flex', alignItems: 'center', gap: 7 }}>
-          <Icon name="warn" size={19} /> {title}
-        </h3>
-        <p style={{ margin: '0 0 16px', fontSize: 13.5, color: 'var(--text-weak)', fontWeight: 600, letterSpacing: -0.3, lineHeight: 1.55 }}>{body}</p>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <Btn variant="ghost" full onClick={onCancel}>
-            취소
-          </Btn>
-          <Btn variant="primary" full onClick={onConfirm}>
-            {confirmLabel}
-          </Btn>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 /** 공유 상세설정의 토글 행(체크박스 스타일) */
 function ShareToggle({ label, hint, on, onToggle }: { label: string; hint: string; on: boolean; onToggle: () => void }) {
   return (
@@ -983,25 +943,20 @@ function ShareToggle({ label, hint, on, onToggle }: { label: string; hint: strin
 }
 
 export function CopySheet({ open, onClose, label, meds }: { open: boolean; onClose: () => void; label: string; meds: MedItem[] }) {
-  const [copied, setCopied] = useState(false);
   const [teamsTarget, setTeamsTargetState] = useState('');
   const [teamsPrompt, setTeamsPrompt] = useState(false);
   const [opts, setOpts] = useState<ShareOptions>(getShareOptions);
   const [optsOpen, setOptsOpen] = useState(false);
-  const [confirmShare, setConfirmShare] = useState<null | 'copy' | 'share'>(null);
-  // 외부 복사·공유는 항상 마스킹 강제(환자명 가림). Teams(원내)만 원문 라벨 전송.
+  // 원내 Teams 전용 인계 — 외부 복사·시스템공유는 제공하지 않는다(병상번호 기반 원내 공유).
   const baseOpts = { ingredient: opts.ingredient, appearance: opts.appearance };
-  const maskedText = useMemo(() => buildListText(label, meds, { ...baseOpts, mask: true }), [label, meds, opts.ingredient, opts.appearance]);
   const teamsText = useMemo(() => buildListText(label, meds, { ...baseOpts, mask: false }), [label, meds, opts.ingredient, opts.appearance]);
   useEffect(() => {
     if (open) {
       setTeamsTargetState(getTeamsTarget());
       setOpts(getShareOptions());
     } else {
-      setCopied(false);
       setTeamsPrompt(false);
       setOptsOpen(false);
-      setConfirmShare(null);
     }
   }, [open]);
   const toggleOpt = (key: keyof ShareOptions) => {
@@ -1009,7 +964,6 @@ export function CopySheet({ open, onClose, label, meds }: { open: boolean; onClo
     setOpts(next);
     setShareOptions(next);
   };
-  const canShare = typeof navigator !== 'undefined' && !!navigator.share;
   const launchTeams = (target?: string) => {
     const url = teamsDeepLink(teamsText, target); // 원내 전송 = 원문(마스킹 안 함)
     let w: Window | null = null;
@@ -1044,31 +998,12 @@ export function CopySheet({ open, onClose, label, meds }: { open: boolean; onClo
     setTeamsPrompt(false);
     launchTeams(email);
   };
-  // 복사/공유는 개인정보 유출 확인 팝업을 거친 뒤 실행(항상 마스킹된 텍스트).
-  const runShare = async (kind: 'copy' | 'share') => {
-    setConfirmShare(null);
-    if (kind === 'copy') {
-      try {
-        await navigator.clipboard.writeText(maskedText);
-      } catch {
-        /* ignore */
-      }
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
-    } else {
-      try {
-        if (navigator.share) await navigator.share({ text: maskedText });
-      } catch {
-        /* ignore */
-      }
-    }
-  };
   return (
     <>
     <BottomSheet open={open} onClose={onClose} title="인계용 텍스트" maxH="78%">
-      <p style={{ margin: '0 0 14px', fontSize: 14, color: 'var(--text-weak)', fontWeight: 600, letterSpacing: -0.3 }}>그대로 복사해 인계 메모/메신저에 붙여넣으세요.</p>
+      <p style={{ margin: '0 0 14px', fontSize: 14, color: 'var(--text-weak)', fontWeight: 600, letterSpacing: -0.3 }}>원내 Teams 로 인계를 보내요. (외부 복사·공유는 제공하지 않아요)</p>
       <pre style={{ margin: 0, padding: 16, borderRadius: 'var(--r-card)', background: 'var(--fill)', color: 'var(--text)', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 280, overflowY: 'auto' }}>
-        {maskedText}
+        {teamsText}
       </pre>
 
       <button
@@ -1090,34 +1025,15 @@ export function CopySheet({ open, onClose, label, meds }: { open: boolean; onClo
         </div>
       )}
 
-      <p style={{ margin: '10px 2px 0', fontSize: 12, color: 'var(--text-weaker)', fontWeight: 600, lineHeight: 1.45 }}>
-        복사·공유 시 환자명은 <b>자동으로 가려서</b>(예: {blindLabel(label) || '환*1'}) 나가요.
-      </p>
-
-      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-        {canShare && <Btn variant="ghost" icon="share" onClick={() => setConfirmShare('share')} style={{ flex: '0 0 auto', width: 54, padding: 0 }} />}
-        <Btn variant="primary" full icon={copied ? 'check' : 'copy'} onClick={() => setConfirmShare('copy')}>
-          {copied ? '복사됐어요' : '복사하기'}
-        </Btn>
-      </div>
-      <Btn variant="primary" full icon="send" onClick={openTeams} style={{ marginTop: 8, background: '#5b5fc7' }}>
+      <Btn variant="primary" full icon="send" onClick={openTeams} style={{ marginTop: 14, background: '#5b5fc7' }}>
         Teams로 보내기 (원내)
       </Btn>
       <p style={{ margin: '8px 2px 0', fontSize: 12, color: 'var(--text-weaker)', fontWeight: 600, lineHeight: 1.45 }}>
         {teamsTarget
-          ? `대상: ${teamsTarget} — 원내 전송이라 환자 이름 그대로 보내요(보내기만 탭).`
+          ? `대상: ${teamsTarget} — 원내 전송이라 그대로 보내요(보내기만 탭).`
           : '“Teams로 보내기”를 누르면 보낼 대상을 물어봐요. (설정 ⚙️에서도 지정 가능)'}
       </p>
     </BottomSheet>
-    {confirmShare && (
-      <ConfirmDialog
-        title="개인정보 유출 주의"
-        body="환자명은 가려서 나가지만, 카카오톡·문자·이메일 등 외부로 공유하면 처방·복약 정보가 유출될 수 있어요. 병원 인계 용도로만 사용하세요."
-        confirmLabel={confirmShare === 'copy' ? '가린 채 복사' : '가린 채 공유'}
-        onConfirm={() => runShare(confirmShare)}
-        onCancel={() => setConfirmShare(null)}
-      />
-    )}
     {teamsPrompt && (
       <TeamsTargetPrompt
         onSave={saveTeamsTarget}
@@ -1249,9 +1165,9 @@ export function PatientManageSheet({
   if (!patient) return null;
   return (
     <BottomSheet open={open} onClose={onClose} title="환자 관리" maxH="60%">
-      <FieldLabel>이름</FieldLabel>
-      <TextField value={name} onChange={setName} placeholder="예) 홍길동" aria-label="환자 이름" />
-      <p style={{ margin: '10px 2px 0', fontSize: 12.5, color: 'var(--text-weaker)', fontWeight: 600 }}>이름은 이 기기에만 저장되고, 밖으로 공유할 땐 자동으로 가려져요.</p>
+      <FieldLabel>병상번호</FieldLabel>
+      <TextField value={name} onChange={setName} placeholder="예) 12-3, 301-1" aria-label="병상번호" />
+      <p style={{ margin: '10px 2px 0', fontSize: 12.5, color: 'var(--text-weaker)', fontWeight: 600 }}>환자 이름 대신 <b>병상·베드 번호</b>를 권장해요(이름도 가능). 이 기기에만 저장돼요.</p>
       <div style={{ marginTop: 20 }}>
         <Btn variant="primary" full onClick={() => { onRename(name.trim() || patient.label); onClose(); }}>
           저장
@@ -1301,17 +1217,17 @@ export function NewPatientSheet({
   };
   return (
     <BottomSheet open={open} onClose={onClose} title="새 환자" maxH="56%">
-      <FieldLabel>환자 이름</FieldLabel>
+      <FieldLabel>병상번호</FieldLabel>
       <TextField
         value={name}
         onChange={setName}
-        placeholder="예) 홍길동"
-        aria-label="환자 이름"
+        placeholder="예) 12-3, 301-1"
+        aria-label="병상번호"
         id="new-patient-name"
         onKeyDown={(e: { key: string }) => e.key === 'Enter' && submit()}
       />
       <p style={{ margin: '10px 2px 0', fontSize: 12.5, color: 'var(--text-weaker)', fontWeight: 600, lineHeight: 1.5 }}>
-        이름은 이 기기에만 저장되고, 밖으로 공유할 땐 자동으로 가려져요. 비워두면 <b>{defaultLabel}</b>로 추가돼요.
+        환자 이름 대신 <b>병상·베드 번호</b>를 권장해요(이름도 입력 가능). 이 기기에만 저장돼요. 비워두면 <b>{defaultLabel}</b>로 추가돼요.
       </p>
       <div style={{ marginTop: 20 }}>
         <Btn variant="primary" full icon="plus" onClick={submit}>
