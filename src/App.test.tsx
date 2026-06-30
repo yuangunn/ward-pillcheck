@@ -165,7 +165,7 @@ describe('App 리디자인 통합 (목 모드)', () => {
     const user = userEvent.setup();
     renderApp();
     await user.click(screen.getByRole('button', { name: '새 환자 추가' }));
-    await user.type(await screen.findByLabelText('환자 이름'), '301-1');
+    await user.type(await screen.findByLabelText('병상번호'), '301-1');
     await user.click(screen.getByRole('button', { name: '추가' }));
     const titleBtn = await screen.findByRole('button', { name: '이름 수정' });
     expect(titleBtn).toHaveTextContent('301-1');
