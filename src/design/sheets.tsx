@@ -1365,12 +1365,25 @@ export function DrawMarkSheet({ open, onPick, onClose, onOpenGallery }: { open: 
         langPath: `${b}tesseract/`,
       });
       await worker.setParameters({
-        tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
-        tessedit_pageseg_mode: '8' as never, // 8 = single word
+        // 대/소문자 + 숫자 모두 허용(예: 'Bayer' 의 소문자 ayer 를 못 읽던 문제). 검색은 어차피 대문자로 정규화.
+        tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789',
+        tessedit_pageseg_mode: '7' as never, // 7 = single text line
       });
-      const { data } = await worker.recognize(c);
+      // 전처리: 흰 여백 추가 + 2배 확대(Tesseract 는 글자 주변 여백·충분한 해상도가 필요).
+      const pad = Math.round(c.width * 0.2);
+      const S = 2;
+      const pc = document.createElement('canvas');
+      pc.width = (c.width + pad * 2) * S;
+      pc.height = (c.height + pad * 2) * S;
+      const pctx = pc.getContext('2d');
+      if (pctx) {
+        pctx.fillStyle = '#fff';
+        pctx.fillRect(0, 0, pc.width, pc.height);
+        pctx.drawImage(c, pad * S, pad * S, c.width * S, c.height * S);
+      }
+      const { data } = await worker.recognize(pctx ? pc : c);
       await worker.terminate();
-      setOcr((data.text || '').toUpperCase().replace(/[^A-Z0-9]/g, '')); // 영숫자만
+      setOcr((data.text || '').toUpperCase().replace(/[^A-Z0-9]/g, '')); // 검색용: 대문자 영숫자만
     } catch {
       setOcr(''); // 실패(오프라인 등) → 못 읽음 표시
     } finally {
