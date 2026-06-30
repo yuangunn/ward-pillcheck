@@ -192,13 +192,39 @@ async function collectPermit() {
   return { injections, ingrBySeq };
 }
 
-/** 허가 상세(Dtl06) 전수 페이징 → 효능/용법/주의 (전문약 포함). seq별 컴팩트. */
+/**
+ * 허가정보 MAIN_ITEM_INGR(한글 주성분) → 표시용 한글 성분명.
+ * '[M269062]모사프리드…' / 복합·중복은 '|' 나열 → [코드] 제거 + 분해 + 중복제거 + '/' 결합.
+ * ⚠ src/domain/ingredient.ts 의 koreanActiveIngredient 와 동일 로직(거긴 TS, 여긴 빌드용 JS) — sync 유지.
+ */
+function koActive(raw) {
+  if (!raw) return '';
+  const seen = new Set();
+  const out = [];
+  for (const part of String(raw).split('|')) {
+    const name = part.replace(/^\s*\[[^\]]*\]\s*/, '').trim();
+    if (name && !seen.has(name)) {
+      seen.add(name);
+      out.push(name);
+    }
+  }
+  return out.join('/');
+}
+
+/**
+ * 허가 상세(Dtl06) 전수 페이징 → 효능/용법/주의(전문약 포함) + 한글 주성분(MAIN_ITEM_INGR).
+ * 반환: { details(seq별 문서 컴팩트), ingrKoBySeq(전 품목 seq→한글 주성분) }
+ */
 async function collectDetails() {
   const details = [];
+  const ingrKoBySeq = new Map();
   const clip = (s) => (s && s.length > DOC_CLIP ? s.slice(0, DOC_CLIP) + '…' : s);
   const handle = (row) => {
     const seq = row.ITEM_SEQ ?? '';
     if (!seq) return;
+    // 한글 주성분은 문서 유무와 무관하게 전 품목에서 수집
+    const ko = koActive(row.MAIN_ITEM_INGR);
+    if (ko && !ingrKoBySeq.has(seq)) ingrKoBySeq.set(seq, ko);
     const efcy = clip(stripDoc(row.EE_DOC_DATA));
     const useMethod = clip(stripDoc(row.UD_DOC_DATA));
     const atpn = clip(stripDoc(row.NB_DOC_DATA));
@@ -225,7 +251,7 @@ async function collectDetails() {
     }
     console.log(`  [상세] ...${details.length}건 (page ~${Math.min(start + CONCURRENCY - 1, pages)}/${pages})`);
   }
-  return details;
+  return { details, ingrKoBySeq };
 }
 
 /** DUR 룰셋 수집 → 컴팩트 번들(v2). 오프라인 금기점검용.
@@ -473,15 +499,26 @@ if (!KEY) {
         joined++;
       }
     }
-    console.log(`성분 결합: ${joined}/${pills.length}건`);
-    write('pills', pills);
+    console.log(`성분 결합(영문): ${joined}/${pills.length}건`);
+    write('pills', pills); // 상세 수집 실패 대비 1차 기록(영문 성분까지)
     console.log('마크 이미지 번들…');
     await buildMarks(pills);
     write('injections', injections);
     console.log('허가사항 상세(Dtl06) 전수 수집…');
-    const details = await collectDetails();
+    const { details, ingrKoBySeq } = await collectDetails();
     console.log(`허가사항 상세 ${details.length}건(전문약 포함) → details.json.gz`);
     writeGz('details', details);
+    // 한글 주성분(MAIN_ITEM_INGR) 결합 후 pills 재기록
+    let koJoined = 0;
+    for (const p of pills) {
+      const ko = ingrKoBySeq.get(p.seq);
+      if (ko) {
+        p.ingrKo = ko;
+        koJoined++;
+      }
+    }
+    console.log(`성분 결합(한글): ${koJoined}/${pills.length}건`);
+    write('pills', pills); // 한글 성분 포함해 최종 기록
     // DUR: 우리 약(낱알+주사·외용)끼리로 제한 + 텍스트 인터닝으로 압축해 오프라인 번들 생성.
     console.log('금기점검(DUR) 룰셋 수집·압축…');
     const ourSeqs = new Set([...pills.map((x) => x.seq), ...injections.map((x) => x.seq)].filter(Boolean));

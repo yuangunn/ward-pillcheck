@@ -329,6 +329,16 @@ test('의약품 검색 탭: 경구약 검색 → 상세 보기', async ({ page }
   await expect(sheet.getByText('타이레놀정500mg')).toBeVisible();
 });
 
+test('상세 성분: 한글 주성분을 앞세우고 영문을 보조 표기', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('tab', { name: '의약품 검색' }).click();
+  await page.getByLabel('의약품 이름 검색').fill('노바스크');
+  await page.getByText('노바스크정5mg').click();
+  const sheet = page.getByRole('dialog', { name: '약 상세 정보' });
+  await expect(sheet.getByText('암로디핀베실산염')).toBeVisible(); // 한글 주성분
+  await expect(sheet.getByText('Amlodipine Besylate')).toBeVisible(); // 영문 병기
+});
+
 test('환자 약 행 탭 → 수정 시트', async ({ page }) => {
   await page.goto('/');
   await page.getByText('환자1').click();

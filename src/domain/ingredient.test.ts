@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeIngredient, decomposeIngredients, analyzeIngredientOverlap } from './ingredient';
+import { normalizeIngredient, decomposeIngredients, analyzeIngredientOverlap, koreanActiveIngredient } from './ingredient';
 
 describe('normalizeIngredient', () => {
   it('염·수화물 접미어를 떼고 활성성분만 남긴다', () => {
@@ -48,6 +48,23 @@ describe('decomposeIngredients', () => {
   it('빈/누락 입력은 빈 배열', () => {
     expect(decomposeIngredients(undefined)).toEqual([]);
     expect(decomposeIngredients('')).toEqual([]);
+  });
+});
+
+describe('koreanActiveIngredient', () => {
+  it('[코드] 접두를 제거하고 한글 성분만 남긴다 (실데이터)', () => {
+    expect(koreanActiveIngredient('[M269062]모사프리드시트르산염이수화물')).toBe('모사프리드시트르산염이수화물');
+  });
+  it("복합·중복 나열('|')은 분해·중복제거 후 '/' 로 결합 (실데이터)", () => {
+    expect(
+      koreanActiveIngredient('[M088948]은행엽건조엑스|[M088948]은행엽건조엑스|[M088948]은행엽건조엑스'),
+    ).toBe('은행엽건조엑스');
+    expect(koreanActiveIngredient('[c1]암로디핀캄실산염|[c2]로사르탄칼륨')).toBe('암로디핀캄실산염/로사르탄칼륨');
+  });
+  it('빈/누락 입력은 빈 문자열', () => {
+    expect(koreanActiveIngredient('')).toBe('');
+    expect(koreanActiveIngredient(undefined)).toBe('');
+    expect(koreanActiveIngredient('[M000]')).toBe(''); // 코드만 있고 이름 없음
   });
 });
 

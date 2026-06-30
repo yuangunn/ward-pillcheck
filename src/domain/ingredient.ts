@@ -71,6 +71,27 @@ function titleCase(s: string): string {
   return s.replace(/\b[a-z]/g, (c) => c.toUpperCase());
 }
 
+/**
+ * 허가정보 MAIN_ITEM_INGR(한글 주성분)을 표시용 한글 성분명으로 정리.
+ * 원시 형식: '[M269062]모사프리드시트르산염이수화물' / 복합·중복은 '|' 로 나열
+ *   '[c1]암로디핀캄실산염|[c2]로사르탄칼륨', '[c]은행엽건조엑스|[c]은행엽건조엑스|...'
+ * → [코드] 접두 제거 + '|' 분해 + 공백정리 + 중복제거 후 '/' 로 결합.
+ * (build-dataset.mjs 의 동일 로직과 sync 유지 — 거긴 .mjs 라 import 불가해 복제)
+ */
+export function koreanActiveIngredient(raw: string | undefined | null): string {
+  if (!raw) return '';
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const part of String(raw).split('|')) {
+    const name = part.replace(/^\s*\[[^\]]*\]\s*/, '').trim(); // [M…] 코드 접두 제거
+    if (name && !seen.has(name)) {
+      seen.add(name);
+      out.push(name);
+    }
+  }
+  return out.join('/');
+}
+
 /** 성분 중복 1건 — 두 개 이상의 약이 공유하는 활성성분과 그 약들. */
 export interface IngredientOverlap {
   ingredient: string; // 표시용 활성성분 기본형(영문 Title Case)

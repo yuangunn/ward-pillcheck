@@ -230,7 +230,8 @@ function DetailPanel({ seq, pill, onZoom }: { seq: string; pill: PillResult; onZ
   const isInjection = isInjectionName(pill.itemName); // 주사제는 식별용 사진이 원본에 없음
   // 사진 없는 일반 약은 글리프(모양/색) 확대가 유용하지만, 주사제는 보여줄 게 없어 확대 비활성화
   const canZoom = !!onZoom && (!!photo || !isInjection);
-  const ingredient = pill.ingredient || detail?.ingredient; // 번들 성분 우선, 없으면 라이브
+  const ingredient = pill.ingredient || detail?.ingredient; // 영문 주성분: 번들 우선, 없으면 라이브
+  const ingredientKo = pill.ingredientKo; // 한글 주성분(번들). 있으면 한글을 앞세우고 영문은 보조 표기
   // 외형/분류 기본 정보(상세가 없어도 항상 제공)
   const basics = ([
     ['분류', pill.className],
@@ -291,10 +292,15 @@ function DetailPanel({ seq, pill, onZoom }: { seq: string; pill: PillResult; onZ
               )}
             </button>
             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {ingredient && (
+              {(ingredientKo || ingredient) && (
                 <div style={{ display: 'flex', gap: 8, fontSize: 13, lineHeight: 1.4 }}>
                   <span style={{ flexShrink: 0, width: 38, color: 'var(--text-weaker)', fontWeight: 700 }}>성분</span>
-                  <span style={{ color: 'var(--text)', fontWeight: 700, letterSpacing: -0.3 }}>{ingredient}</span>
+                  <span style={{ color: 'var(--text)', fontWeight: 700, letterSpacing: -0.3 }}>
+                    {ingredientKo || ingredient}
+                    {ingredientKo && ingredient && (
+                      <span style={{ marginLeft: 6, color: 'var(--text-weaker)', fontWeight: 600 }}>{ingredient}</span>
+                    )}
+                  </span>
                 </div>
               )}
               {basics.map(([k, v]) => (
