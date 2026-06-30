@@ -23,6 +23,9 @@ export default defineConfig({
           '**/data/injections-meta.json',
           '**/data/marks.json',
           '**/data/marks-meta.json',
+          // OCR(그린 글자 인식) 자체호스팅 모델 — 초기 설치 시 프리캐시 → 오프라인/인트라넷에서도 동작.
+          // worker.min.js·core(.wasm.js)는 위 **/*.js 로 포함, 언어데이터(.gz)만 추가.
+          '**/tesseract/*.gz',
         ],
         // pills.json(대용량)·상세(gz)는 프리캐시 제외(앱이 IndexedDB로 관리).
         globIgnores: ['**/data/*.json.gz'],
