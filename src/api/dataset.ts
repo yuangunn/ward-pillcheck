@@ -39,14 +39,15 @@ export interface DatasetMeta {
 export type DatasetStatus = 'idle' | 'loading' | 'ready' | 'empty' | 'error';
 
 // 데이터 파일 경로(앱 base 기준). import.meta.env.BASE_URL = '/ward-pillcheck/'
-const BASE = import.meta.env.BASE_URL ?? '/';
+// import.meta.env 는 Vite 빌드에서만 주입 — node/tsx(개발 벤치 등)에서도 모듈이 로드되게 방어.
+const BASE = import.meta.env?.BASE_URL ?? '/';
 const DATA_URL = `${BASE}data/pills.json`;
 const META_URL = `${BASE}data/pills-meta.json`;
 
 const DB_NAME = 'ward-pillcheck';
 const STORE = 'dataset';
 
-const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined)?.trim();
+const API_BASE = (import.meta.env?.VITE_API_BASE as string | undefined)?.trim();
 /** nedrug 이미지를 워커 프록시 경유 URL로 변환(헤더 정리 + CORS). 워커 없으면 원본. */
 export function proxiedImg(url?: string): string | undefined {
   if (!url) return undefined;
