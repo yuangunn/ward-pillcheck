@@ -629,6 +629,7 @@ export function SearchScreen({
   const [forms, setForms] = useState<string[]>([]);
   const [lines, setLines] = useState<SplitLineKind[]>([]);
   const [marking, setMarking] = useState('');
+  const [markText, setMarkText] = useState(''); // 마크 글자(코드) 검색 — 예: G, MF, 삼각형
   const [name, setName] = useState('');
   const [results, setResults] = useState<PillResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -643,7 +644,7 @@ export function SearchScreen({
 
   const active =
     mode === 'visual'
-      ? !!(colors.length || shapes.length || forms.length || lines.length || marking || pickedMark)
+      ? !!(colors.length || shapes.length || forms.length || lines.length || marking || markText.trim() || pickedMark)
       : !!name.trim();
   const query: PillSearchQuery =
     mode === 'visual'
@@ -655,7 +656,8 @@ export function SearchScreen({
           printFront: marking || undefined,
           // 선택한 마크의 "이미지 id"로 매칭(같은 실제 마크만). imgId 없으면 글자값으로 폴백.
           markImg: pickedMark?.imgId,
-          markCode: pickedMark && !pickedMark.imgId ? pickedMark.code : undefined,
+          // 마크 글자 입력이 우선(타이핑) — 없으면 picked 글자값 폴백.
+          markCode: markText.trim() || (pickedMark && !pickedMark.imgId ? pickedMark.code : undefined),
           numOfRows: FETCH_CAP, // 결과 내 재검색용 풀(메모리). 렌더는 RENDER_CAP.
         }
       : { itemName: name.trim() || undefined, numOfRows: FETCH_CAP };
@@ -715,6 +717,7 @@ export function SearchScreen({
     setForms([]);
     setLines([]);
     setMarking('');
+    setMarkText('');
     setNarrow('');
     onClearMark();
   };
@@ -894,6 +897,11 @@ export function SearchScreen({
               </button>
             </div>
           )}
+          <div style={{ height: 12 }} />
+          <TextField value={markText} onChange={setMarkText} placeholder="마크 글자로 찾기 (예: G, MF, 삼각형)" aria-label="마크 글자" />
+          <p style={{ margin: '8px 2px 0', fontSize: 12, color: 'var(--text-weaker)', fontWeight: 600, lineHeight: 1.45 }}>
+            마크에 새겨진 글자/모양 이름으로 찾아요. 식약처가 같은 마크를 «ㄷㄱ,G»처럼 적어둔 경우, <b>G</b>로도 찾아져요.
+          </p>
           {active && (
             <button
               type="button"

@@ -61,6 +61,17 @@ describe('filterRecords', () => {
     expect(filterRecords(data, { markCode: 'Q' })).toEqual([]);
   });
 
+  it("마크 글자 — 'G'로 «ㄷㄱ,G» 마크를 찾는다(대소문자 무시·시작일치)", () => {
+    const data: PillRecord[] = [
+      { seq: 'A', name: '동광오플록사신정', entp: 'X', shape: '원형', color: '하양', markFA: 'ㄷㄱ,G' },
+      { seq: 'B', name: '삼각데모정', entp: 'X', shape: '원형', color: '하양', markFA: '삼각형' },
+    ];
+    expect(filterRecords(data, { markCode: 'G' }).map((x) => x.itemSeq)).toEqual(['A']); // 'G' 코드 매칭
+    expect(filterRecords(data, { markCode: 'g' }).map((x) => x.itemSeq)).toEqual(['A']); // 대소문자 무시
+    expect(filterRecords(data, { markCode: '삼각' }).map((x) => x.itemSeq)).toEqual(['B']); // 시작일치
+    expect(filterRecords(data, { markCode: 'ㄷㄱ' }).map((x) => x.itemSeq)).toEqual(['A']); // 자모 코드도 그대로
+  });
+
   it('마크 이미지 id 로 필터(markImg) — 같은 "삼각형"이라도 실제 이미지가 다르면 구분', () => {
     // 둘 다 분석텍스트는 "삼각형"이지만, 실제 마크 이미지(markFI)가 다른 두 약
     const data: PillRecord[] = [

@@ -60,3 +60,9 @@ test('각인 혼동문자 — 50H 로 검색하면 각인 SOH 약이 "비슷한 
   await expect(page.getByText('컨퓨즈데모정')).toBeVisible();
   await expect(page.getByText('비슷한 각인')).toHaveCount(0);
 });
+
+test('마크 글자 — G 로 검색하면 «ㄷㄱ,G» 마크 약이 나온다', async ({ page }) => {
+  await openSearch(page);
+  await page.getByLabel('마크 글자').fill('G'); // 식약처가 ㄷㄱ,G 로 적어둔 마크를 G 로 찾기
+  await expect(page.getByText('동광오플록사신정')).toBeVisible();
+});
