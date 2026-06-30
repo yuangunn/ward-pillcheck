@@ -21,7 +21,8 @@ export interface PillRecord {
   form?: string;
   otc?: string;
   cls?: string;
-  ingr?: string; // 주성분(허가정보 결합)
+  ingr?: string; // 주성분(영문 INN, 허가정보 ITEM_INGR_NAME 결합)
+  ingrKo?: string; // 한글 주성분(허가상세 MAIN_ITEM_INGR 결합)
   img?: string;
   markFI?: string; // 앞면 마크 이미지
   markBI?: string; // 뒤면 마크 이미지
@@ -232,6 +233,7 @@ function rec2result(r: PillRecord): PillResult {
     etcOtcName: r.otc,
     className: r.cls,
     ingredient: r.ingr,
+    ingredientKo: r.ingrKo,
     markFrontImg: r.markFI,
     markBackImg: r.markBI,
     markFrontAnal: r.markFA,

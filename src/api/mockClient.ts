@@ -50,6 +50,7 @@ const SAMPLE: PillResult[] = [
     etcOtcName: '전문의약품',
     className: '혈압강하제',
     ingredient: 'Amlodipine Besylate',
+    ingredientKo: '암로디핀베실산염',
     itemImage: '',
   },
   {
