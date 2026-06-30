@@ -282,7 +282,9 @@ export function filterRecords(
   const print = q.printFront?.trim().toUpperCase();
   // 혼동문자 정규화 매칭은 3글자 이상에서만(1~2글자는 후보가 과도하게 늘어 변별력↓).
   const allowFuzzy = !!print && print.length >= 3;
-  const markCode = q.markCode?.trim();
+  // 마크 글자 검색: 대소문자 무시 + 코드 시작일치(예: 'G'→'ㄷㄱ,G'의 'G', '삼각'→'삼각형').
+  // 식약처가 같은 마크를 'ㄷㄱ,G' 처럼 자모+라틴 둘 다 적어둔 경우, 'G' 로 찾게 한다.
+  const markCode = q.markCode?.trim().toUpperCase();
   const markImg = q.markImg?.trim();
 
   // 정확/뒤집힘 일치는 exact(관련도순 정렬), 혼동문자로만 일치하면 fuzzy 로 분리해 뒤에 둔다.
@@ -319,7 +321,7 @@ export function filterRecords(
       fuzzyMatch = m.fuzzy;
     }
     if (markImg && !markImgIdsOf(r).includes(markImg)) continue;
-    if (markCode && !markCodesOf(r).includes(markCode)) continue;
+    if (markCode && !markCodesOf(r).some((c) => c.toUpperCase().startsWith(markCode))) continue;
     const res = rec2result(r);
     if (flipMatch) res.printFlipMatch = true;
     if (fuzzyMatch) {

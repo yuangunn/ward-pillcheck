@@ -135,6 +135,21 @@ const SAMPLE: PillResult[] = [
     itemImage: '',
   },
   {
+    // 마크 글자 데모: 마크가 G 인데 식약처가 'ㄷㄱ,G' 로 기록 → 'G' 로 찾아짐
+    itemSeq: '202400520',
+    itemName: '동광오플록사신정',
+    entpName: '동광제약',
+    drugShape: '원형',
+    colorClass1: '하양',
+    printFront: '마크',
+    printBack: '',
+    formCodeName: '필름코팅정',
+    etcOtcName: '전문의약품',
+    className: '항생제',
+    markFrontAnal: 'ㄷㄱ,G',
+    itemImage: '',
+  },
+  {
     // 혼동문자 데모: 각인 'SOH' → 헷갈려 '50H'(S↔5, O↔0)로 입력해도 잡힘
     itemSeq: '202400412',
     itemName: '컨퓨즈데모정',
@@ -225,6 +240,12 @@ function matchesNonPrint(p: PillResult, q: PillSearchQuery): boolean {
   if (q.colors?.length && !q.colors.some((c) => (p.colorClass1 ?? '').includes(c))) return false;
   if (q.forms?.length && !q.forms.some((f) => (p.formCodeName ?? '').includes(f))) return false;
   if (q.lines?.length && !q.lines.includes(splitLineKind(p.lineFront, p.lineBack))) return false;
+  if (q.markCode) {
+    // 번들 filterRecords 와 동일: 마크 분석텍스트(앞/뒤) 콤마분리 코드에 대소문자무시 시작일치
+    const mc = q.markCode.trim().toUpperCase();
+    const codes = [p.markFrontAnal, p.markBackAnal].flatMap((v) => (v ? v.split(',').map((s) => s.trim()) : []));
+    if (!codes.some((c) => c.toUpperCase().startsWith(mc))) return false;
+  }
   return true;
 }
 
