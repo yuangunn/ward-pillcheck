@@ -314,6 +314,32 @@ export function rankFeatures(query: ArrayLike<number>, feats: MarkFeature[], top
     .slice(0, topN);
 }
 
+/**
+ * 그려서 찾기 보완: 형상 매칭은 복잡한 로고를 놓친다(예: 식약처 코드는 '삼각형'인데 실제 그림은
+ * 삼각형 2개+별빛 로고 — 사람이 그린 삼각형과 형상이 안 맞음). 상위 결과의 마크 '코드'를
+ * 공유하는 다른 마크를, 매칭된 마크 바로 뒤에 같은 코드끼리 묶어 끼워 넣어 노출시킨다.
+ * ponytail: 상위 topCodes 개 코드만 확장(흔한 코드면 후보가 과해질 수 있음 → topCodes/max 로 조절).
+ */
+export function expandByCode(ranked: RankedMark[], all: MarkFeature[], topCodes = 6, max = 40): RankedMark[] {
+  const codes = new Set(ranked.slice(0, topCodes).map((r) => r.code).filter(Boolean));
+  const haveImg = new Set(ranked.map((r) => r.imgId));
+  const out: RankedMark[] = [];
+  const expanded = new Set<string>();
+  for (const r of ranked) {
+    out.push(r);
+    if (codes.has(r.code) && !expanded.has(r.code)) {
+      expanded.add(r.code);
+      for (const m of all) {
+        if (m.code === r.code && !haveImg.has(m.imgId)) {
+          haveImg.add(m.imgId);
+          out.push({ ...m, score: r.score }); // 형제는 매칭 마크 뒤, 같은 점수로
+        }
+      }
+    }
+  }
+  return out.slice(0, max);
+}
+
 const SHORTLIST = 100; // 0° 변형으로 1차 추린 뒤, 전 변형 최대값으로 재랭킹
 
 /**

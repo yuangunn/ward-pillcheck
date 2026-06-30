@@ -29,6 +29,7 @@ export {
   featuresFromCanvas,
   rankFeatures,
   rankFeaturesMulti,
+  expandByCode,
   extractFeature,
   extractFeatureVariants,
   cosineSim,

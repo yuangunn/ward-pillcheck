@@ -204,7 +204,7 @@ function obSlides(): Slide[] {
             약이 나와요.
           </ObH2>
           <ObLead>
-            PC도 팜밴도 필요 없이, <Em>폰에서 보이는 대로 탭</Em>하면 후보가 좁혀져요. 약 이름을 몰라도 괜찮아요.
+            PC도 팜밴도 필요 없이, <Em>폰에서 보이는 대로 탭</Em>하면 후보가 좁혀져요. 약 이름을 몰라도 괜찮아요. 각인은 <Em>헷갈리거나(0↔O) 거꾸로 봐도</Em> 찾아줘요.
           </ObLead>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 22 }}>
             {chips.map((c, i) => {
@@ -315,7 +315,7 @@ function obSlides(): Slide[] {
             먼저 짚어줘요.
           </ObH2>
           <ObLead>
-            리스트를 만들면 <Em>병용금기·중복·연령 주의</Em>를 식약처 기준으로 자동 확인해요.
+            리스트를 만들면 <Em>병용금기·성분중복·분할분쇄·연령 주의</Em>까지 식약처 기준으로 자동 확인해요. (같은 성분을 다른 상품명으로 중복 지참했거나, 서방·장용정처럼 부수면 안 되는 약도 짚어줘요)
           </ObLead>
           <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', background: 'var(--warn-weak)', borderRadius: 'var(--r-card)', padding: '16px 16px', marginTop: 20 }}>
             <Icon name="warn" size={24} style={{ color: 'var(--warn)', flexShrink: 0, marginTop: 1 }} />
