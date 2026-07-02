@@ -59,6 +59,7 @@ export default function App() {
   const [newPatientOpen, setNewPatientOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [drawOpen, setDrawOpen] = useState(false);
+  const [ocrText, setOcrText] = useState(''); // 그려서찾기 OCR 인식 글자 → 검색화면 각인 칸으로 전달
   const [pickedMark, setPickedMark] = useState<PickedMark | null>(null);
   const [zoomPill, setZoomPill] = useState<ZoomPill | null>(null);
   const [topTab, setTopTab] = useState<'patients' | 'lookup'>('patients');
@@ -241,6 +242,8 @@ export default function App() {
       <SearchScreen
         existingSeqs={existingSeqs}
         pickedMark={pickedMark}
+        ocrText={ocrText}
+        onOcrConsumed={() => setOcrText('')}
         onOpenGallery={() => setGalleryOpen(true)}
         onOpenDraw={() => setDrawOpen(true)}
         onClearMark={() => setPickedMark(null)}
@@ -396,7 +399,7 @@ export default function App() {
         }}
       />
       <MarkGallerySheet open={galleryOpen} onClose={() => setGalleryOpen(false)} onPick={(m: MarkOption) => setPickedMark({ code: m.code, img: m.img, imgId: m.imgId })} />
-      <DrawMarkSheet open={drawOpen} onClose={() => setDrawOpen(false)} onPick={(m: MarkOption) => setPickedMark({ code: m.code, img: m.img, imgId: m.imgId })} onOpenGallery={() => { setDrawOpen(false); setGalleryOpen(true); }} />
+      <DrawMarkSheet open={drawOpen} onClose={() => setDrawOpen(false)} onPick={(m: MarkOption) => setPickedMark({ code: m.code, img: m.img, imgId: m.imgId })} onOpenGallery={() => { setDrawOpen(false); setGalleryOpen(true); }} onRecognizeText={(t) => { setDrawOpen(false); setPickedMark(null); setOcrText(t); }} />
       <DrugDetailSheet open={!!detailPill} pill={detailPill} onClose={() => setDetailPill(null)} onZoom={(p) => setZoomPill(pillToZoom(p))} />
       <SettingsSheet
         open={settingsOpen}
