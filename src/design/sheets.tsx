@@ -209,6 +209,7 @@ function DetailPanel({ seq, pill, onZoom }: { seq: string; pill: PillResult; onZ
   const [detail, setDetail] = useState<DrugDetail | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [imgFail, setImgFail] = useState(false);
+  const [imgLoaded, setImgLoaded] = useState(false);
   useEffect(() => {
     let alive = true;
     drugApi
@@ -227,6 +228,8 @@ function DetailPanel({ seq, pill, onZoom }: { seq: string; pill: PillResult; onZ
   // 워커(인터넷) 연결 안 되면(인트라넷) 실물사진은 프록시로 못 받으니 시도하지 않고 글리프 표시.
   const online = useWorkerReachable() !== false;
   const photo = online ? proxiedImg(pill.itemImage) : undefined;
+  // 공유 상세 시트(648)는 약이 바뀌어도 재마운트 안 됨 → 사진 로딩 상태 리셋.
+  useEffect(() => { setImgLoaded(false); setImgFail(false); }, [photo]);
   const isInjection = isInjectionName(pill.itemName); // 주사제는 식별용 사진이 원본에 없음
   // 사진 없는 일반 약은 글리프(모양/색) 확대가 유용하지만, 주사제는 보여줄 게 없어 확대 비활성화
   const canZoom = !!onZoom && (!!photo || !isInjection);
@@ -276,12 +279,27 @@ function DetailPanel({ seq, pill, onZoom }: { seq: string; pill: PillResult; onZ
                 alignItems: 'center',
                 justifyContent: 'center',
                 overflow: 'hidden',
+                position: 'relative',
                 cursor: canZoom ? 'zoom-in' : 'default',
                 WebkitTapHighlightColor: 'transparent',
               }}
             >
               {photo && !imgFail ? (
-                <img src={photo} alt={pill.itemName} loading="lazy" onError={() => setImgFail(true)} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                <>
+                  {/* nedrug 콜드 이미지는 워커 경유 ~20초 걸림 → 로딩 동안 빈 박스 대신 스피너(사진 '없음'이 아니라 '받는 중'). */}
+                  <img
+                    src={photo}
+                    alt={pill.itemName}
+                    onLoad={() => setImgLoaded(true)}
+                    onError={() => setImgFail(true)}
+                    style={{ width: '100%', height: '100%', objectFit: 'contain', opacity: imgLoaded ? 1 : 0 }}
+                  />
+                  {!imgLoaded && (
+                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                      <div className="dur-spin" style={{ width: 22, height: 22, borderRadius: '50%', border: '2.5px solid var(--border)', borderTopColor: 'var(--primary)' }} />
+                    </div>
+                  )}
+                </>
               ) : isInjection ? (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, color: 'var(--text-weaker)', textAlign: 'center', padding: 4 }}>
                   <span style={{ fontSize: 22, lineHeight: 1 }}>💉</span>
