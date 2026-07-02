@@ -74,7 +74,16 @@ export default function App() {
   const inAppInfo = useMemo(() => detectInApp(), []);
   const [inAppDismissed, setInAppDismissed] = useState(false);
   const [bannerH, setBannerH] = useState(0);
-  const showInApp = inAppInfo.inApp && !isStandalone() && !inAppDismissed;
+  // NurseDuty 등 신뢰된 임베드(?embed=1)는 설치된 앱처럼 취급 — 설치 유도·외부 브라우저 배너를 모두 숨긴다.
+  const embedded = useMemo(() => {
+    try {
+      return new URLSearchParams(window.location.search).has('embed');
+    } catch {
+      return false;
+    }
+  }, []);
+  const standalone = embedded || isStandalone();
+  const showInApp = inAppInfo.inApp && !standalone && !inAppDismissed;
   // 첫 실행 인트로 분기: PWA 설치 가능(지원 브라우저·미설치·인앱 아님)이면 설치 가이드를,
   // 그 외(이미 설치된 standalone·인앱 등)는 기능 온보딩을 띄운다.
   const [intro, setIntro] = useState<'none' | 'onboarding' | 'install'>(() => {
@@ -86,7 +95,7 @@ export default function App() {
     }
     if (onboarded) return 'none';
     const installable =
-      !isStandalone() && !inAppInfo.inApp && typeof navigator !== 'undefined' && 'serviceWorker' in navigator;
+      !standalone && !inAppInfo.inApp && typeof navigator !== 'undefined' && 'serviceWorker' in navigator;
     return installable ? 'install' : 'onboarding';
   });
   const [installGuideOpen, setInstallGuideOpen] = useState(false);
@@ -210,7 +219,7 @@ export default function App() {
         onOpenDetail={(pill) => setDetailPill(pill)}
         onOpenSettings={() => setSettingsOpen(true)}
         onFlash={flash}
-        standalone={isStandalone()}
+        standalone={standalone}
         onInstallGuide={() => setInstallGuideOpen(true)}
       />
     );
@@ -261,7 +270,7 @@ export default function App() {
         onOpenDetail={(pill) => setDetailPill(pill)}
         onOpenSettings={() => setSettingsOpen(true)}
         onFlash={flash}
-        standalone={isStandalone()}
+        standalone={standalone}
         onInstallGuide={() => setInstallGuideOpen(true)}
       />
     );

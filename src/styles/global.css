@@ -13,13 +13,13 @@ body,
   overflow: hidden;
   overscroll-behavior: none;
 }
-/* 동적 뷰포트(주소창 접힘 대응) — 미지원 브라우저는 위 height:100% 로 폴백 */
-@supports (height: 100dvh) {
-  html,
-  body,
-  #root {
-    height: 100dvh;
-  }
+/* 루트는 뷰포트에 직접 고정. 임베디드 WebView에서 %/dvh 높이 체인이 0으로 붕괴하는
+   케이스(#root 0px → 백지 화면)를 우회하고, 주소창 접힘도 layout viewport를 따라간다.
+   fixed 루트는 body overflow:hidden 클리핑을 받지 않는다. (구 100dvh @supports 대체) */
+#root {
+  position: fixed;
+  inset: 0;
+  height: auto;
 }
 body {
   background: #fff;
