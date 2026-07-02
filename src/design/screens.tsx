@@ -603,6 +603,8 @@ export interface PickedMark {
 export function SearchScreen({
   existingSeqs,
   pickedMark,
+  ocrText,
+  onOcrConsumed,
   onOpenGallery,
   onOpenDraw,
   onClearMark,
@@ -614,6 +616,8 @@ export function SearchScreen({
 }: {
   existingSeqs: string[];
   pickedMark: PickedMark | null;
+  ocrText?: string; // 그려서찾기 OCR 인식 글자 → 각인 칸 자동 채움
+  onOcrConsumed?: () => void;
   onOpenGallery: () => void;
   onOpenDraw: () => void;
   onClearMark: () => void;
@@ -641,6 +645,17 @@ export function SearchScreen({
   const toggleShape = (s: string) => setShapes((ss) => (ss.includes(s) ? ss.filter((x) => x !== s) : [...ss, s]));
   const toggleForm = (f: string) => setForms((fs) => (fs.includes(f) ? fs.filter((x) => x !== f) : [...fs, f]));
   const toggleLine = (l: SplitLineKind) => setLines((ls) => (ls.includes(l) ? ls.filter((x) => x !== l) : [...ls, l]));
+
+  // 그려서찾기 OCR 인식 글자 → 실물검색 각인 칸으로(손그림 글자는 대개 각인). 예: Bayer→아스피린
+  useEffect(() => {
+    const t = ocrText?.trim();
+    if (t) {
+      setMode('visual');
+      setMarking(t);
+      onOcrConsumed?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ocrText]);
 
   const active =
     mode === 'visual'

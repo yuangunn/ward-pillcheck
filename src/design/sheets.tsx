@@ -1331,7 +1331,7 @@ const BRUSHES: { label: string; w: number }[] = [
 const DRAW_RESULTS_INITIAL = 16; // 처음 보여줄 후보 수('더 보기'로 확장)
 const DRAW_RESULTS_MAX = 40; // dedup 후 최대 후보
 
-export function DrawMarkSheet({ open, onPick, onClose, onOpenGallery }: { open: boolean; onPick: (m: MarkOption) => void; onClose: () => void; onOpenGallery: () => void }) {
+export function DrawMarkSheet({ open, onPick, onClose, onOpenGallery, onRecognizeText }: { open: boolean; onPick: (m: MarkOption) => void; onClose: () => void; onOpenGallery: () => void; onRecognizeText: (text: string) => void }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const drawing = useRef(false);
   const last = useRef<{ x: number; y: number } | null>(null);
@@ -1607,7 +1607,8 @@ export function DrawMarkSheet({ open, onPick, onClose, onOpenGallery }: { open: 
         ocr ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, padding: '12px 14px', borderRadius: 'var(--r-card)', background: 'var(--primary-weak)', border: '1.5px solid var(--primary)' }}>
             <span style={{ flex: 1, fontSize: 14.5, fontWeight: 700, color: 'var(--primary-ink)', letterSpacing: -0.3 }}>글자로 보임: «{ocr}»</span>
-            <Btn variant="primary" icon="search" onClick={() => { onPick({ code: ocr, img: '', imgId: '', count: 0 }); onClose(); }} style={{ height: 42, padding: '0 14px', fontSize: 14 }}>이 글자로 검색</Btn>
+            {/* 손그림 글자는 대개 각인 → 각인 검색으로 보낸다(뒤집힘·혼동문자 보정 적용). 예: Bayer→아스피린 */}
+            <Btn variant="primary" icon="search" onClick={() => { onRecognizeText(ocr); onClose(); }} style={{ height: 42, padding: '0 14px', fontSize: 14 }}>각인으로 검색</Btn>
           </div>
         ) : (
           <div style={{ marginBottom: 16, fontSize: 13, fontWeight: 600, color: 'var(--text-weak)', textAlign: 'center' }}>글자를 못 읽었어요. 글자/숫자가 아니면 위 ‘닮은 마크 찾기’를 쓰세요.</div>
