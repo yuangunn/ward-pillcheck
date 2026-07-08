@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Icon, PillGlyph, MarkGlyph, ShapeOutline, SplitLineGlyph } from './Icon';
 import { Btn, Chip, ColorChip, SegTabs, FieldLabel, TextField, PageHeader, IconBtn, STATUS_TOP, ScrollArea } from './ui';
-import { COLOR_OPTIONS, SHAPE_OPTIONS, FORM_OPTIONS } from '../constants/appearance';
+import { COLOR_OPTIONS, SHAPE_OPTIONS, FORM_OPTIONS, toggleColorSelection } from '../constants/appearance';
 import { shapeLabel } from '../domain/shape';
 import { splitLineKind, SPLIT_LINE_OPTIONS, SPLIT_LINE_LABEL, SPLIT_LINE_SYMBOL, type SplitLineKind } from '../domain/splitLine';
 import { groupMedsByTiming, stripIngredient, type TimingGroup } from '../domain/format';
@@ -641,7 +641,8 @@ export function SearchScreen({
   const [injLoading, setInjLoading] = useState(false);
   const [narrow, setNarrow] = useState(''); // 결과 내 재검색어(client-side 좁히기)
 
-  const toggleColor = (c: string) => setColors((cs) => (cs.includes(c) ? cs.filter((x) => x !== c) : [...cs, c]));
+  // 색은 계열 단위로 켜고(분홍→주황·빨강 등 한 번에), 해제는 개별로. toggleColorSelection 이 규칙을 담당.
+  const toggleColor = (c: string) => setColors((cs) => toggleColorSelection(cs, c));
   const toggleShape = (s: string) => setShapes((ss) => (ss.includes(s) ? ss.filter((x) => x !== s) : [...ss, s]));
   const toggleForm = (f: string) => setForms((fs) => (fs.includes(f) ? fs.filter((x) => x !== f) : [...fs, f]));
   const toggleLine = (l: SplitLineKind) => setLines((ls) => (ls.includes(l) ? ls.filter((x) => x !== l) : [...ls, l]));

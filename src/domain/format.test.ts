@@ -7,6 +7,7 @@ import {
   blindLabel,
   cleanMarking,
   stripIngredient,
+  formatEnglishName,
   tidyText,
 } from './format';
 import { freqShareTag } from '../constants/frequency';
@@ -142,6 +143,23 @@ describe('stripIngredient', () => {
   });
 });
 
+describe('formatEnglishName', () => {
+  it('연속 공백 압축 + 양끝 트림', () => {
+    expect(formatEnglishName('Amlodipine  Besylate')).toBe('Amlodipine Besylate');
+    expect(formatEnglishName('  Linagliptin ')).toBe('Linagliptin');
+  });
+  it('복합제 구분자는 원문 유지', () => {
+    expect(formatEnglishName('Amlodipine Camsylate/Losartan Potassium')).toBe(
+      'Amlodipine Camsylate/Losartan Potassium',
+    );
+  });
+  it('빈 값은 빈 문자열', () => {
+    expect(formatEnglishName(undefined)).toBe('');
+    expect(formatEnglishName('')).toBe('');
+    expect(formatEnglishName('   ')).toBe('');
+  });
+});
+
 describe('tidyText', () => {
   it('빈 줄 3개 이상을 1개로 압축', () => {
     expect(tidyText('A\n\n\n\nB')).toBe('A\n\nB');
@@ -182,6 +200,38 @@ describe('buildListText (블라인드 + 시점 범주화)', () => {
     // 둘 다: 성분 ON + 겉모습 OFF
     expect(buildListText('환자1', [med], { ingredient: true, appearance: false })).toBe(
       '[환*1]\n<8am>\n트라젠타정(리나글립틴) 1T',
+    );
+  });
+
+  it('옵션: 영문 성분명(INN)을 이름 뒤 대괄호로 병기', () => {
+    const med: MedItem = {
+      ...base,
+      itemSeq: '195700020',
+      name: '트라젠타정(리나글립틴)',
+      timings: ['아침식후'],
+      color: '',
+      shape: '',
+      marking: '',
+    };
+    const englishBySeq = new Map([['195700020', 'Linagliptin']]);
+    // 영문 ON: 이름 뒤 [INN]
+    expect(buildListText('환자1', [med], { english: true, englishBySeq })).toBe(
+      '[환*1]\n<8am>\n트라젠타정 [Linagliptin] 1T',
+    );
+    // 성분명 ON 과 함께 쓰면 한글 괄호 + 영문 대괄호 둘 다
+    expect(buildListText('환자1', [med], { ingredient: true, english: true, englishBySeq })).toBe(
+      '[환*1]\n<8am>\n트라젠타정(리나글립틴) [Linagliptin] 1T',
+    );
+    // 영문 OFF(기본): 병기 없음
+    expect(buildListText('환자1', [med], { englishBySeq })).toBe('[환*1]\n<8am>\n트라젠타정 1T');
+  });
+
+  it('옵션: 영문 ON 이어도 매핑 없는 약(직접입력 등)은 병기 생략', () => {
+    const med: MedItem = { ...base, itemSeq: '', name: '수기입력약', timings: ['아침식후'], color: '', shape: '', marking: '' };
+    // englishBySeq 자체가 없거나 seq 매핑이 없으면 대괄호가 붙지 않는다
+    expect(buildListText('환자1', [med], { english: true })).toBe('[환*1]\n<8am>\n수기입력약 1T');
+    expect(buildListText('환자1', [med], { english: true, englishBySeq: new Map() })).toBe(
+      '[환*1]\n<8am>\n수기입력약 1T',
     );
   });
 
