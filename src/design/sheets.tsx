@@ -965,9 +965,31 @@ export function CopySheet({ open, onClose, label, meds }: { open: boolean; onClo
   const [teamsPrompt, setTeamsPrompt] = useState(false);
   const [opts, setOpts] = useState<ShareOptions>(getShareOptions);
   const [optsOpen, setOptsOpen] = useState(false);
+  const [englishBySeq, setEnglishBySeq] = useState<Map<string, string>>(new Map());
+  // 영문 성분명(INN)은 번들/데모 성분 데이터에서 itemSeq 로 조회(오프라인, 성분중복 점검과 같은 소스).
+  // 약을 저장할 때 성분을 담아두지 않으므로 공유 시점에 조회한다. 직접입력·미보유 약은 매핑 없음.
+  // 의존성은 meds 배열 참조가 아니라 itemSeq 목록 문자열(seqKey)로 — 불필요한 재조회·렌더 루프 방지.
+  const seqKey = meds.map((m) => m.itemSeq).filter(Boolean).join('|');
+  useEffect(() => {
+    if (!open || !drugApi.getIngredients || !seqKey) {
+      setEnglishBySeq(new Map());
+      return;
+    }
+    let alive = true;
+    drugApi
+      .getIngredients(seqKey.split('|'))
+      .then((m) => alive && setEnglishBySeq(m))
+      .catch(() => alive && setEnglishBySeq(new Map()));
+    return () => {
+      alive = false;
+    };
+  }, [open, seqKey]);
   // 원내 Teams 전용 인계 — 외부 복사·시스템공유는 제공하지 않는다(병상번호 기반 원내 공유).
-  const baseOpts = { ingredient: opts.ingredient, appearance: opts.appearance };
-  const teamsText = useMemo(() => buildListText(label, meds, { ...baseOpts, mask: false }), [label, meds, opts.ingredient, opts.appearance]);
+  const baseOpts = { ingredient: opts.ingredient, appearance: opts.appearance, english: opts.english, englishBySeq };
+  const teamsText = useMemo(
+    () => buildListText(label, meds, { ...baseOpts, mask: false }),
+    [label, meds, opts.ingredient, opts.appearance, opts.english, englishBySeq],
+  );
   useEffect(() => {
     if (open) {
       setTeamsTargetState(getTeamsTarget());
@@ -1032,13 +1054,14 @@ export function CopySheet({ open, onClose, label, meds }: { open: boolean; onClo
       >
         <span style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.3 }}>공유 상세설정</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, color: 'var(--text-weaker)' }}>
-          {[opts.ingredient && '성분명', opts.appearance && '겉모습'].filter(Boolean).join('·') || '기본'}
+          {[opts.ingredient && '성분명', opts.english && '영문명', opts.appearance && '겉모습'].filter(Boolean).join('·') || '기본'}
           <Icon name={optsOpen ? 'chevDown' : 'chevron'} size={16} />
         </span>
       </button>
       {optsOpen && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 4 }}>
           <ShareToggle label="성분명 표시" hint="예) 트라젠타정(리나글립틴)" on={opts.ingredient} onToggle={() => toggleOpt('ingredient')} />
+          <ShareToggle label="영문 성분명 표시" hint="INN 영문명 병기 예) 트라젠타정 [Linagliptin]" on={opts.english} onToggle={() => toggleOpt('english')} />
           <ShareToggle label="겉모습 표시" hint="색·모양·각인 예) (하양/원형/Bayer)" on={opts.appearance} onToggle={() => toggleOpt('appearance')} />
         </div>
       )}

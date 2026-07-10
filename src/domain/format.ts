@@ -62,6 +62,16 @@ export function stripIngredient(name: string): string {
 }
 
 /**
+ * 영문 성분명(INN) 한 줄 표기 정리: 연속 공백 → 1칸, 양끝 트림.
+ * (상세화면과 같은 원문 INN 을 쓰되, 한 줄 인계에 붙기 좋게만 다듬는다.)
+ * 예) 'Amlodipine  Besylate' → 'Amlodipine Besylate'
+ */
+export function formatEnglishName(raw?: string): string {
+  if (!raw) return '';
+  return raw.replace(/\s+/g, ' ').trim();
+}
+
+/**
  * 허가사항 본문 가독성 정리: 줄 끝 공백 제거 + 빈 줄 2줄 이상을 1줄로 압축 + 양끝 트림.
  * (허가/e약은요 원문은 블록 태그가 줄바꿈으로 풀리며 빈 줄이 과도하게 쌓이는 경우가 많음)
  */
@@ -99,19 +109,24 @@ const LATE = 99999; // 매핑 없는 시점 정렬 위치(맨 뒤)
 const clockLabel = (t: string): string => TIMING_CLOCK[t] ?? t;
 const clockMin = (t: string): number => TIMING_MIN[t] ?? LATE;
 
-/** 인계 공유 옵션: 성분명·겉모습 포함 여부, 환자 라벨 가리기 */
+/** 인계 공유 옵션: 성분명·겉모습·영문명 포함 여부, 환자 라벨 가리기 */
 export interface ShareOpts {
   ingredient?: boolean; // 품목명의 성분 괄호(…) 포함
   appearance?: boolean; // 겉모습(색/모양/각인) 포함
+  english?: boolean; // 영문 성분명(INN) 병기 — 예) 트라젠타정 [Linagliptin]
+  englishBySeq?: Map<string, string>; // itemSeq → 영문 성분명(INN). 공급: 번들/데모 성분 데이터에서 조회
   mask?: boolean; // 환자 라벨 가운데 가리기. 미지정/true=가림(기본), false=원문 노출
 }
 
-/** 공유용 약 한 줄: 이름/용량(+옵션에 따라 성분·겉모습) + 메모.
+/** 공유용 약 한 줄: 이름(+옵션에 따라 영문 성분명)/용량(+옵션에 따라 겉모습) + 메모.
  *  용법(표준 시점 / 비표준 QW·QOD·PRN)은 그룹 헤더가 전담하므로 줄에는 넣지 않는다. */
 function shareMedLine(med: MedItem, opts: ShareOpts): string {
   const unit = med.doseUnit || 'T';
   const name = opts.ingredient ? med.name : stripIngredient(med.name);
-  const head = `${name} ${formatTabletCount(med.tabletCount)}${unit}`;
+  // 영문 성분명(INN)은 itemSeq 로 매핑된 값이 있을 때만 대괄호로 병기(직접입력·미보유 약은 생략).
+  const english = opts.english ? formatEnglishName(opts.englishBySeq?.get(med.itemSeq)) : '';
+  const named = english ? `${name} [${english}]` : name;
+  const head = `${named} ${formatTabletCount(med.tabletCount)}${unit}`;
   const appearance = opts.appearance === false ? '' : formatAppearance(med);
   const body = appearance ? `${head} ${appearance}` : head;
   const memo = med.memo?.trim() ? ` ※${med.memo.trim()}` : '';

@@ -151,6 +151,23 @@ test('공유 상세설정: 겉모습 토글 → 미리보기 반영', async ({ p
   await expect(pre).not.toContainText('('); // 겉모습 제외됨
 });
 
+test('공유 상세설정: 영문 성분명 토글 → 미리보기에 INN 병기', async ({ page }) => {
+  await page.goto('/');
+  await page.getByText('환자1').click();
+  await page.getByRole('button', { name: '약 검색해서 추가' }).click();
+  // 노바스크정5mg — 목 데이터에 영문 성분명(Amlodipine Besylate) 보유
+  await page.getByLabel('각인').fill('NOVASC');
+  await page.getByText('노바스크정5mg').click();
+  await page.getByRole('dialog', { name: '리스트에 추가' }).getByRole('button', { name: '환자 리스트에 추가' }).click();
+  await page.getByRole('button', { name: '공유하기' }).click();
+  const sheet = page.getByRole('dialog', { name: '인계용 텍스트' });
+  const pre = sheet.locator('pre');
+  await expect(pre).not.toContainText('Amlodipine'); // 영문은 기본 OFF
+  await sheet.getByRole('button', { name: '공유 상세설정' }).click();
+  await sheet.getByRole('switch', { name: '영문 성분명 표시' }).click();
+  await expect(pre).toContainText('노바스크정5mg [Amlodipine Besylate]'); // 이름 뒤 대괄호 병기
+});
+
 test('홈: 제목 + 기본 환자 카드', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('tab', { name: '지참약 식별' })).toBeVisible();
@@ -188,6 +205,28 @@ test('실물 검색: 분할선(일자) 필터로 좁히기', async ({ page }) =>
   // 분할선 '일자' 칩 → 분할선 있는 약(타이레놀)만
   await page.getByRole('button', { name: '일자', exact: true }).click();
   await expect(page.getByText('타이레놀정500mg')).toBeVisible();
+});
+
+test('실물 검색: 비슷한 계열 색을 한 번에 선택(끄기는 개별)', async ({ page }) => {
+  await page.goto('/');
+  await page.getByText('환자1').click();
+  await page.getByRole('button', { name: '약 검색해서 추가' }).click();
+  await expect(page.getByRole('tab', { name: '실물 검색' })).toHaveAttribute('aria-selected', 'true');
+  const pink = page.getByRole('button', { name: '분홍', exact: true });
+  const orange = page.getByRole('button', { name: '주황', exact: true });
+  const red = page.getByRole('button', { name: '빨강', exact: true });
+  const yellow = page.getByRole('button', { name: '노랑', exact: true });
+  // 분홍 클릭 → 같은 계열(주황·빨강)까지 한 번에 선택, 계열 밖(노랑)은 그대로
+  await pink.click();
+  await expect(pink).toHaveAttribute('aria-pressed', 'true');
+  await expect(orange).toHaveAttribute('aria-pressed', 'true');
+  await expect(red).toHaveAttribute('aria-pressed', 'true');
+  await expect(yellow).toHaveAttribute('aria-pressed', 'false');
+  // 빨강만 개별 해제 → 분홍·주황은 유지
+  await red.click();
+  await expect(red).toHaveAttribute('aria-pressed', 'false');
+  await expect(pink).toHaveAttribute('aria-pressed', 'true');
+  await expect(orange).toHaveAttribute('aria-pressed', 'true');
 });
 
 test('이름 검색 탭 전환', async ({ page }) => {

@@ -28,6 +28,36 @@ export const COLOR_OPTIONS: ColorOption[] = [
   { label: '투명', value: '투명', swatch: '#e8eef0' },
 ];
 
+/**
+ * 비슷한 계열 색상 묶음(실물검색 색칩 다중선택용).
+ * 지참약은 낱알만 오므로 색을 정확히 집기 어렵다(형광등·마모로 분홍↔주황↔빨강,
+ * 연두↔초록↔청록이 특히 헷갈림). 계열 색을 한 번에 켜 두면 놓치는 후보를 줄인다.
+ * 각 색은 최대 한 계열에만 속한다(서로소). 계열에 없는 색(무채색·노랑·갈색 등)은 단독.
+ */
+export const COLOR_FAMILIES: string[][] = [
+  ['분홍', '주황', '빨강'], // 붉은 계열
+  ['연두', '초록', '청록'], // 초록 계열
+  ['파랑', '남색'], // 파랑 계열
+  ['자주', '보라'], // 보라 계열
+];
+
+/** 색 value 가 속한 계열(없으면 자기 자신만 담은 배열). */
+export function colorFamily(value: string): string[] {
+  return COLOR_FAMILIES.find((f) => f.includes(value)) ?? [value];
+}
+
+/**
+ * 색칩 클릭 결과 계산(순수 함수).
+ * - 아직 선택 안 된 색을 누르면 → 같은 계열 색까지 한 번에 추가(기존 선택 유지, 중복 없이).
+ * - 이미 선택된 색을 누르면 → 그 색만 개별 해제(계열 나머지는 유지).
+ * "켜기는 계열 통째로, 끄기는 하나씩" — 오검색을 줄이면서도 미세조정은 가능.
+ */
+export function toggleColorSelection(current: string[], clicked: string): string[] {
+  if (current.includes(clicked)) return current.filter((c) => c !== clicked);
+  const add = colorFamily(clicked).filter((c) => !current.includes(c));
+  return [...current, ...add];
+}
+
 /** 모양 칩: API drug_shape 파라미터 값 */
 export const SHAPE_OPTIONS: string[] = [
   '원형',
