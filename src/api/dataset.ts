@@ -23,6 +23,7 @@ export interface PillRecord {
   cls?: string;
   ingr?: string; // 주성분(영문 INN, 허가정보 ITEM_INGR_NAME 결합)
   ingrKo?: string; // 한글 주성분(허가상세 MAIN_ITEM_INGR 결합)
+  eng?: string; // 품목영문명(허가정보 ITEM_ENG_NAME 결합, 제조사 미등록 시 없음)
   img?: string;
   markFI?: string; // 앞면 마크 이미지
   markBI?: string; // 뒤면 마크 이미지
@@ -235,6 +236,7 @@ function rec2result(r: PillRecord): PillResult {
     className: r.cls,
     ingredient: r.ingr,
     ingredientKo: r.ingrKo,
+    engName: r.eng,
     markFrontImg: r.markFI,
     markBackImg: r.markBI,
     markFrontAnal: r.markFA,
@@ -429,6 +431,18 @@ export async function getIngredientMap(seqs: string[]): Promise<Map<string, stri
   const map = new Map<string, string>();
   for (const r of records ?? []) {
     if (want.has(r.seq) && r.ingr) map.set(r.seq, r.ingr);
+  }
+  return map;
+}
+
+/** itemSeq → 품목영문명(eng) 매핑(인계 영문 병기용). 번들 데이터, 오프라인. 로드 보장 후.
+ *  영문명이 등록된 품목만 담긴다(미등록 약은 키 없음). */
+export async function getEngNameMap(seqs: string[]): Promise<Map<string, string>> {
+  await ensureDataset();
+  const want = new Set(seqs);
+  const map = new Map<string, string>();
+  for (const r of records ?? []) {
+    if (want.has(r.seq) && r.eng) map.set(r.seq, r.eng);
   }
   return map;
 }

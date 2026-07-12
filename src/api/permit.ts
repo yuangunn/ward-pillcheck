@@ -30,10 +30,20 @@ function includesCI(h: string, n: string) {
   return h.toLowerCase().includes(n.toLowerCase());
 }
 
-// 주사제(비경구 주입) 판별 — 나머지(흡입/좌약/연고/점안 등)는 외용약으로 분류
-const INJECTION_RE = /(주사|주입|주사액|주사제|펜|카트리지|바이알|키트|프리필드|플렉스|퀵펜|인슐린|주\)|주$)/;
+// 주사제(비경구 주입) 판별 — 나머지(흡입/좌약/연고/점안 등)는 외용약으로 분류.
+// '펜'은 펜주사(…펜주/끝의 펜)만 — 부루펜·아세트아미노펜·펜잘 등 경구약 오분류 방지.
+const INJECTION_RE = /(주사|주입|주사액|주사제|펜(?=주|$)|카트리지|바이알|키트|프리필드|플렉스|퀵펜|인슐린|주\)|주$)/;
 export function isInjectionName(name: string): boolean {
   return INJECTION_RE.test(name || '');
+}
+
+// 외용약·주사제(비경구) 판별 — build-dataset.mjs / worker 의 필터와 동일 값 유지.
+// 이름검색 라이브 폴백이 경구 액/시럽/pack 약(라미나지액·시네추라시럽·볼그레액·부루펜시럽 등)을
+// 외용·주사제 탭에 흘리지 않도록, 이 키워드에 걸리는 비경구 약만 통과시킨다.
+// '펜'은 펜주사만(…펜주/끝의 펜), '겔'은 끝(…겔)·겔제만 — 부루펜·겔포스·알마겔 등 경구약 제외.
+const EXTERNAL_INJ_RE = /(주사|주입|주사액|주사제|펜(?=주|$)|카트리지|바이알|키트|프리필드|플렉스|퀵펜|인슐린|주\)|주$|흡입|에보할러|할러|디스커스|레스피맷|터부할러|네뷸|점안|점이|점비|좌제|좌약|질정|질좌|연고|크림|로션|겔(?=$|제)|젤|패치|첩부|스프레이|분무|에어로|도포|외용|카타리)/;
+export function isExternalOrInjectionName(name: string): boolean {
+  return EXTERNAL_INJ_RE.test(name || '');
 }
 
 // 번들 주사제 데이터(컴팩트 → PermitDrug) 1회 로드 캐시
@@ -89,7 +99,8 @@ export async function searchInjections(name: string): Promise<PermitDrug[]> {
       );
       if (res.ok) {
         const d = (await res.json()) as { body?: { items?: PermitDrug[] } };
-        return (d.body?.items ?? []).filter((x) => x.itemSeq);
+        // 워커가 이미 걸러주지만, 워커 재배포 전이거나 응답이 섞여 와도 경구약이 새지 않도록 한 번 더 필터.
+        return (d.body?.items ?? []).filter((x) => x.itemSeq && isExternalOrInjectionName(x.itemName));
       }
     } catch {
       /* 폴백 */

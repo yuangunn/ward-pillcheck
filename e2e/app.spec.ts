@@ -151,21 +151,21 @@ test('공유 상세설정: 겉모습 토글 → 미리보기 반영', async ({ p
   await expect(pre).not.toContainText('('); // 겉모습 제외됨
 });
 
-test('공유 상세설정: 영문 성분명 토글 → 미리보기에 INN 병기', async ({ page }) => {
+test('공유 상세설정: 영문 품목명 토글 → 미리보기에 영문명 병기', async ({ page }) => {
   await page.goto('/');
   await page.getByText('환자1').click();
   await page.getByRole('button', { name: '약 검색해서 추가' }).click();
-  // 노바스크정5mg — 목 데이터에 영문 성분명(Amlodipine Besylate) 보유
+  // 노바스크정5mg — 목 데이터에 영문 품목명(Norvasc Tab. 5mg) 보유
   await page.getByLabel('각인').fill('NOVASC');
   await page.getByText('노바스크정5mg').click();
   await page.getByRole('dialog', { name: '리스트에 추가' }).getByRole('button', { name: '환자 리스트에 추가' }).click();
   await page.getByRole('button', { name: '공유하기' }).click();
   const sheet = page.getByRole('dialog', { name: '인계용 텍스트' });
   const pre = sheet.locator('pre');
-  await expect(pre).not.toContainText('Amlodipine'); // 영문은 기본 OFF
+  await expect(pre).not.toContainText('Norvasc'); // 영문은 기본 OFF
   await sheet.getByRole('button', { name: '공유 상세설정' }).click();
-  await sheet.getByRole('switch', { name: '영문 성분명 표시' }).click();
-  await expect(pre).toContainText('노바스크정5mg [Amlodipine Besylate]'); // 이름 뒤 대괄호 병기
+  await sheet.getByRole('switch', { name: '영문 품목명 표시' }).click();
+  await expect(pre).toContainText('노바스크정5mg [Norvasc Tab. 5mg]'); // 이름 뒤 대괄호 병기
 });
 
 test('홈: 제목 + 기본 환자 카드', async ({ page }) => {
