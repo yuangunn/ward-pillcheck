@@ -51,6 +51,7 @@ const SAMPLE: PillResult[] = [
     className: '혈압강하제',
     ingredient: 'Amlodipine Besylate',
     ingredientKo: '암로디핀베실산염',
+    engName: 'Norvasc Tab. 5mg',
     itemImage: '',
   },
   {
@@ -293,6 +294,14 @@ export function createMockClient(): DrugApi {
       const map = new Map<string, string>();
       for (const p of SAMPLE) {
         if (want.has(p.itemSeq) && p.ingredient) map.set(p.itemSeq, p.ingredient);
+      }
+      return map;
+    },
+    async getEngNames(seqs: string[]): Promise<Map<string, string>> {
+      const want = new Set(seqs);
+      const map = new Map<string, string>();
+      for (const p of SAMPLE) {
+        if (want.has(p.itemSeq) && p.engName) map.set(p.itemSeq, p.engName);
       }
       return map;
     },

@@ -966,18 +966,18 @@ export function CopySheet({ open, onClose, label, meds }: { open: boolean; onClo
   const [opts, setOpts] = useState<ShareOptions>(getShareOptions);
   const [optsOpen, setOptsOpen] = useState(false);
   const [englishBySeq, setEnglishBySeq] = useState<Map<string, string>>(new Map());
-  // 영문 성분명(INN)은 번들/데모 성분 데이터에서 itemSeq 로 조회(오프라인, 성분중복 점검과 같은 소스).
-  // 약을 저장할 때 성분을 담아두지 않으므로 공유 시점에 조회한다. 직접입력·미보유 약은 매핑 없음.
+  // 영문 품목명(허가정보 ITEM_ENG_NAME)은 번들/데모 데이터에서 itemSeq 로 조회(오프라인).
+  // 약을 저장할 때 담아두지 않으므로 공유 시점에 조회한다. 직접입력·영문명 미등록 약은 매핑 없음.
   // 의존성은 meds 배열 참조가 아니라 itemSeq 목록 문자열(seqKey)로 — 불필요한 재조회·렌더 루프 방지.
   const seqKey = meds.map((m) => m.itemSeq).filter(Boolean).join('|');
   useEffect(() => {
-    if (!open || !drugApi.getIngredients || !seqKey) {
+    if (!open || !drugApi.getEngNames || !seqKey) {
       setEnglishBySeq(new Map());
       return;
     }
     let alive = true;
     drugApi
-      .getIngredients(seqKey.split('|'))
+      .getEngNames(seqKey.split('|'))
       .then((m) => alive && setEnglishBySeq(m))
       .catch(() => alive && setEnglishBySeq(new Map()));
     return () => {
@@ -1061,7 +1061,7 @@ export function CopySheet({ open, onClose, label, meds }: { open: boolean; onClo
       {optsOpen && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 4 }}>
           <ShareToggle label="성분명 표시" hint="예) 트라젠타정(리나글립틴)" on={opts.ingredient} onToggle={() => toggleOpt('ingredient')} />
-          <ShareToggle label="영문 성분명 표시" hint="INN 영문명 병기 예) 트라젠타정 [Linagliptin]" on={opts.english} onToggle={() => toggleOpt('english')} />
+          <ShareToggle label="영문 품목명 표시" hint="영문 품목명 병기 예) 모티리톤정 [Motilitone Tab.]" on={opts.english} onToggle={() => toggleOpt('english')} />
           <ShareToggle label="겉모습 표시" hint="색·모양·각인 예) (하양/원형/Bayer)" on={opts.appearance} onToggle={() => toggleOpt('appearance')} />
         </div>
       )}

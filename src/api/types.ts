@@ -40,6 +40,7 @@ export interface PillResult {
   className?: string; // 분류
   ingredient?: string; // 주성분(영문 INN, 번들: 허가정보 ITEM_INGR_NAME 결합)
   ingredientKo?: string; // 한글 주성분(번들: 허가상세 MAIN_ITEM_INGR 결합)
+  engName?: string; // 품목영문명(번들: 허가정보 ITEM_ENG_NAME 결합, 미등록 시 없음)
   markFrontImg?: string; // 앞면 마크 이미지 URL
   markBackImg?: string; // 뒤면 마크 이미지 URL
   markFrontAnal?: string; // 앞면 마크 분석 텍스트(마크 속 글자/기호)
@@ -79,6 +80,11 @@ export interface DrugApi {
    * 성분 데이터가 없는 구현(워커 등)은 미구현(선택)이며, 그 경우 성분중복은 점검하지 않는다.
    */
   getIngredients?(seqs: string[]): Promise<Map<string, string>>;
+  /**
+   * itemSeq → 품목영문명 매핑(인계 영문 병기용). 완전 오프라인.
+   * 영문명 데이터가 없는 구현(워커 등)은 미구현(선택)이며, 그 경우 영문 병기는 하지 않는다.
+   */
+  getEngNames?(seqs: string[]): Promise<Map<string, string>>;
   /**
    * itemSeq → 제형명 매핑(분할·분쇄 주의 점검용). 완전 오프라인.
    * 제형 데이터가 없는 구현(워커 등)은 미구현(선택)이며, 그 경우 분할·분쇄 주의는 점검하지 않는다.

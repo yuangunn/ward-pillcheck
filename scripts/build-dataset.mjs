@@ -46,7 +46,9 @@ const DUR_OPS = {
 
 // 외용약·주사제 판별(품목명 기준) — 낱알식별에 없는(모양 없는) 비경구 약을 추림.
 // 주사제 + 흡입제 + 좌약/질정 + 연고/크림/겔/로션/패치 + 점안/점이/점비 + 스프레이/분무 등.
-const INJ_RE = /(주사|주입|주사액|주사제|펜|카트리지|바이알|키트|프리필드|플렉스|퀵펜|인슐린|주\)|주$|흡입|에보할러|할러|디스커스|레스피맷|터부할러|네뷸|점안|점이|점비|좌제|좌약|질정|질좌|연고|크림|로션|겔|젤|패치|첩부|스프레이|분무|에어로|도포|외용|카타리)/;
+// '펜'은 펜주사(…펜주/끝의 펜)만 — 부루펜·아세트아미노펜·펜잘 등 경구약 오검출 방지.
+// '겔'은 끝(…겔)이나 겔제만 — 겔포스·알마겔 같은 경구 제산제 오검출 방지.
+const INJ_RE = /(주사|주입|주사액|주사제|펜(?=주|$)|카트리지|바이알|키트|프리필드|플렉스|퀵펜|인슐린|주\)|주$|흡입|에보할러|할러|디스커스|레스피맷|터부할러|네뷸|점안|점이|점비|좌제|좌약|질정|질좌|연고|크림|로션|겔(?=$|제)|젤|패치|첩부|스프레이|분무|에어로|도포|외용|카타리)/;
 
 mkdirSync(OUT, { recursive: true });
 
@@ -100,6 +102,8 @@ function compactInjection(r) {
   put('img', r.BIG_PRDT_IMG_URL);
   return o;
 }
+// 주: 영문 품목명(ITEM_ENG_NAME)은 낱알(pills)에만 결합한다(인계 영문 병기는 pills 기준).
+// 주사·외용약 영문명은 현재 소비처가 없어 injections.json 에 싣지 않는다(불필요 용량 방지).
 
 function pageUrl(endpoint, pageNo) {
   const params = new URLSearchParams({
@@ -159,6 +163,7 @@ async function probeDocSource(sampleSeq) {
 async function collectPermit() {
   const injections = [];
   const ingrBySeq = new Map();
+  const engBySeq = new Map(); // ITEM_SEQ → 품목영문명(ITEM_ENG_NAME) — 낱알 결합용(제조사 미등록 시 빈 값)
   const seenInj = new Set();
 
   const handle = (row) => {
@@ -166,6 +171,8 @@ async function collectPermit() {
     if (!seq) return;
     const ingr = (row.ITEM_INGR_NAME ?? '').trim();
     if (ingr && !ingrBySeq.has(seq)) ingrBySeq.set(seq, ingr);
+    const eng = (row.ITEM_ENG_NAME ?? '').trim();
+    if (eng && !engBySeq.has(seq)) engBySeq.set(seq, eng);
     const inj = compactInjection(row);
     if (inj && inj.seq && !seenInj.has(inj.seq)) {
       seenInj.add(inj.seq);
@@ -187,9 +194,9 @@ async function collectPermit() {
       if (r.status === 'fulfilled') r.value.forEach(handle);
       else console.warn(`  [허가] 페이지 실패: ${r.reason?.message ?? r.reason}`);
     }
-    console.log(`  [허가] 주사·외용 ${injections.length} · 성분 ${ingrBySeq.size} (page ~${Math.min(start + CONCURRENCY - 1, pages)}/${pages})`);
+    console.log(`  [허가] 주사·외용 ${injections.length} · 성분 ${ingrBySeq.size} · 영문명 ${engBySeq.size} (page ~${Math.min(start + CONCURRENCY - 1, pages)}/${pages})`);
   }
-  return { injections, ingrBySeq };
+  return { injections, ingrBySeq, engBySeq };
 }
 
 /**
@@ -488,19 +495,25 @@ if (!KEY) {
     await buildMarks(pills);
     console.log('완료(MARKS_ONLY) — public/data/marks/ 만 갱신했습니다. 이 폴더를 커밋하세요.');
   } else {
-    console.log('허가정보(주사·외용 + 성분) 전수 수집…');
-    const { injections, ingrBySeq } = await collectPermit();
-    // 낱알 레코드에 주성분 결합(품목기준코드 ITEM_SEQ 일치)
+    console.log('허가정보(주사·외용 + 성분 + 영문품목명) 전수 수집…');
+    const { injections, ingrBySeq, engBySeq } = await collectPermit();
+    // 낱알 레코드에 주성분·영문품목명 결합(품목기준코드 ITEM_SEQ 일치)
     let joined = 0;
+    let engJoined = 0;
     for (const p of pills) {
       const ingr = ingrBySeq.get(p.seq);
       if (ingr) {
         p.ingr = ingr;
         joined++;
       }
+      const eng = engBySeq.get(p.seq);
+      if (eng) {
+        p.eng = eng;
+        engJoined++;
+      }
     }
-    console.log(`성분 결합(영문): ${joined}/${pills.length}건`);
-    write('pills', pills); // 상세 수집 실패 대비 1차 기록(영문 성분까지)
+    console.log(`성분 결합(영문): ${joined}/${pills.length}건 · 영문품목명 결합: ${engJoined}/${pills.length}건`);
+    write('pills', pills); // 상세 수집 실패 대비 1차 기록(영문 성분·영문품목명까지)
     console.log('마크 이미지 번들…');
     await buildMarks(pills);
     write('injections', injections);

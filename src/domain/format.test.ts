@@ -145,13 +145,11 @@ describe('stripIngredient', () => {
 
 describe('formatEnglishName', () => {
   it('연속 공백 압축 + 양끝 트림', () => {
-    expect(formatEnglishName('Amlodipine  Besylate')).toBe('Amlodipine Besylate');
-    expect(formatEnglishName('  Linagliptin ')).toBe('Linagliptin');
+    expect(formatEnglishName('Motilitone  Tab.')).toBe('Motilitone Tab.');
+    expect(formatEnglishName('  Trajenta Tab. ')).toBe('Trajenta Tab.');
   });
-  it('복합제 구분자는 원문 유지', () => {
-    expect(formatEnglishName('Amlodipine Camsylate/Losartan Potassium')).toBe(
-      'Amlodipine Camsylate/Losartan Potassium',
-    );
+  it('원문 표기(마침표·숫자 등)는 유지', () => {
+    expect(formatEnglishName('Norvasc Tab. 5mg')).toBe('Norvasc Tab. 5mg');
   });
   it('빈 값은 빈 문자열', () => {
     expect(formatEnglishName(undefined)).toBe('');
@@ -203,7 +201,7 @@ describe('buildListText (블라인드 + 시점 범주화)', () => {
     );
   });
 
-  it('옵션: 영문 성분명(INN)을 이름 뒤 대괄호로 병기', () => {
+  it('옵션: 영문 품목명을 이름 뒤 대괄호로 병기', () => {
     const med: MedItem = {
       ...base,
       itemSeq: '195700020',
@@ -213,20 +211,20 @@ describe('buildListText (블라인드 + 시점 범주화)', () => {
       shape: '',
       marking: '',
     };
-    const englishBySeq = new Map([['195700020', 'Linagliptin']]);
-    // 영문 ON: 이름 뒤 [INN]
+    const englishBySeq = new Map([['195700020', 'Trajenta Tab.']]);
+    // 영문 ON: 이름 뒤 [영문 품목명]
     expect(buildListText('환자1', [med], { english: true, englishBySeq })).toBe(
-      '[환*1]\n<8am>\n트라젠타정 [Linagliptin] 1T',
+      '[환*1]\n<8am>\n트라젠타정 [Trajenta Tab.] 1T',
     );
     // 성분명 ON 과 함께 쓰면 한글 괄호 + 영문 대괄호 둘 다
     expect(buildListText('환자1', [med], { ingredient: true, english: true, englishBySeq })).toBe(
-      '[환*1]\n<8am>\n트라젠타정(리나글립틴) [Linagliptin] 1T',
+      '[환*1]\n<8am>\n트라젠타정(리나글립틴) [Trajenta Tab.] 1T',
     );
     // 영문 OFF(기본): 병기 없음
     expect(buildListText('환자1', [med], { englishBySeq })).toBe('[환*1]\n<8am>\n트라젠타정 1T');
   });
 
-  it('옵션: 영문 ON 이어도 매핑 없는 약(직접입력 등)은 병기 생략', () => {
+  it('옵션: 영문 ON 이어도 매핑 없는 약(직접입력·영문명 미등록)은 병기 생략', () => {
     const med: MedItem = { ...base, itemSeq: '', name: '수기입력약', timings: ['아침식후'], color: '', shape: '', marking: '' };
     // englishBySeq 자체가 없거나 seq 매핑이 없으면 대괄호가 붙지 않는다
     expect(buildListText('환자1', [med], { english: true })).toBe('[환*1]\n<8am>\n수기입력약 1T');

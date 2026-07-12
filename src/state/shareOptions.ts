@@ -5,13 +5,13 @@ export interface ShareOptions {
   ingredient: boolean;
   /** 겉모습(색/모양/각인) 괄호 포함 여부 */
   appearance: boolean;
-  /** 영문 성분명(INN) 병기 여부 — 예) 트라젠타정 [Linagliptin] */
+  /** 영문 품목명 병기 여부 — 예) 모티리톤정 [Motilitone Tab.] */
   english: boolean;
 }
 
 const KEY = 'ward-pillcheck:shareOptions';
 
-// 기본값: 성분명·영문명은 빼고(간결), 겉모습은 표시. (환자명 마스킹은 항상 강제 — CopySheet 가 외부 복사·공유 시 mask:true 고정)
+// 기본값: 성분명·영문 품목명은 빼고(간결), 겉모습은 표시. (환자명 마스킹은 항상 강제 — CopySheet 가 외부 복사·공유 시 mask:true 고정)
 export const DEFAULT_SHARE_OPTIONS: ShareOptions = { ingredient: false, appearance: true, english: false };
 
 export function getShareOptions(): ShareOptions {
