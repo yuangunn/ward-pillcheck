@@ -15,6 +15,15 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <!-- 첫 페인트 배경을 인라인으로 즉시 적용(번들 CSS 로드 전). html 캔버스 색이 iOS 상태바(다이나믹 아일랜드 옆) 띠 색이 되므로 다크모드를 따라가야 한다 — html 에 배경이 생기면 body 배경은 캔버스로 전파되지 않는다. -->
     <style>html,body{margin:0;background:#fff}@media (prefers-color-scheme:dark){html,body{background:#16181d}}</style>
+    <!-- iOS 는 상태바 띠 색을 첫 페인트의 html 캔버스에서 집으므로, 앱에 저장된 테마(수동 토글이
+         기기 설정과 다를 수 있음)를 React 마운트 전에 반영해야 한다. 저장값 없으면 기기 설정. -->
+    <script>
+      try {
+        var t = localStorage.getItem('ward-pillcheck:theme');
+        var d = t ? t === 'dark' : matchMedia('(prefers-color-scheme:dark)').matches;
+        document.documentElement.style.background = d ? '#16181d' : '#fff';
+      } catch (e) {}
+    </script>
     <!-- Pretendard 폰트 CDN: 렌더 비차단으로 로드(외부 CSS 가 첫 페인트를 막지 않게 — 사파리 첫 실행·인트라넷 검은화면 방지). 받기 전엔 system-ui 폴백. -->
     <link
       rel="stylesheet"
