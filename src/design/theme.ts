@@ -100,6 +100,9 @@ export function useTheme() {
     localStorage.setItem(THEME_KEY, dark ? 'dark' : 'light');
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute('content', dark ? '#16181d' : '#ffffff');
+    // html 배경(캔버스)이 iOS 상태바 띠 색 — body 만 바꾸면 html(인라인 #fff)에 가려
+    // 다크모드 상태바가 하얗게 남는다. 수동 토글이 기기 설정과 달라도 인라인이 이긴다.
+    document.documentElement.style.background = dark ? '#16181d' : '#ffffff';
     document.body.style.background = dark ? '#16181d' : '#ffffff';
   }, [dark]);
   return { dark, toggle: () => setDark((d) => !d) };

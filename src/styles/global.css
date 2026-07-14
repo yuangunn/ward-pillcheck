@@ -26,6 +26,14 @@ body {
   -webkit-font-smoothing: antialiased;
   -webkit-text-size-adjust: 100%;
 }
+/* 다크 기기 첫 페인트(JS 적용 전) — 번들 CSS 가 index.html 인라인 규칙을 도로 흰색으로 덮지 않게 동일 유지.
+   마운트 후에는 useTheme 가 html/body 인라인 스타일로 확정한다. */
+@media (prefers-color-scheme: dark) {
+  html,
+  body {
+    background: #16181d;
+  }
+}
 button {
   font-family: inherit;
 }
