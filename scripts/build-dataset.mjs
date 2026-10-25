@@ -115,10 +115,21 @@ function pageUrl(endpoint, pageNo) {
   return `${endpoint}?${params}`;
 }
 
+// data.go.kr 은 간헐적으로 연결 타임아웃/5xx 를 낸다. 한 번 실패로 매일 빌드 전체가 죽거나
+// (첫 페이지) 페이지가 조용히 누락되지 않도록 최대 4회 재시도(2·5·10초 대기).
+const RETRY_WAIT = [2000, 5000, 10000];
 async function fetchPayload(endpoint, pageNo) {
-  const res = await fetch(pageUrl(endpoint, pageNo), { signal: AbortSignal.timeout(REQ_TIMEOUT) });
-  if (!res.ok) throw new Error(`upstream ${res.status} on page ${pageNo}`);
-  return res.json();
+  for (let a = 0; ; a++) {
+    try {
+      const res = await fetch(pageUrl(endpoint, pageNo), { signal: AbortSignal.timeout(REQ_TIMEOUT) });
+      if (!res.ok) throw new Error(`upstream ${res.status} on page ${pageNo}`);
+      return await res.json();
+    } catch (e) {
+      if (a >= RETRY_WAIT.length) throw e;
+      console.warn(`  재시도 ${a + 1}/${RETRY_WAIT.length} (page ${pageNo}): ${e.message}`);
+      await new Promise((r) => setTimeout(r, RETRY_WAIT[a]));
+    }
+  }
 }
 async function fetchItems(endpoint, pageNo) {
   return extractItems(await fetchPayload(endpoint, pageNo));

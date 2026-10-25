@@ -322,7 +322,7 @@ function LookupRow({ name, sub, meta, glyph, img, onClick }: { name: string; sub
     >
       {glyph ?? (
         <div style={{ width: 48, height: 48, flexShrink: 0, borderRadius: 14, background: 'var(--fill)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', color: 'var(--text-weaker)' }}>
-          {img ? <img src={img} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <Icon name="pill" size={24} />}
+          {img ? <img src={img} alt="" loading="lazy" crossOrigin="anonymous" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <Icon name="pill" size={24} />}
         </div>
       )}
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -1208,7 +1208,7 @@ function InjectionCard({ drug, added, onClick }: { drug: PermitDrug; added: bool
         }}
       >
         {img ? (
-          <img src={img} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+          <img src={img} alt="" loading="lazy" crossOrigin="anonymous" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
         ) : (
           <Icon name="pill" size={26} />
         )}

@@ -513,6 +513,7 @@ export function Lightbox({ pill, onClose }: { pill: ZoomPill | null; onClose: ()
           <img
             src={realImg}
             alt={pill.itemName}
+            crossOrigin="anonymous"
             onError={() => setImgFailed(true)}
             style={{ width: 280, height: 280, maxWidth: '80vw', maxHeight: '50vh', objectFit: 'contain', borderRadius: 20, background: '#fff' }}
           />

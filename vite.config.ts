@@ -35,12 +35,15 @@ export default defineConfig({
         // 설정의 "실물사진 받기"가 이 캐시를 미리 데운다.
         runtimeCaching: [
           {
+            // 사진 <img> 는 crossOrigin="anonymous" 로 요청 → 응답이 opaque(status 0)가 아니라
+            // 실제 상태코드를 가진다. 200 만 캐시해야 실패(워커 5xx·nedrug 리다이렉트 실패)가
+            // 1년짜리 CacheFirst 에 박혀 그 약 사진이 영영 안 뜨는 일이 없다.
             urlPattern: ({ url }) => url.pathname.includes('/api/img'),
             handler: 'CacheFirst',
             options: {
-              cacheName: 'pill-photos',
+              cacheName: 'pill-photos-v2',
               expiration: { maxEntries: 30000, maxAgeSeconds: 60 * 60 * 24 * 365 },
-              cacheableResponse: { statuses: [0, 200] },
+              cacheableResponse: { statuses: [200] },
             },
           },
         ],

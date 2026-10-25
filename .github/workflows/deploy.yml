@@ -12,6 +12,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  actions: write # keepalive — 이 워크플로를 API로 다시 활성화
 
 concurrency:
   group: pages
@@ -75,3 +76,15 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  # GitHub 는 레포에 60일간 커밋이 없으면 schedule 워크플로를 자동 비활성화한다
+  # (실제로 2026-09-13 에 멈춰 데이터 갱신이 끊겼음). 매일 실행 때 자기 자신을
+  # 다시 enable 해 비활성화 타이머를 초기화한다(빈 커밋 없이). 실패해도 배포엔 영향 없음.
+  keepalive:
+    if: ${{ github.event_name == 'schedule' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Re-enable this workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/deploy.yml/enable"

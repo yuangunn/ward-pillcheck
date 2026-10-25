@@ -376,6 +376,7 @@ export function MarkGlyph({ option, size = 44, plain }: { option?: MarkOpt | nul
       <img
         src={option.img}
         alt={option.code}
+        crossOrigin="anonymous"
         onError={() => setImgFailed(true)}
         style={{ width: size * 0.84, height: size * 0.84, objectFit: 'contain' }}
         loading="lazy"
