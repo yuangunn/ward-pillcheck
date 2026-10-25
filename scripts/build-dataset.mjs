@@ -22,6 +22,8 @@ const KEY = process.env.SERVICE_KEY?.trim();
 const NUM = 100; // 페이지당
 const CONCURRENCY = 6;
 const REQ_TIMEOUT = 20000;
+// 허가 상세(Dtl06)는 페이지마다 효능/용법/주의 전문이 실려(전체 gz 130MB+) 20초를 넘기는 일이 잦다.
+const DETAIL_TIMEOUT = 60000;
 
 const PILL_ENDPOINT =
   process.env.PILL_ENDPOINT ??
@@ -118,21 +120,21 @@ function pageUrl(endpoint, pageNo) {
 // data.go.kr 은 간헐적으로 연결 타임아웃/5xx 를 낸다. 한 번 실패로 매일 빌드 전체가 죽거나
 // (첫 페이지) 페이지가 조용히 누락되지 않도록 최대 4회 재시도(2·5·10초 대기).
 const RETRY_WAIT = [2000, 5000, 10000];
-async function fetchPayload(endpoint, pageNo) {
+async function fetchPayload(endpoint, pageNo, timeout = REQ_TIMEOUT) {
   for (let a = 0; ; a++) {
     try {
-      const res = await fetch(pageUrl(endpoint, pageNo), { signal: AbortSignal.timeout(REQ_TIMEOUT) });
-      if (!res.ok) throw new Error(`upstream ${res.status} on page ${pageNo}`);
+      const res = await fetch(pageUrl(endpoint, pageNo), { signal: AbortSignal.timeout(timeout) });
+      if (!res.ok) throw new Error(`upstream ${res.status}`);
       return await res.json();
     } catch (e) {
-      if (a >= RETRY_WAIT.length) throw e;
+      if (a >= RETRY_WAIT.length) throw new Error(`page ${pageNo}: ${e.message}`);
       console.warn(`  재시도 ${a + 1}/${RETRY_WAIT.length} (page ${pageNo}): ${e.message}`);
       await new Promise((r) => setTimeout(r, RETRY_WAIT[a]));
     }
   }
 }
-async function fetchItems(endpoint, pageNo) {
-  return extractItems(await fetchPayload(endpoint, pageNo));
+async function fetchItems(endpoint, pageNo, timeout) {
+  return extractItems(await fetchPayload(endpoint, pageNo, timeout));
 }
 
 /** [진단] 허가사항 문서(효능/용법/주의)가 어느 엔드포인트/파라미터로 오는지 1회 탐색 로그 */
@@ -254,20 +256,38 @@ async function collectDetails() {
       details.push(d);
     }
   };
-  const first = await fetchPayload(PERMIT_DETAIL_ENDPOINT, 1);
+  const first = await fetchPayload(PERMIT_DETAIL_ENDPOINT, 1, DETAIL_TIMEOUT);
   const total = totalCountOf(first);
   const pages = total ? Math.ceil(total / NUM) : 1;
   console.log(`  [상세] 총 ${total} / ${pages}페이지`);
   for (const row of extractItems(first)) handle(row);
+  const failed = [];
   for (let start = 2; start <= pages; start += CONCURRENCY) {
     const batch = [];
     for (let p = start; p < start + CONCURRENCY && p <= pages; p++) batch.push(p);
-    const res = await Promise.allSettled(batch.map((p) => fetchItems(PERMIT_DETAIL_ENDPOINT, p)));
-    for (const r of res) {
+    const res = await Promise.allSettled(batch.map((p) => fetchItems(PERMIT_DETAIL_ENDPOINT, p, DETAIL_TIMEOUT)));
+    res.forEach((r, i) => {
       if (r.status === 'fulfilled') r.value.forEach(handle);
-      else console.warn(`  [상세] 페이지 실패: ${r.reason?.message ?? r.reason}`);
-    }
+      else {
+        failed.push(batch[i]);
+        console.warn(`  [상세] 페이지 실패: ${r.reason?.message ?? r.reason}`);
+      }
+    });
     console.log(`  [상세] ...${details.length}건 (page ~${Math.min(start + CONCURRENCY - 1, pages)}/${pages})`);
+  }
+  // 병렬 배치에서 끝내 실패한 페이지는 서버 부하가 빠진 뒤 하나씩(동시 1) 다시 받는다.
+  if (failed.length) {
+    console.log(`  [상세] 실패 ${failed.length}페이지 순차 재수집: ${failed.join(',')}`);
+    const lost = [];
+    for (const p of failed) {
+      try {
+        (await fetchItems(PERMIT_DETAIL_ENDPOINT, p, DETAIL_TIMEOUT)).forEach(handle);
+      } catch (e) {
+        lost.push(p);
+        console.warn(`  [상세] 재수집 실패: ${e.message}`);
+      }
+    }
+    console.log(`  [상세] 재수집 후 ${details.length}건 · 최종 누락 ${lost.length}페이지${lost.length ? ` (${lost.join(',')})` : ''}`);
   }
   return { details, ingrKoBySeq };
 }
