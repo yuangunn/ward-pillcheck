@@ -1,9 +1,21 @@
 import { getPhotoUrls, proxiedImg } from './dataset';
 
-// 선택적 실물사진 다운로드(대용량). 프록시 경유로 받아 SW 런타임 캐시('pill-photos')에 적재.
+// 선택적 실물사진 다운로드(대용량). 프록시 경유로 받아 SW 런타임 캐시('pill-photos-v2')에 적재.
 // best-effort·중단 가능. 식약처(nedrug)에서 폰 로컬 캐시로 직접 — 우리 레포/Pages 에 호스팅하지 않음.
 
-const PHOTO_CACHE = 'pill-photos';
+// v2: opaque 응답까지 캐시하던 옛 'pill-photos' 는 깨진 사진이 섞여 있을 수 있어 폐기(purgeLegacyPhotoCache).
+const PHOTO_CACHE = 'pill-photos-v2';
+const LEGACY_PHOTO_CACHES = ['pill-photos'];
+
+/** 옛 사진 캐시 삭제(앱 시작 시 1회, best-effort) */
+export async function purgeLegacyPhotoCache(): Promise<void> {
+  try {
+    if (typeof caches === 'undefined') return;
+    await Promise.all(LEGACY_PHOTO_CACHES.map((n) => caches.delete(n)));
+  } catch {
+    /* ignore */
+  }
+}
 
 /** 캐시된 실물사진 장수(설정 표시용) */
 export async function cachedPhotoCount(): Promise<number> {

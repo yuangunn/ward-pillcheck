@@ -290,6 +290,7 @@ function DetailPanel({ seq, pill, onZoom }: { seq: string; pill: PillResult; onZ
                   <img
                     src={photo}
                     alt={pill.itemName}
+                    crossOrigin="anonymous"
                     onLoad={() => setImgLoaded(true)}
                     onError={() => setImgFail(true)}
                     style={{ width: '100%', height: '100%', objectFit: 'contain', opacity: imgLoaded ? 1 : 0 }}
