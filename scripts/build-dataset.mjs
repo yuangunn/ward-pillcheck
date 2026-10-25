@@ -11,8 +11,8 @@
 //     → 낱알(마크코드용)만 받고 마크 gif 만 번들(허가/상세/DUR 생략, ~3분).
 //       이미 받은 gif 는 재사용(existsSync), 없는 것만 추가 다운로드.
 
-import { writeFileSync, mkdirSync, existsSync } from 'node:fs';
-import { gzipSync } from 'node:zlib';
+import { writeFileSync, readFileSync, mkdirSync, existsSync } from 'node:fs';
+import { gzipSync, gunzipSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { stripDoc } from './strip-doc.mjs';
@@ -237,37 +237,63 @@ function koActive(raw) {
  */
 async function collectDetails() {
   const details = [];
+  const docSeqs = new Set(); // 문서를 이미 담은 seq(재수집 시 중복 방지)
+  const seenSeqs = new Set(); // 이번에 목록에 나온 전 품목 seq(이전 문서 보존 판단용)
   const ingrKoBySeq = new Map();
   const clip = (s) => (s && s.length > DOC_CLIP ? s.slice(0, DOC_CLIP) + '…' : s);
+  /** 1행 처리. 문서를 담았으면 1, 아니면 0 */
   const handle = (row) => {
     const seq = row.ITEM_SEQ ?? '';
-    if (!seq) return;
+    if (!seq) return 0;
+    seenSeqs.add(seq);
     // 한글 주성분은 문서 유무와 무관하게 전 품목에서 수집
     const ko = koActive(row.MAIN_ITEM_INGR);
     if (ko && !ingrKoBySeq.has(seq)) ingrKoBySeq.set(seq, ko);
+    if (docSeqs.has(seq)) return 0;
     const efcy = clip(stripDoc(row.EE_DOC_DATA));
     const useMethod = clip(stripDoc(row.UD_DOC_DATA));
     const atpn = clip(stripDoc(row.NB_DOC_DATA));
-    if (efcy || useMethod || atpn) {
-      const d = { seq };
-      if (efcy) d.efcy = efcy;
-      if (useMethod) d.useMethod = useMethod;
-      if (atpn) d.atpn = atpn;
-      details.push(d);
+    if (!(efcy || useMethod || atpn)) return 0;
+    const d = { seq };
+    if (efcy) d.efcy = efcy;
+    if (useMethod) d.useMethod = useMethod;
+    if (atpn) d.atpn = atpn;
+    details.push(d);
+    docSeqs.add(seq);
+    return 1;
+  };
+  // 행은 오는데 문서(EE/UD/NB)가 한 건도 없는 페이지. 9월까진 없던 현상(2026-10 빌드에서 229페이지~ 전부).
+  // 일시적인 응답 이상이면 다시 받으면 채워지고, 원본이 바뀐 거면 아래 진단 로그로 드러난다.
+  const docless = [];
+  let diagnosed = false;
+  const docField = (v) => (typeof v === 'string' ? `len=${v.length} "${v.slice(0, 60).replace(/\s+/g, ' ')}"` : String(v));
+  const handlePage = (p, rows) => {
+    const docs = rows.reduce((n, row) => n + handle(row), 0);
+    if (rows.length >= 20 && docs === 0) {
+      docless.push(p);
+      if (!diagnosed) {
+        diagnosed = true;
+        const r = rows[0];
+        console.warn(
+          `  [상세][진단] page ${p}: ${rows.length}행 중 문서 0 — 예) ${r.ITEM_SEQ} ` +
+            `EE_DOC_DATA=${docField(r.EE_DOC_DATA)} UD_DOC_DATA=${docField(r.UD_DOC_DATA)} ` +
+            `NB_DOC_DATA=${docField(r.NB_DOC_DATA)} EE_DOC_ID=${docField(r.EE_DOC_ID)}`,
+        );
+      }
     }
   };
   const first = await fetchPayload(PERMIT_DETAIL_ENDPOINT, 1, DETAIL_TIMEOUT);
   const total = totalCountOf(first);
   const pages = total ? Math.ceil(total / NUM) : 1;
   console.log(`  [상세] 총 ${total} / ${pages}페이지`);
-  for (const row of extractItems(first)) handle(row);
+  handlePage(1, extractItems(first));
   const failed = [];
   for (let start = 2; start <= pages; start += CONCURRENCY) {
     const batch = [];
     for (let p = start; p < start + CONCURRENCY && p <= pages; p++) batch.push(p);
     const res = await Promise.allSettled(batch.map((p) => fetchItems(PERMIT_DETAIL_ENDPOINT, p, DETAIL_TIMEOUT)));
     res.forEach((r, i) => {
-      if (r.status === 'fulfilled') r.value.forEach(handle);
+      if (r.status === 'fulfilled') handlePage(batch[i], r.value);
       else {
         failed.push(batch[i]);
         console.warn(`  [상세] 페이지 실패: ${r.reason?.message ?? r.reason}`);
@@ -275,21 +301,49 @@ async function collectDetails() {
     });
     console.log(`  [상세] ...${details.length}건 (page ~${Math.min(start + CONCURRENCY - 1, pages)}/${pages})`);
   }
-  // 병렬 배치에서 끝내 실패한 페이지는 서버 부하가 빠진 뒤 하나씩(동시 1) 다시 받는다.
-  if (failed.length) {
-    console.log(`  [상세] 실패 ${failed.length}페이지 순차 재수집: ${failed.join(',')}`);
+  // 병렬 배치에서 끝내 실패했거나 문서 없이 온 페이지는 서버 부하가 빠진 뒤 하나씩(동시 1) 다시 받는다.
+  const again = [...failed, ...docless];
+  if (again.length) {
+    console.log(`  [상세] 순차 재수집 — 실패 ${failed.length} · 문서없음 ${docless.length}페이지`);
+    const before = details.length;
     const lost = [];
-    for (const p of failed) {
+    const stillDocless = [];
+    for (const p of again) {
       try {
-        (await fetchItems(PERMIT_DETAIL_ENDPOINT, p, DETAIL_TIMEOUT)).forEach(handle);
+        const rows = await fetchItems(PERMIT_DETAIL_ENDPOINT, p, DETAIL_TIMEOUT);
+        if (rows.reduce((n, row) => n + handle(row), 0) === 0 && rows.length >= 20) stillDocless.push(p);
       } catch (e) {
         lost.push(p);
         console.warn(`  [상세] 재수집 실패: ${e.message}`);
       }
     }
-    console.log(`  [상세] 재수집 후 ${details.length}건 · 최종 누락 ${lost.length}페이지${lost.length ? ` (${lost.join(',')})` : ''}`);
+    console.log(
+      `  [상세] 재수집 후 ${details.length}건(+${details.length - before}) · 최종 누락 ${lost.length}페이지` +
+        `${lost.length ? ` (${lost.join(',')})` : ''} · 여전히 문서없음 ${stillDocless.length}페이지`,
+    );
   }
-  return { details, ingrKoBySeq };
+  return { details, ingrKoBySeq, seenSeqs };
+}
+
+/**
+ * 이번 수집에 문서가 없는 품목은 직전 빌드(캐시 복원된 details.json.gz)의 문서를 이어 쓴다.
+ * 원본 API 가 일시적으로(또는 일부 품목만) 문서를 비워 보내도 앱 상세가 통째로 비지 않게.
+ * 목록에서 사라진(취하) 품목은 버린다.
+ */
+function carryOverDetails(details, seenSeqs) {
+  const path = `${OUT}/details.json.gz`;
+  if (!existsSync(path)) return details;
+  let prev;
+  try {
+    prev = JSON.parse(gunzipSync(readFileSync(path)).toString());
+  } catch (e) {
+    console.warn(`  [상세] 이전 문서 읽기 실패 — 이어쓰기 생략: ${e.message}`);
+    return details;
+  }
+  const have = new Set(details.map((d) => d.seq));
+  const carried = prev.filter((d) => d?.seq && !have.has(d.seq) && seenSeqs.has(d.seq));
+  console.log(`  [상세] 이전 빌드 문서 이어쓰기: ${carried.length}건 (이전 ${prev.length}건 · 이번 ${details.length}건)`);
+  return carried.length ? details.concat(carried) : details;
 }
 
 /** DUR 룰셋 수집 → 컴팩트 번들(v2). 오프라인 금기점검용.
@@ -549,7 +603,9 @@ if (!KEY) {
     await buildMarks(pills);
     write('injections', injections);
     console.log('허가사항 상세(Dtl06) 전수 수집…');
-    const { details, ingrKoBySeq } = await collectDetails();
+    const collected = await collectDetails();
+    const { ingrKoBySeq } = collected;
+    const details = carryOverDetails(collected.details, collected.seenSeqs);
     console.log(`허가사항 상세 ${details.length}건(전문약 포함) → details.json.gz`);
     writeGz('details', details);
     // 한글 주성분(MAIN_ITEM_INGR) 결합 후 pills 재기록
