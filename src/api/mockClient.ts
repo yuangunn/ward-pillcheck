@@ -297,6 +297,14 @@ export function createMockClient(): DrugApi {
       }
       return map;
     },
+    async getIngredientsKo(seqs: string[]): Promise<Map<string, string>> {
+      const want = new Set(seqs);
+      const map = new Map<string, string>();
+      for (const p of SAMPLE) {
+        if (want.has(p.itemSeq) && p.ingredientKo) map.set(p.itemSeq, p.ingredientKo);
+      }
+      return map;
+    },
     async getEngNames(seqs: string[]): Promise<Map<string, string>> {
       const want = new Set(seqs);
       const map = new Map<string, string>();
