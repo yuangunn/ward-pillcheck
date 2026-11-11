@@ -81,6 +81,11 @@ export interface DrugApi {
    */
   getIngredients?(seqs: string[]): Promise<Map<string, string>>;
   /**
+   * itemSeq → 한글 주성분 매핑(A4 출력물 성분 줄용). 완전 오프라인. 복합제는 '/' 로 구분.
+   * 데이터가 없는 구현은 미구현(선택)이며, 그 경우 출력물에 성분 줄을 생략한다.
+   */
+  getIngredientsKo?(seqs: string[]): Promise<Map<string, string>>;
+  /**
    * itemSeq → 품목영문명 매핑(인계 영문 병기용). 완전 오프라인.
    * 영문명 데이터가 없는 구현(워커 등)은 미구현(선택)이며, 그 경우 영문 병기는 하지 않는다.
    */

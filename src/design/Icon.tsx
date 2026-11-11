@@ -128,6 +128,13 @@ export function Icon({
       </>
     ),
     send: <path d="M21 4L3 11l6 2 2 6 10-15z M9 13l4-4" {...p} />,
+    print: (
+      <>
+        <path d="M7 9V4h10v5" {...p} />
+        <path d="M7 17H5a2 2 0 01-2-2v-4a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2h-2" {...p} />
+        <path d="M7 14h10v6H7z" {...p} />
+      </>
+    ),
   };
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" style={style} aria-hidden>

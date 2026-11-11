@@ -34,12 +34,12 @@ const empty = (itemSeq: string): DurInfo => ({
   dup: [],
 });
 
-/** 한 품목 DUR 조회 (실패 시 빈 결과) */
-export async function fetchDur(itemSeq: string): Promise<DurInfo> {
-  if (!apiBase) return empty(itemSeq);
+/** 한 품목 DUR 조회 — 실패하면 null(조회 실패와 '해당 없음'을 구분하기 위해) */
+async function fetchDurOrNull(itemSeq: string): Promise<DurInfo | null> {
+  if (!apiBase) return null;
   try {
     const res = await fetch(`${apiBase.replace(/\/$/, '')}/api/dur?itemSeq=${encodeURIComponent(itemSeq)}`);
-    if (!res.ok) return empty(itemSeq);
+    if (!res.ok) return null;
     const d = (await res.json()) as { body?: { dur?: Partial<DurInfo> } };
     const dur = d.body?.dur ?? {};
     return {
@@ -51,8 +51,13 @@ export async function fetchDur(itemSeq: string): Promise<DurInfo> {
       dup: dur.dup ?? [],
     };
   } catch {
-    return empty(itemSeq);
+    return null;
   }
+}
+
+/** 한 품목 DUR 조회 (실패 시 빈 결과) */
+export async function fetchDur(itemSeq: string): Promise<DurInfo> {
+  return (await fetchDurOrNull(itemSeq)) ?? empty(itemSeq);
 }
 
 /** 리스트의 모든 품목 DUR 조회 — 받아둔 번들(오프라인) 우선, 없으면 워커 품목별 조회 */
@@ -62,6 +67,26 @@ export async function fetchDurMap(meds: Pick<MedItem, 'itemSeq'>[]): Promise<Map
   if (bundled) return bundled; // 다운로드됨 → 오프라인 매칭
   const infos = await Promise.all(seqs.map(fetchDur));
   return new Map(infos.map((i) => [i.itemSeq, i]));
+}
+
+/**
+ * DUR 데이터 출처/상태 — 출력물에 "점검했는지"를 정확히 적기 위해 구분.
+ * bundle: 받아둔 번들 · online: 워커 전부 성공 · partial: 일부 실패 · unavailable: 데이터 없음(전부 실패/워커 없음)
+ */
+export type DurStatus = 'bundle' | 'online' | 'partial' | 'unavailable';
+
+/** fetchDurMap 과 같지만 조회 상태를 함께 돌려준다(출력물용). */
+export async function fetchDurMapChecked(
+  meds: Pick<MedItem, 'itemSeq'>[],
+): Promise<{ map: Map<string, DurInfo>; status: DurStatus }> {
+  const seqs = [...new Set(meds.map((m) => m.itemSeq).filter(Boolean))];
+  const bundled = await getBundledDurMap(seqs);
+  if (bundled) return { map: bundled, status: 'bundle' };
+  if (!apiBase || !seqs.length) return { map: new Map(), status: seqs.length ? 'unavailable' : 'online' };
+  const infos = await Promise.all(seqs.map(fetchDurOrNull));
+  const ok = infos.filter((i): i is DurInfo => !!i);
+  const status: DurStatus = ok.length === seqs.length ? 'online' : ok.length ? 'partial' : 'unavailable';
+  return { map: new Map(ok.map((i) => [i.itemSeq, i])), status };
 }
 
 export interface ComboWarning {
