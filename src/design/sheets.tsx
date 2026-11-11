@@ -985,7 +985,7 @@ function PrintPdfSection({ open, meds }: { open: boolean; meds: MedItem[] }) {
       const out = await createPrintPdf(meds, (p) => id === runId.current && setBusy(p));
       if (id !== runId.current) return;
       setPdf(out);
-      if (out.photosMissing) setMsg(`사진 ${out.photosMissing}장은 받지 못해 '사진 못 받음'으로 표시했어요.`);
+      if (out.photosMissing) setMsg(`사진 ${out.photosMissing}장은 받지 못해 대신 모양·색 그림으로 표시했어요.`);
     } catch {
       if (id === runId.current) setMsg('PDF를 만들지 못했어요. 다시 시도해 주세요.');
     } finally {

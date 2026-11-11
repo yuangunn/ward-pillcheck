@@ -76,8 +76,10 @@ describe('buildPrintModel', () => {
       memo: '금식 시 보류',
       dose: '1T',
     });
+    expect(lip.glyph).toEqual({ color: '하양', shape: '원형', marking: 'ATV----10' }); // 사진 대체 그림 재료
     const [lan] = m.groups[1].meds;
     expect(lan).toMatchObject({ name: '란투스주솔로스타', sub: '', warn: '', appearance: '', dose: '10U' });
+    expect(lan.glyph).toBeUndefined(); // 색·모양 없는 주사제는 그림 없이 글자만
   });
 
   it('성분 정보가 없으면 품목명 괄호를 그대로 둔다', () => {
