@@ -25,7 +25,8 @@ import {
   type PageLayout,
   type SafetyLayout,
 } from './layout';
-import { formatPrintDate, type PrintModel } from './model';
+import { formatPrintDate, type PrintMed, type PrintModel } from './model';
+import { cleanMark, glyphColors, glyphLabelSize, shapeGeom, shapePathD } from '../design/pillShape';
 
 // 캔버스에 A4 한 쪽씩 그린다(브라우저 전용). 좌표는 전부 mm 로 받고 S(px/mm)를 곱한다.
 // 글꼴은 앱과 같은 Pretendard → 기기 기본 한글 글꼴 순. 흑백 레이저 출력 기준(색에 의존하지 않음).
@@ -310,9 +311,49 @@ function drawPhoto(ctx: Ctx, r: MedRowLayout, photos: PhotoMap) {
     c.clip();
     c.drawImage(img, (x + (w - dw) / 2) * S, (y + (PHOTO_H - dh) / 2) * S, dw * S, dh * S);
     c.restore();
+  } else if (r.med.glyph) {
+    // 사진 대신 앱과 같은 모양·색 그림 + 짧은 표시(실물 사진이 아님을 알림). 못 받은 사유는 앱 안내로 충분.
+    // 흑백 출력에서도 윤곽이 보이게 테두리는 진하게(drawGlyph).
+    const size = PHOTO_H - 1;
+    drawGlyph(ctx, r.med.glyph, x + 0.8, y + 0.5, size);
+    const cx = x + 0.8 + size + (w - 0.8 - size) / 2;
+    const lh = FONTS.hint.size * 1.25;
+    const top = y + (PHOTO_H - lh * 2) / 2;
+    text(ctx, '사진 없음', cx, top, FONTS.hint, { color: '#8a8a8a', align: 'center', lh });
+    text(ctx, '(그림)', cx, top + lh, FONTS.hint, { color: '#8a8a8a', align: 'center', lh });
   } else {
     const label = url ? '사진 못 받음' : '사진 미등록';
     text(ctx, label, x + w / 2, y, FONTS.hint, { color: '#a0a0a0', align: 'center', lh: PHOTO_H });
+  }
+}
+
+/** 앱 글리프(Icon.PillGlyph)와 같은 도형·색·각인을 캔버스에 그린다. (x, y) 왼쪽 위, size 정사각(mm). */
+function drawGlyph({ c }: Ctx, g: NonNullable<PrintMed['glyph']>, x: number, y: number, size: number) {
+  const geom = shapeGeom(g.shape);
+  const col = glyphColors(g.color);
+  const k = (size * S) / 100; // viewBox 100 → px
+  c.save();
+  c.translate(x * S, y * S);
+  c.scale(k, k);
+  const path = new Path2D(shapePathD(g.shape));
+  const grad = c.createLinearGradient(0, 0, 0, 100);
+  grad.addColorStop(0, col.top);
+  grad.addColorStop(0.55, col.fill);
+  grad.addColorStop(1, col.bot);
+  c.fillStyle = grad;
+  c.fill(path);
+  c.strokeStyle = '#6b6b6b';
+  c.lineWidth = (0.22 * S) / k;
+  c.lineJoin = 'round';
+  c.stroke(path);
+  c.restore();
+  const label = cleanMark(g.marking);
+  if (label) {
+    c.font = `700 ${(glyphLabelSize(geom, label) * k).toFixed(2)}px ${FAMILY}`;
+    c.fillStyle = col.ink;
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    c.fillText(label, x * S + 50 * k, y * S + geom.ty * k);
   }
 }
 

@@ -24,6 +24,8 @@ export interface PrintMed {
   dose: string; // 1회 용량 예) 1T, 10U
   freq: string; // 용법 예) QD, BID, QW/월, PRN/통증 시
   imageUrl?: string; // 식약처 낱알 사진(원본 URL)
+  /** 사진이 없거나 못 받았을 때 대신 그릴 모양·색 그림 재료(앱 글리프와 같은 도형). 색·모양 둘 다 없으면 없음. */
+  glyph?: { color?: string; shape?: string; marking?: string };
 }
 
 export interface PrintGroup {
@@ -106,6 +108,7 @@ function toPrintMed(med: MedItem, no: number, lk: PrintLookups): PrintMed {
     dose: `${formatTabletCount(med.tabletCount)}${med.doseUnit || 'T'}`,
     freq,
     imageUrl: med.imageUrl || undefined,
+    glyph: med.color || med.shape ? { color: med.color, shape: med.shape, marking: med.marking } : undefined,
   };
 }
 
