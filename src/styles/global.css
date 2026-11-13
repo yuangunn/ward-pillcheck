@@ -21,6 +21,12 @@ body,
   inset: 0;
   height: auto;
 }
+/* 화면 전체 핀줌·두 번 탭 확대 끄기(스크롤은 그대로). iOS 는 뷰포트 user-scalable=no 를 무시해서
+   state/noPageZoom 의 gesture* 차단과 함께 쓴다. touch-action 은 스크롤 컨테이너마다 다시 계산되므로
+   모든 요소에 준다. 그림 그리기 캔버스·사진 확대처럼 직접 처리하는 곳은 인라인 touch-action: none 으로 덮는다. */
+* {
+  touch-action: pan-x pan-y;
+}
 body {
   background: #fff;
   -webkit-font-smoothing: antialiased;

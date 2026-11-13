@@ -5,6 +5,7 @@ import App from './App';
 import { StoreProvider } from './state/store';
 import { ErrorBoundary } from './design/ErrorBoundary';
 import { purgeLegacyPhotoCache } from './api/photoCache';
+import { disablePageZoom } from './state/noPageZoom';
 import './styles/global.css';
 
 // 새 배포 자동 반영: 새 SW 감지 시 즉시 적용+리로드, 1시간마다 업데이트 점검.
@@ -20,6 +21,8 @@ const updateSW = registerSW({
 });
 
 void purgeLegacyPhotoCache();
+// 화면 전체 핀줌 차단(iOS 는 뷰포트 설정을 무시) — 사진 확대는 라이트박스 안에서만.
+disablePageZoom();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
