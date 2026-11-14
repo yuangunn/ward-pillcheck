@@ -321,6 +321,7 @@ export function BottomSheet({
         role="dialog"
         aria-modal="true"
         aria-label={title}
+        className="bottom-sheet"
         style={{
           position: 'relative',
           background: 'var(--bg)',
