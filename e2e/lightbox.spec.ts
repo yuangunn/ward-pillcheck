@@ -32,3 +32,20 @@ test('약 이미지 확대(라이트박스): 훅 에러 없이 열리고 탭하�
 
   expect(hookErrors, hookErrors.join('\n')).toEqual([]);
 });
+
+test('화면 전체 핀줌 차단: 스크롤 영역 touch-action + iOS gesture 이벤트 막힘', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.screen-scroll').first()).toBeVisible();
+  const r = await page.evaluate(() => {
+    const ev = new Event('gesturestart', { cancelable: true });
+    document.dispatchEvent(ev);
+    return {
+      prevented: ev.defaultPrevented,
+      scroller: getComputedStyle(document.querySelector('.screen-scroll')!).touchAction,
+      body: getComputedStyle(document.body).touchAction,
+    };
+  });
+  expect(r.prevented).toBe(true); // iOS 사파리 핀줌(뷰포트 user-scalable=no 무시) 차단
+  expect(r.scroller).toBe('pan-x pan-y'); // 스크롤은 되고 핀치·두 번 탭 확대는 안 됨
+  expect(r.body).toBe('pan-x pan-y');
+});

@@ -6,6 +6,7 @@ import {
   type ReactNode,
 } from 'react';
 import { Icon, PillGlyph } from './Icon';
+import { ZoomableImage } from './ZoomableImage';
 import { cleanMarking } from '../domain/format';
 
 /**
@@ -510,12 +511,12 @@ export function Lightbox({ pill, onClose }: { pill: ZoomPill | null; onClose: ()
       </button>
       <div style={{ transform: show ? 'scale(1)' : 'scale(0.86)', transition: 'transform .26s cubic-bezier(.32,.72,0,1)' }}>
         {realImg ? (
-          <img
+          // 식약처 사진은 앞·뒷면이 가로로 나란한 가로형 — 가로로 넓게 + 핀치·두 번 탭 확대(각인 읽기용)
+          <ZoomableImage
             src={realImg}
             alt={pill.itemName}
-            crossOrigin="anonymous"
             onError={() => setImgFailed(true)}
-            style={{ width: 280, height: 280, maxWidth: '80vw', maxHeight: '50vh', objectFit: 'contain', borderRadius: 20, background: '#fff' }}
+            style={{ width: 'min(92vw, 520px)', aspectRatio: '16 / 10', maxHeight: '56vh', borderRadius: 20, background: '#fff' }}
           />
         ) : showBack ? (
           // 사진이 없으면(오프라인 등) 각인 글리프를 앞면·뒷면 두 개로 크게
@@ -548,7 +549,7 @@ export function Lightbox({ pill, onClose }: { pill: ZoomPill | null; onClose: ()
           </a>
         )}
         <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.4)', fontWeight: 600, marginTop: 14 }}>
-          아무 곳이나 탭하면 닫혀요
+          {realImg ? '사진은 두 번 탭하거나 두 손가락으로 확대 · 바깥을 탭하면 닫혀요' : '아무 곳이나 탭하면 닫혀요'}
         </div>
       </div>
     </div>
