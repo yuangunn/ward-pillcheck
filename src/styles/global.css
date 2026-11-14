@@ -19,7 +19,14 @@ body,
 #root {
   position: fixed;
   inset: 0;
+  /* 키보드가 떠 있을 때만 보이는 영역에 맞춘다(state/keyboardInset). 평소엔 둘 다 0. */
+  top: var(--vv-top, 0px);
+  bottom: var(--kb-inset, 0px);
   height: auto;
+}
+/* 키보드가 떠서 화면이 줄면 하단 시트는 높이 제한(예: 56%)보다 넉넉하게 — 입력칸·버튼이 함께 보이게 */
+html[data-keyboard] .bottom-sheet {
+  max-height: 94% !important;
 }
 /* 화면 전체 핀줌·두 번 탭 확대 끄기(스크롤은 그대로). iOS 는 뷰포트 user-scalable=no 를 무시해서
    state/noPageZoom 의 gesture* 차단과 함께 쓴다. touch-action 은 스크롤 컨테이너마다 다시 계산되므로
