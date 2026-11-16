@@ -120,13 +120,23 @@ function pageUrl(endpoint, pageNo) {
 // data.go.kr 은 간헐적으로 연결 타임아웃/5xx 를 낸다. 한 번 실패로 매일 빌드 전체가 죽거나
 // (첫 페이지) 페이지가 조용히 누락되지 않도록 최대 4회 재시도(2·5·10초 대기).
 const RETRY_WAIT = [2000, 5000, 10000];
+// 429 = 일일 호출 한도 초과(개발계정). 재시도해도 자정(KST)까지 안 풀리므로 바로 포기한다.
+// (#210: 같은 날 세 번째 전수 수집에서 DUR 이 429 를 ~6,900번 받으며 재시도만 하다 6시간 타임아웃)
+class QuotaError extends Error {}
+/** allSettled 결과에 한도 초과가 섞였으면 그 에러를 던진다(페이지 누락된 반쪽 데이터를 쓰지 않도록) */
+function throwIfQuota(results) {
+  const hit = results.find((r) => r.status === 'rejected' && r.reason instanceof QuotaError);
+  if (hit) throw hit.reason;
+}
 async function fetchPayload(endpoint, pageNo, timeout = REQ_TIMEOUT) {
   for (let a = 0; ; a++) {
     try {
       const res = await fetch(pageUrl(endpoint, pageNo), { signal: AbortSignal.timeout(timeout) });
+      if (res.status === 429) throw new QuotaError(`page ${pageNo}: upstream 429 — 일일 호출 한도 초과로 추정`);
       if (!res.ok) throw new Error(`upstream ${res.status}`);
       return await res.json();
     } catch (e) {
+      if (e instanceof QuotaError) throw e;
       if (a >= RETRY_WAIT.length) throw new Error(`page ${pageNo}: ${e.message}`);
       console.warn(`  재시도 ${a + 1}/${RETRY_WAIT.length} (page ${pageNo}): ${e.message}`);
       await new Promise((r) => setTimeout(r, RETRY_WAIT[a]));
@@ -203,6 +213,7 @@ async function collectPermit() {
     const batch = [];
     for (let p = start; p < start + CONCURRENCY && p <= pages; p++) batch.push(p);
     const results = await Promise.allSettled(batch.map((p) => fetchItems(PERMIT_LIST_ENDPOINT, p)));
+    throwIfQuota(results);
     for (const r of results) {
       if (r.status === 'fulfilled') r.value.forEach(handle);
       else console.warn(`  [허가] 페이지 실패: ${r.reason?.message ?? r.reason}`);
@@ -292,6 +303,7 @@ async function collectDetails() {
     const batch = [];
     for (let p = start; p < start + CONCURRENCY && p <= pages; p++) batch.push(p);
     const res = await Promise.allSettled(batch.map((p) => fetchItems(PERMIT_DETAIL_ENDPOINT, p, DETAIL_TIMEOUT)));
+    throwIfQuota(res);
     res.forEach((r, i) => {
       if (r.status === 'fulfilled') handlePage(batch[i], r.value);
       else {
@@ -313,6 +325,7 @@ async function collectDetails() {
         const rows = await fetchItems(PERMIT_DETAIL_ENDPOINT, p, DETAIL_TIMEOUT);
         if (rows.reduce((n, row) => n + handle(row), 0) === 0 && rows.length >= 20) stillDocless.push(p);
       } catch (e) {
+        if (e instanceof QuotaError) throw e;
         lost.push(p);
         console.warn(`  [상세] 재수집 실패: ${e.message}`);
       }
@@ -375,7 +388,9 @@ async function collectDur(ourSeqs) {
   // 병용금기는 ~81만행(≈8100p). 우리 약 필터는 행 단위라 전수 스캔이 필요하므로 상한을 넉넉히.
   // (매칭되는 항목만 raw 에 누적되어 메모리는 우리 약 규모로 한정됨)
   const DUR_MAX_PAGES = 12000;
+  let quota = false; // 한도 초과 → 남은 범주까지 즉시 중단(호출자가 이전 번들을 유지)
   for (const [cat, op] of Object.entries(DUR_OPS)) {
+    if (quota) break;
     const ep = `${DUR_BASE}/${op}`;
     let total = 0;
     let pages = 1;
@@ -386,6 +401,7 @@ async function collectDur(ourSeqs) {
       extractItems(first).forEach((row) => addDurRaw(raw, cat, row, ourSeqs));
     } catch (e) {
       console.warn(`  [DUR:${cat}] page1 실패: ${e.message}`);
+      if (e instanceof QuotaError) quota = true;
       continue;
     }
     console.log(`  [DUR:${cat}] 총 ${total} / ${pages}페이지${total / NUM > DUR_MAX_PAGES ? ' (상한 적용)' : ''}`);
@@ -394,8 +410,15 @@ async function collectDur(ourSeqs) {
       for (let p = start; p < start + CONCURRENCY && p <= pages; p++) batch.push(p);
       const res = await Promise.allSettled(batch.map((p) => fetchItems(ep, p)));
       for (const r of res) if (r.status === 'fulfilled') r.value.forEach((row) => addDurRaw(raw, cat, row, ourSeqs));
+      const hit = res.find((r) => r.status === 'rejected' && r.reason instanceof QuotaError);
+      if (hit) {
+        console.warn(`  [DUR:${cat}] 중단: ${hit.reason.message}`);
+        quota = true;
+        break;
+      }
     }
   }
+  if (quota) return { quota: true };
   // 인터닝 + 컴팩트화
   const t = [];
   const tIndex = new Map();
@@ -455,6 +478,7 @@ async function collect(label, endpoint, compactFn, maxPages) {
     const batch = [];
     for (let p = start; p < start + CONCURRENCY && p <= pages; p++) batch.push(p);
     const results = await Promise.allSettled(batch.map((p) => fetchItems(endpoint, p)));
+    throwIfQuota(results);
     for (const r of results) {
       if (r.status === 'fulfilled') add(r.value);
       else console.warn(`  [${label}] 페이지 실패: ${r.reason?.message ?? r.reason}`);
@@ -622,7 +646,9 @@ if (!KEY) {
     // DUR: 우리 약(낱알+주사·외용)끼리로 제한 + 텍스트 인터닝으로 압축해 오프라인 번들 생성.
     console.log('금기점검(DUR) 룰셋 수집·압축…');
     const ourSeqs = new Set([...pills.map((x) => x.seq), ...injections.map((x) => x.seq)].filter(Boolean));
-    const { bundle: durBundle, count: durCount } = await collectDur(ourSeqs);
-    writeGz('dur', durBundle, durCount);
+    const dur = await collectDur(ourSeqs);
+    if (!dur.quota) writeGz('dur', dur.bundle, dur.count);
+    else if (existsSync(`${OUT}/dur.json.gz`)) console.warn('  [DUR] 한도 초과 — 이전 빌드의 dur.json.gz 를 그대로 둠');
+    else throw new Error('[DUR] 한도 초과이고 이전 번들도 없음 — 배포 중단(내일 다시)');
   }
 }
