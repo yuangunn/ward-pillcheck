@@ -11,7 +11,7 @@ export interface ShareOptions {
 
 const KEY = 'ward-pillcheck:shareOptions';
 
-// 기본값: 성분명·영문 품목명은 빼고(간결), 겉모습은 표시. (환자명 마스킹은 항상 강제 — CopySheet 가 외부 복사·공유 시 mask:true 고정)
+// 기본값: 성분명·영문 품목명은 빼고(간결), 겉모습은 표시. (인계 텍스트는 원내 Teams 전용이라 라벨 원문. A4 PDF 는 환자 라벨 자체를 넣지 않음)
 export const DEFAULT_SHARE_OPTIONS: ShareOptions = { ingredient: false, appearance: true, english: false };
 
 export function getShareOptions(): ShareOptions {

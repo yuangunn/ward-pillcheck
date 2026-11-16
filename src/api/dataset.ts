@@ -435,6 +435,17 @@ export async function getIngredientMap(seqs: string[]): Promise<Map<string, stri
   return map;
 }
 
+/** itemSeq → 한글 주성분(ingrKo) 매핑(A4 출력물용). 번들 데이터, 오프라인. 로드 보장 후. */
+export async function getIngredientKoMap(seqs: string[]): Promise<Map<string, string>> {
+  await ensureDataset();
+  const want = new Set(seqs);
+  const map = new Map<string, string>();
+  for (const r of records ?? []) {
+    if (want.has(r.seq) && r.ingrKo) map.set(r.seq, r.ingrKo);
+  }
+  return map;
+}
+
 /** itemSeq → 품목영문명(eng) 매핑(인계 영문 병기용). 번들 데이터, 오프라인. 로드 보장 후.
  *  영문명이 등록된 품목만 담긴다(미등록 약은 키 없음). */
 export async function getEngNameMap(seqs: string[]): Promise<Map<string, string>> {
