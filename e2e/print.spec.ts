@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 
-// A4 출력용 이미지(쪽마다 JPEG): 만들기 → 폰 공유 창(Web Share) / 공유 불가 브라우저는 파일 저장.
+// A4 출력용 식별표: 만들기 → PDF(출력용) 또는 쪽 이미지(미리보기용)를 폰 공유 창(Web Share)으로 / 공유 불가 브라우저는 파일 저장.
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
@@ -39,8 +39,8 @@ test('A4 이미지: 만들기 → 공유 창에 A4 JPEG 1장(파일명에 환자
     });
   });
   const sheet = await addBayerAndOpenShare(page);
-  await sheet.getByRole('button', { name: 'A4 출력용 이미지 만들기' }).click();
-  const send = sheet.getByRole('button', { name: /이미지 보내기 \(1장\)/ });
+  await sheet.getByRole('button', { name: 'A4 출력용 식별표 만들기' }).click();
+  const send = sheet.getByRole('button', { name: /이미지로 보내기.*\(1장\)/ });
   await expect(send).toBeVisible({ timeout: 20_000 });
   await send.click();
   await expect.poll(() => page.evaluate(() => (window as unknown as { __shared: unknown }).__shared)).not.toBeNull();
@@ -75,8 +75,8 @@ test('A4 이미지: 공유를 못 하는 브라우저는 파일로 저장하고 
     };
   });
   const sheet = await addBayerAndOpenShare(page);
-  await sheet.getByRole('button', { name: 'A4 출력용 이미지 만들기' }).click();
-  const send = sheet.getByRole('button', { name: /이미지 보내기/ });
+  await sheet.getByRole('button', { name: 'A4 출력용 식별표 만들기' }).click();
+  const send = sheet.getByRole('button', { name: /이미지로 보내기/ });
   await expect(send).toBeVisible({ timeout: 20_000 });
   const [download] = await Promise.all([page.waitForEvent('download'), send.click()]);
   const name = await page.evaluate(() => (window as unknown as { __dlName: string }).__dlName);
@@ -85,4 +85,48 @@ test('A4 이미지: 공유를 못 하는 브라우저는 파일로 저장하고 
   const bytes = await readFile((await download.path())!);
   expect([...bytes.subarray(0, 3)]).toEqual([0xff, 0xd8, 0xff]);
   await expect(sheet.getByRole('status')).toContainText('파일로 저장했어요');
+});
+
+test('A4 PDF: 출력용 — 공유 창에 PDF 파일 1개(같은 쪽 JPEG 을 A4 로 묶음, 파일명에 환자 라벨 없음)', async ({ page }) => {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __shared: unknown };
+    w.__shared = null;
+    Object.defineProperty(navigator, 'canShare', { configurable: true, value: (d: ShareData) => !!d?.files?.length });
+    Object.defineProperty(navigator, 'share', {
+      configurable: true,
+      value: async (d: ShareData) => {
+        const f = d.files![0];
+        const buf = new Uint8Array(await f.arrayBuffer());
+        const s = Array.from(buf, (c) => String.fromCharCode(c)).join('');
+        w.__shared = {
+          count: d.files!.length,
+          name: f.name,
+          type: f.type,
+          head: s.slice(0, 8),
+          pages: (s.match(/\/Type \/Page /g) || []).length,
+          img: /\/Width 2940 \/Height 4158/.test(s),
+        };
+      },
+    });
+  });
+  const sheet = await addBayerAndOpenShare(page);
+  await sheet.getByRole('button', { name: 'A4 출력용 식별표 만들기' }).click();
+  const send = sheet.getByRole('button', { name: /PDF로 보내기.*\(1쪽\)/ });
+  await expect(send).toBeVisible({ timeout: 20_000 });
+  await send.click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __shared: unknown }).__shared)).not.toBeNull();
+  const shared = (await page.evaluate(() => (window as unknown as { __shared: unknown }).__shared)) as {
+    count: number;
+    name: string;
+    type: string;
+    head: string;
+    pages: number;
+    img: boolean;
+  };
+  expect(shared.count).toBe(1);
+  expect(shared.type).toBe('application/pdf');
+  expect(shared.head).toBe('%PDF-1.4');
+  expect(shared.pages).toBe(1);
+  expect(shared.img).toBe(true); // 쪽 이미지를 원본 해상도 그대로 담음
+  expect(shared.name).toMatch(/^지참약식별표_\d{8}_\d{4}\.pdf$/);
 });

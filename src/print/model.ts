@@ -61,12 +61,12 @@ export function formatPrintDate(d: Date): string {
 }
 
 /**
- * 쪽 이미지 파일명 — 환자 정보 없이 작성 시각만. 여러 쪽이면 쪽 번호를 붙인다(이름순 = 쪽순).
- * 예) 지참약식별표_20261111_1432.jpg · 지참약식별표_20261111_1432_2of3.jpg
+ * 출력 파일명 — 환자 정보 없이 작성 시각만. 쪽 이미지가 여러 장이면 쪽 번호를 붙인다(이름순 = 쪽순).
+ * 예) 지참약식별표_20261111_1432.jpg · 지참약식별표_20261111_1432_2of3.jpg · 지참약식별표_20261111_1432.pdf
  */
-export function printFileName(d: Date, page = 1, total = 1): string {
+export function printFileName(d: Date, page = 1, total = 1, ext: 'jpg' | 'pdf' = 'jpg'): string {
   const base = `지참약식별표_${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}_${p2(d.getHours())}${p2(d.getMinutes())}`;
-  return total > 1 ? `${base}_${page}of${total}.jpg` : `${base}.jpg`;
+  return ext === 'jpg' && total > 1 ? `${base}_${page}of${total}.jpg` : `${base}.${ext}`;
 }
 
 const FAMILY_NOTE: Record<string, string> = {

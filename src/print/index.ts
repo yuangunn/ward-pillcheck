@@ -4,8 +4,11 @@ import { getMeta, proxiedImg } from '../api/dataset';
 import { buildPrintModel, printFileName, type PrintLookups } from './model';
 import { PAGE, layoutDocument } from './layout';
 import { PX_PER_MM, canvasMeasure, drawPage, type PhotoMap } from './render';
+import { buildJpegPdf, type JpegPage } from './pdf';
 
-// A4 지참약 식별표 이미지(쪽마다 JPEG 1장) 만들기 + 폰 공유 창으로 보내기.
+// A4 지참약 식별표 만들기(쪽마다 JPEG 1장 + 같은 쪽들을 묶은 PDF 1개) + 폰 공유 창으로 보내기.
+// Teams 는 이미지로 받으면 크게 압축해(670KB → 60~100KB) 글자가 뭉개진다. PDF 는 파일로 취급돼
+// 원본 그대로 가므로 출력용은 PDF, 이미지는 대화창 미리보기용.
 // 흐름: 성분·영문·분류 조회 → 배치 → 식약처 사진 받기 → 쪽마다 캔버스 → JPEG.
 // 쪽 순서는 꼬리말 쪽 번호(1/3쪽)와 파일명(_1of3)으로 알 수 있다.
 // 환자 이름·병상번호는 넣지 않는다(종이에 환자 바코드를 직접 붙임).
@@ -17,6 +20,7 @@ export type PrintProgress =
 
 export interface PrintImages {
   files: File[]; // 쪽 순서대로 JPEG(2940×4158)
+  pdf: File; // 같은 쪽들을 A4 로 묶은 PDF(출력용 — Teams 가 압축하지 않음)
   pages: number;
   photosMissing: number; // 사진 URL 은 있었지만 받지 못한 장수
 }
@@ -119,15 +123,19 @@ export async function createPrintImages(
 
   const total = doc.pages.length;
   const files: File[] = [];
+  const pdfPages: JpegPage[] = [];
   for (const page of doc.pages) {
     onProgress?.({ stage: 'pages', done: page.index, total });
     drawPage(ctx, measure, doc, page, model, photos);
     const jpeg = await canvasToJpeg(canvas, 0.92);
     files.push(new File([jpeg.buffer as ArrayBuffer], printFileName(createdAt, page.index + 1, total), { type: 'image/jpeg' }));
+    pdfPages.push({ jpeg, widthPx: canvas.width, heightPx: canvas.height });
   }
   canvas.width = canvas.height = 0; // iOS 캔버스 메모리 즉시 반환
 
-  return { files, pages: total, photosMissing: [...photos.values()].filter((v) => !v).length };
+  const pdfBytes = buildJpegPdf(pdfPages, { title: '지참약 식별표', createdAt });
+  const pdf = new File([pdfBytes.buffer as ArrayBuffer], printFileName(createdAt, 1, total, 'pdf'), { type: 'application/pdf' });
+  return { files, pdf, pages: total, photosMissing: [...photos.values()].filter((v) => !v).length };
 }
 
 export type ShareOutcome = 'shared' | 'cancelled' | 'downloaded' | 'retry';
