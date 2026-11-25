@@ -1,8 +1,9 @@
-import type { PrintGroup, PrintMed, PrintModel, PrintSafety, PrintSafetyItem } from './model';
+import type { PrintGroup, PrintMed, PrintModel } from './model';
 
-// A4 확인표 배치(순수 함수, 단위 mm). 글자 폭 측정은 주입(measure)받아 캔버스 없이도 테스트한다.
-// - 1쪽: 제목·작성정보·서명란 + 환자 바코드 부착칸 + 안전점검 요약 + 표
+// A4 식별표 배치(순수 함수, 단위 mm). 글자 폭 측정은 주입(measure)받아 캔버스 없이도 테스트한다.
+// - 1쪽: 제목·작성정보 + 환자 바코드 부착칸 + 표
 // - 2쪽~: 얇은 머리(계속 · 쪽수) + 작은 바코드칸 + 표(머리줄 반복)
+// - 식별이 목적이라 식약처 사진을 크게(가로 약 57mm, 원본 비율 ≈1.83:1) 싣는다.
 // - 시점 묶음이 쪽을 넘으면 다음 쪽에 "(계속)" 묶음 머리를 다시 그린다. 묶음 머리만 쪽 끝에 남지 않게 한다.
 
 export interface FontSpec {
@@ -17,26 +18,20 @@ export const LH = 1.32; // 줄간격 배수
 export const FONTS = {
   title: { size: pt(19), weight: 900 },
   contTitle: { size: pt(13), weight: 900 },
-  sub: { size: pt(8.6), weight: 400 },
-  metaKey: { size: pt(8.6), weight: 500 },
-  metaVal: { size: pt(9), weight: 700 },
+  sub: { size: pt(9), weight: 400 },
+  metaKey: { size: pt(9.4), weight: 500 },
+  metaVal: { size: pt(9.8), weight: 700 },
   sign: { size: pt(8.4), weight: 700 },
-  hint: { size: pt(7.6), weight: 400 },
-  th: { size: pt(8), weight: 700 },
-  group: { size: pt(9.6), weight: 900 },
-  groupNote: { size: pt(8.2), weight: 500 },
-  no: { size: pt(8.4), weight: 700 },
-  name: { size: pt(10), weight: 700 },
-  subline: { size: pt(7.8), weight: 400 },
-  memo: { size: pt(8), weight: 700 },
-  badge: { size: pt(7.4), weight: 700 },
-  cell: { size: pt(8.4), weight: 400 },
-  dose: { size: pt(11), weight: 900 },
-  safetyHead: { size: pt(10), weight: 900 },
-  safetySub: { size: pt(7.6), weight: 500 },
-  safetyTag: { size: pt(7.6), weight: 700 },
-  safetyTitle: { size: pt(8.6), weight: 700 },
-  safetyBody: { size: pt(8.6), weight: 400 },
+  hint: { size: pt(8), weight: 400 },
+  th: { size: pt(8.6), weight: 700 },
+  group: { size: pt(10.5), weight: 900 },
+  groupNote: { size: pt(9), weight: 500 },
+  no: { size: pt(9), weight: 700 },
+  name: { size: pt(11.5), weight: 700 },
+  subline: { size: pt(8.6), weight: 400 },
+  memo: { size: pt(8.8), weight: 700 },
+  cell: { size: pt(9.6), weight: 400 },
+  dose: { size: pt(12), weight: 900 },
   foot: { size: pt(7.6), weight: 400 },
 } satisfies Record<string, FontSpec>;
 
@@ -48,33 +43,28 @@ export const BODY_BOTTOM = FOOTER_TOP - 1; // 표가 내려올 수 있는 한계
 
 /** 1쪽 머리 */
 export const HEAD1 = {
-  barcode: { w: 70, h: 34 }, // 환자 바코드 부착칸(오른쪽 위)
-  leftW: CW - 70 - 4,
-  signTop: MARGIN.t + 23.5,
-  signH: 10.5,
-  bottom: MARGIN.t + 34,
+  barcode: { w: 64, h: 24 }, // 환자 바코드 부착칸(오른쪽 위)
+  bottom: MARGIN.t + 24,
 } as const;
 /** 2쪽~ 머리 */
 export const HEAD2 = {
-  barcode: { w: 56, h: 20 },
-  bottom: MARGIN.t + 20,
+  barcode: { w: 56, h: 18 },
+  bottom: MARGIN.t + 18,
 } as const;
 
 export interface Col {
-  key: 'no' | 'photo' | 'name' | 'look' | 'dose' | 'freq' | 'qty' | 'chk';
+  key: 'no' | 'photo' | 'name' | 'look' | 'dose' | 'freq';
   w: number;
   label: string[];
   align?: 'center';
 }
 export const COLS: Col[] = [
   { key: 'no', w: 6, label: ['#'], align: 'center' },
-  { key: 'photo', w: 27, label: ['식약처 사진'] },
-  { key: 'name', w: 63, label: ['약 이름 · 성분'] },
-  { key: 'look', w: 36, label: ['겉모습 (색/모양/각인)'] },
-  { key: 'dose', w: 13, label: ['1회'], align: 'center' },
-  { key: 'freq', w: 17, label: ['용법'] },
-  { key: 'qty', w: 17, label: ['지참량', '(수기)'] },
-  { key: 'chk', w: 9, label: ['확인'], align: 'center' },
+  { key: 'photo', w: 60, label: ['식약처 사진'] },
+  { key: 'name', w: 60, label: ['약 이름 · 성분'] },
+  { key: 'look', w: 34, label: ['겉모습', '(색/모양/각인)'] },
+  { key: 'dose', w: 12, label: ['1회'], align: 'center' },
+  { key: 'freq', w: 16, label: ['용법'] },
 ];
 /** 열 시작 x(mm, 페이지 기준) */
 export function colX(key: Col['key']): number {
@@ -89,10 +79,9 @@ export const colW = (key: Col['key']): number => COLS.find((c) => c.key === key)
 
 export const CELL_PAD = 1.6;
 export const ROW_PAD = 1.3;
-export const PHOTO_H = 11.5;
-export const TH_H = 7.6;
-export const GROUP_H = 6.6;
-export const BADGE_H = 3.6;
+export const PHOTO_H = 31; // 사진 칸 폭(60 - 여백 2.4) ÷ 식약처 사진 비율(≈1.83)
+export const TH_H = 8.4;
+export const GROUP_H = 7.2;
 
 // ── 줄바꿈 ──────────────────────────────────────────
 
@@ -163,61 +152,6 @@ export function ellipsize(text: string, width: number, font: FontSpec, measure: 
   return chars.join('').trimEnd() + '…';
 }
 
-// ── 안전점검 요약 ───────────────────────────────────
-
-export const SAFETY = { pad: 2.2, labelW: 31, gap: 2, maxItems: 8 } as const;
-
-export interface SafetyItemLayout {
-  item: PrintSafetyItem;
-  tagW: number; // 태그 상자 폭
-  titleW: number; // 첫 줄 굵은 제목 폭
-  title: string; // (필요시 …로 줄인) 제목
-  body: string[]; // 본문 줄 — 첫 줄은 제목 뒤에 이어 씀
-  h: number;
-}
-export interface SafetyLayout {
-  y: number;
-  h: number;
-  level: PrintSafety['level'];
-  headline: string;
-  subLines: string[]; // 왼쪽 칸: 점검 범위·시각(줄바꿈됨)
-  items: SafetyItemLayout[];
-  message: string[]; // 항목이 없을 때 오른쪽 안내문(줄바꿈됨)
-  more: number; // 생략된 항목 수(maxItems 초과분)
-}
-
-const SAFETY_MESSAGE: Record<PrintSafety['level'], string> = {
-  issues: '',
-  clear: '병용금기·성분중복·분할분쇄·노인/임부/연령 주의에 해당하는 항목이 없어요.',
-  unchecked:
-    'DUR 데이터를 받지 못해 병용금기·노인/임부/연령 주의는 점검하지 못했어요. 앱 설정 → 전체 의약품 데이터 받기 후 다시 만들면 포함돼요.',
-};
-
-export const SAFETY_ITEMS_W = CW - SAFETY.pad * 2 - SAFETY.labelW - SAFETY.gap;
-
-export function layoutSafety(safety: PrintSafety, y: number, measure: Measure): SafetyLayout {
-  const itemsW = SAFETY_ITEMS_W;
-  const lhText = FONTS.safetyBody.size * LH;
-  const shown = safety.items.slice(0, SAFETY.maxItems);
-  const more = safety.items.length - shown.length;
-  const items: SafetyItemLayout[] = shown.map((item) => {
-    const tagW = measure(item.tag, FONTS.safetyTag) + 2.4;
-    const textW = itemsW - tagW - 1.6;
-    // 제목이 없으면(종류별 약 이름 목록) 본문이 첫 줄부터 전체 폭을 쓴다.
-    const title = item.title ? ellipsize(item.title, textW * 0.7, FONTS.safetyTitle, measure) : '';
-    const titleW = title ? measure(title, FONTS.safetyTitle) : 0;
-    const firstW = title ? Math.max(textW - titleW - measure(' — ', FONTS.safetyBody), textW * 0.15) : textW;
-    const body = item.body ? wrapText(item.body, [firstW, textW], FONTS.safetyBody, measure, 2) : [];
-    return { item, tagW, titleW, title, body, h: Math.max(1, body.length) * lhText + 0.6 };
-  });
-  const message = items.length ? [] : wrapText(SAFETY_MESSAGE[safety.level] || safety.sub, itemsW, FONTS.safetyBody, measure, 3);
-  const subLines = wrapText(safety.sub, SAFETY.labelW, FONTS.safetySub, measure, 4);
-  const listH = items.reduce((s, it) => s + it.h, 0) + (more > 0 ? lhText : 0) + message.length * lhText;
-  const labelH = FONTS.safetyHead.size * LH + subLines.length * FONTS.safetySub.size * LH;
-  const h = Math.max(labelH, listH, lhText) + SAFETY.pad * 2;
-  return { y, h, level: safety.level, headline: safety.headline, subLines, items, message, more };
-}
-
 // ── 표 행 ──────────────────────────────────────────
 
 export interface MedRowLayout {
@@ -243,7 +177,6 @@ export type RowLayout = MedRowLayout | GroupRowLayout;
 export interface PageLayout {
   index: number; // 0부터
   first: boolean;
-  safety?: SafetyLayout;
   tableTop: number; // 표 머리줄 y
   rows: RowLayout[];
   noFrom: number; // 이 쪽 약 번호 범위
@@ -256,31 +189,25 @@ export interface DocLayout {
 /** 약 1행의 줄 나눔과 높이 */
 export function layoutMedRow(med: PrintMed, measure: Measure): Omit<MedRowLayout, 'y'> {
   const nameW = colW('name') - CELL_PAD * 2;
-  const name = wrapText(med.name, nameW, FONTS.name, measure, 2);
-  const sub = wrapText(med.sub, nameW, FONTS.subline, measure, 2);
+  const name = wrapText(med.name, nameW, FONTS.name, measure, 3);
+  const sub = wrapText(med.sub, nameW, FONTS.subline, measure, 3);
   const memo = med.memo ? wrapText(`※ ${med.memo}`, nameW, FONTS.memo, measure, 2) : [];
-  const look = wrapText(med.appearance || '—', colW('look') - CELL_PAD * 2, FONTS.cell, measure, 3);
-  const freq = wrapText(med.freq, colW('freq') - CELL_PAD * 2, FONTS.cell, measure, 2);
+  const look = wrapText(med.appearance || '—', colW('look') - CELL_PAD * 2, FONTS.cell, measure, 4);
+  const freq = wrapText(med.freq, colW('freq') - CELL_PAD * 2, FONTS.cell, measure, 3);
   const stack =
-    name.length * FONTS.name.size * LH +
-    sub.length * FONTS.subline.size * LH +
-    memo.length * FONTS.memo.size * LH +
-    (med.warn ? BADGE_H + 0.8 : 0);
+    name.length * FONTS.name.size * LH + sub.length * FONTS.subline.size * LH + memo.length * FONTS.memo.size * LH;
   const textH = Math.max(stack, look.length * FONTS.cell.size * LH, freq.length * FONTS.cell.size * LH);
   const h = Math.max(PHOTO_H, textH) + ROW_PAD * 2;
   return { kind: 'med', h, med, name, sub, memo, look, freq };
 }
 
-export const FIRST_SAFETY_Y = HEAD1.bottom + 3.5;
-
 /** 전체 문서 배치 */
 export function layoutDocument(model: PrintModel, measure: Measure): DocLayout {
-  const safety = layoutSafety(model.safety, FIRST_SAFETY_Y, measure);
   const pages: PageLayout[] = [];
   const newPage = (): PageLayout => {
     const first = pages.length === 0;
-    const tableTop = first ? safety.y + safety.h + 3.5 : HEAD2.bottom + 3.5;
-    const pg: PageLayout = { index: pages.length, first, safety: first ? safety : undefined, tableTop, rows: [], noFrom: 0, noTo: 0 };
+    const tableTop = (first ? HEAD1.bottom : HEAD2.bottom) + 4;
+    const pg: PageLayout = { index: pages.length, first, tableTop, rows: [], noFrom: 0, noTo: 0 };
     pages.push(pg);
     return pg;
   };

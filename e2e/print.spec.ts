@@ -56,8 +56,8 @@ test('A4 이미지: 만들기 → 공유 창에 A4 JPEG 1장(파일명에 환자
   expect(shared.count).toBe(1);
   expect(shared.type).toBe('image/jpeg');
   expect(shared.head).toEqual([0xff, 0xd8, 0xff]); // JPEG SOI
-  expect([shared.w, shared.h]).toEqual([2100, 2970]); // A4 × 10px/mm
-  expect(shared.name).toMatch(/^지참약확인표_\d{8}_\d{4}\.jpg$/);
+  expect([shared.w, shared.h]).toEqual([2940, 4158]); // A4 × 14px/mm
+  expect(shared.name).toMatch(/^지참약식별표_\d{8}_\d{4}\.jpg$/);
   expect(shared.name).not.toContain('환자');
   expect(shared.size).toBeGreaterThan(20_000); // 실제로 그려진 A4 JPEG
 });
@@ -80,7 +80,7 @@ test('A4 이미지: 공유를 못 하는 브라우저는 파일로 저장하고 
   await expect(send).toBeVisible({ timeout: 20_000 });
   const [download] = await Promise.all([page.waitForEvent('download'), send.click()]);
   const name = await page.evaluate(() => (window as unknown as { __dlName: string }).__dlName);
-  expect(name).toMatch(/^지참약확인표_\d{8}_\d{4}\.jpg$/);
+  expect(name).toMatch(/^지참약식별표_\d{8}_\d{4}\.jpg$/);
   const { readFile } = await import('node:fs/promises');
   const bytes = await readFile((await download.path())!);
   expect([...bytes.subarray(0, 3)]).toEqual([0xff, 0xd8, 0xff]);
