@@ -1,6 +1,5 @@
 import {
   CELL_PAD,
-  COLS,
   CW,
   FONTS,
   FOOTER_TOP,
@@ -10,11 +9,11 @@ import {
   LH,
   MARGIN,
   PAGE,
-  PHOTO_H,
   TH_H,
   colW,
   colX,
   ellipsize,
+  type Col,
   type DocLayout,
   type FontSpec,
   type GroupRowLayout,
@@ -164,12 +163,12 @@ function drawContHeader(ctx: Ctx, model: PrintModel, page: PageLayout, total: nu
 
 // ── 표 ────────────────────────────────────────────
 
-function drawTableHead(ctx: Ctx, y: number) {
+function drawTableHead(ctx: Ctx, y: number, cols: Col[]) {
   rect(ctx, MARGIN.l, y, CW, TH_H, { fill: '#efefef' });
   hline(ctx, MARGIN.l, MARGIN.l + CW, y, 0.42);
   hline(ctx, MARGIN.l, MARGIN.l + CW, y + TH_H, 0.28);
-  for (const col of COLS) {
-    const x = colX(col.key);
+  for (const col of cols) {
+    const x = colX(cols, col.key);
     const lh = FONTS.th.size * 1.18;
     const top = y + (TH_H - col.label.length * lh) / 2;
     col.label.forEach((l, i) =>
@@ -200,15 +199,16 @@ function drawGroupRow(ctx: Ctx, r: GroupRowLayout) {
   text(ctx, note, noteX, r.y, FONTS.groupNote, { lh: GROUP_H, color: '#333' });
 }
 
-function drawPhoto(ctx: Ctx, r: MedRowLayout, photos: PhotoMap) {
-  const x = colX('photo') + 1.2;
-  const w = colW('photo') - 2.4;
+function drawPhoto(ctx: Ctx, page: PageLayout, r: MedRowLayout, photos: PhotoMap) {
+  const PHOTO_H = page.photo.h;
+  const x = colX(page.cols, 'photo') + 1.2;
+  const w = page.photo.w;
   const y = r.y + (r.h - PHOTO_H) / 2;
   rect(ctx, x, y, w, PHOTO_H, { fill: '#f4f4f4', stroke: '#cfcfcf', lw: 0.18, r: 1 });
   const url = r.med.imageUrl;
   const img = url ? photos.get(url) : undefined;
   if (img) {
-    const inset = 0.5;
+    const inset = 0.4;
     const bw = w - inset * 2;
     const bh = PHOTO_H - inset * 2;
     const k = Math.min(bw / img.naturalWidth, bh / img.naturalHeight);
@@ -267,31 +267,29 @@ function drawGlyph({ c }: Ctx, g: NonNullable<PrintMed['glyph']>, x: number, y: 
   }
 }
 
-function drawMedRow(ctx: Ctx, r: MedRowLayout, photos: PhotoMap) {
+function drawMedRow(ctx: Ctx, page: PageLayout, r: MedRowLayout, photos: PhotoMap) {
+  const { cols, fonts: f } = page;
   const x0 = MARGIN.l;
   hline(ctx, x0, x0 + CW, r.y + r.h, 0.18, RULE);
   const mid = (h: number) => r.y + (r.h - h) / 2;
 
-  text(ctx, String(r.med.no), colX('no') + colW('no') / 2, mid(FONTS.no.size * LH), FONTS.no, { color: '#555', align: 'center' });
-  drawPhoto(ctx, r, photos);
+  text(ctx, String(r.med.no), colX(cols, 'no') + colW(cols, 'no') / 2, mid(f.no.size * LH), f.no, { color: '#555', align: 'center' });
+  drawPhoto(ctx, page, r, photos);
 
   // 이름 칸: 이름 / 성분·영문 / 분류(무슨 약인지) / 메모
-  const nx = colX('name') + CELL_PAD;
+  const nx = colX(cols, 'name') + CELL_PAD;
   const stackH =
-    r.name.length * FONTS.name.size * LH +
-    r.sub.length * FONTS.subline.size * LH +
-    r.cls.length * FONTS.cls.size * LH +
-    r.memo.length * FONTS.memo.size * LH;
+    r.name.length * f.name.size * LH + r.sub.length * f.sub.size * LH + r.cls.length * f.cls.size * LH + r.memo.length * f.memo.size * LH;
   let y = mid(stackH);
-  y += lines(ctx, r.name, nx, y, FONTS.name);
-  y += lines(ctx, r.sub, nx, y, FONTS.subline, { color: INK2 });
-  y += lines(ctx, r.cls, nx, y, FONTS.cls);
-  lines(ctx, r.memo, nx, y, FONTS.memo);
+  y += lines(ctx, r.name, nx, y, f.name);
+  y += lines(ctx, r.sub, nx, y, f.sub, { color: INK2 });
+  y += lines(ctx, r.cls, nx, y, f.cls);
+  lines(ctx, r.memo, nx, y, f.memo);
 
-  const cellLH = FONTS.cell.size * LH;
-  lines(ctx, r.look, colX('look') + CELL_PAD, mid(r.look.length * cellLH), FONTS.cell);
-  text(ctx, r.med.dose, colX('dose') + colW('dose') / 2, mid(FONTS.dose.size * LH), FONTS.dose, { align: 'center' });
-  lines(ctx, r.freq, colX('freq') + CELL_PAD, mid(r.freq.length * cellLH), FONTS.cell);
+  const cellLH = f.cell.size * LH;
+  lines(ctx, r.look, colX(cols, 'look') + CELL_PAD, mid(r.look.length * cellLH), f.cell);
+  text(ctx, r.med.dose, colX(cols, 'dose') + colW(cols, 'dose') / 2, mid(f.dose.size * LH), f.dose, { align: 'center' });
+  lines(ctx, r.freq, colX(cols, 'freq') + CELL_PAD, mid(r.freq.length * cellLH), f.cell);
 }
 
 function drawFooter(ctx: Ctx, model: PrintModel, pageIndex: number, total: number) {
@@ -324,10 +322,10 @@ export function drawPage(
   c.fillRect(0, 0, PAGE.w * S, PAGE.h * S);
   if (page.first) drawFirstHeader(ctx, model);
   else drawContHeader(ctx, model, page, doc.pages.length);
-  drawTableHead(ctx, page.tableTop);
+  drawTableHead(ctx, page.tableTop, page.cols);
   for (const r of page.rows) {
     if (r.kind === 'group') drawGroupRow(ctx, r);
-    else drawMedRow(ctx, r, photos);
+    else drawMedRow(ctx, page, r, photos);
   }
   drawFooter(ctx, model, page.index, doc.pages.length);
   c.restore();

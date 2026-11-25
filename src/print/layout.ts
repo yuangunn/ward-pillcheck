@@ -1,10 +1,11 @@
 import type { PrintGroup, PrintMed, PrintModel } from './model';
 
 // A4 식별표 배치(순수 함수, 단위 mm). 글자 폭 측정은 주입(measure)받아 캔버스 없이도 테스트한다.
-// - 1쪽: 제목·작성정보 + 환자 바코드 부착칸 + 표
-// - 2쪽~: 얇은 머리(계속 · 쪽수) + 작은 바코드칸 + 표(머리줄 반복)
-// - 식별이 목적이라 식약처 사진을 크게(가로 약 57mm, 원본 비율 ≈1.83:1) 싣는다.
-// - 시점 묶음이 쪽을 넘으면 다음 쪽에 "(계속)" 묶음 머리를 다시 그린다. 묶음 머리만 쪽 끝에 남지 않게 한다.
+// - 1쪽: 제목·작성정보 + 환자 바코드 부착칸 + 표 / 2쪽~: 얇은 머리(계속 · 쪽수) + 작은 바코드칸 + 표
+// - 한 단, 화면·Teams 인계 텍스트와 같은 시점 묶음 머리줄(8am · 아침식후 …).
+// - 한 쪽 최대 20종. 줄 높이는 적응형: 그 쪽의 약 수·묶음 수로 표 몸통을 나눠 정한다(최대 ROW_MAX).
+//   10종 안팎이면 사진이 크게(약 36×19mm), 20종에 가까울수록 줄·사진·글자가 함께 작아진다.
+//   줄이 ROW_MIN 보다 낮아져야 하면 그 쪽에 담는 약을 줄여 다음 쪽으로 넘긴다.
 
 export interface FontSpec {
   size: number; // mm
@@ -24,17 +25,41 @@ export const FONTS = {
   sign: { size: pt(8.4), weight: 700 },
   hint: { size: pt(8), weight: 400 },
   th: { size: pt(8.6), weight: 700 },
-  group: { size: pt(10.5), weight: 900 },
-  groupNote: { size: pt(9), weight: 500 },
-  no: { size: pt(9), weight: 700 },
-  name: { size: pt(11.5), weight: 700 },
-  subline: { size: pt(8.6), weight: 400 },
-  cls: { size: pt(8.8), weight: 700 },
-  memo: { size: pt(8.8), weight: 700 },
-  cell: { size: pt(9.6), weight: 400 },
-  dose: { size: pt(12), weight: 900 },
+  group: { size: pt(10), weight: 900 },
+  groupNote: { size: pt(8.6), weight: 500 },
   foot: { size: pt(7.6), weight: 400 },
 } satisfies Record<string, FontSpec>;
+
+/** 약 행 글꼴 — 줄이 낮아지면(약이 많으면) 한 단계 작은 글꼴 */
+export interface CellFonts {
+  no: FontSpec;
+  name: FontSpec;
+  sub: FontSpec;
+  cls: FontSpec;
+  memo: FontSpec;
+  cell: FontSpec;
+  dose: FontSpec;
+}
+const NORMAL: CellFonts = {
+  no: { size: pt(9), weight: 700 },
+  name: { size: pt(11), weight: 700 },
+  sub: { size: pt(8.4), weight: 400 },
+  cls: { size: pt(8.6), weight: 700 },
+  memo: { size: pt(8.6), weight: 700 },
+  cell: { size: pt(9.4), weight: 400 },
+  dose: { size: pt(12), weight: 900 },
+};
+const COMPACT: CellFonts = {
+  no: { size: pt(8), weight: 700 },
+  name: { size: pt(9.6), weight: 700 },
+  sub: { size: pt(7.4), weight: 400 },
+  cls: { size: pt(8), weight: 700 },
+  memo: { size: pt(8), weight: 700 },
+  cell: { size: pt(8.4), weight: 400 },
+  dose: { size: pt(10.5), weight: 900 },
+};
+export const COMPACT_BELOW = 15; // 줄 높이(mm)가 이보다 낮으면 작은 글꼴
+export const cellFonts = (rowH: number): CellFonts => (rowH < COMPACT_BELOW ? COMPACT : NORMAL);
 
 export const PAGE = { w: 210, h: 297 } as const;
 export const MARGIN = { l: 11, r: 11, t: 11, b: 12 } as const;
@@ -59,30 +84,37 @@ export interface Col {
   label: string[];
   align?: 'center';
 }
-export const COLS: Col[] = [
-  { key: 'no', w: 6, label: ['#'], align: 'center' },
-  { key: 'photo', w: 60, label: ['식약처 사진'] },
-  { key: 'name', w: 60, label: ['약 이름 · 성분 · 분류'] },
-  { key: 'look', w: 34, label: ['겉모습', '(색/모양/각인)'] },
-  { key: 'dose', w: 12, label: ['1회'], align: 'center' },
-  { key: 'freq', w: 16, label: ['용법'] },
-];
+export const PHOTO_COL_MAX = 38;
+/** 열 구성 — 사진 열 폭은 그 쪽 줄 높이에 맞추고, 남는 폭은 이름 열로 */
+export function columns(photoColW: number): Col[] {
+  return [
+    { key: 'no', w: 6, label: ['#'], align: 'center' },
+    { key: 'photo', w: photoColW, label: ['식약처 사진'] },
+    { key: 'name', w: 72 + (PHOTO_COL_MAX - photoColW), label: ['약 이름 · 성분 · 분류'] },
+    { key: 'look', w: 36, label: ['겉모습', '(색/모양/각인)'] },
+    { key: 'dose', w: 14, label: ['1회'], align: 'center' },
+    { key: 'freq', w: 20, label: ['용법'] },
+  ];
+}
 /** 열 시작 x(mm, 페이지 기준) */
-export function colX(key: Col['key']): number {
+export function colX(cols: Col[], key: Col['key']): number {
   let x = MARGIN.l;
-  for (const c of COLS) {
+  for (const c of cols) {
     if (c.key === key) return x;
     x += c.w;
   }
   throw new Error(`unknown col ${key}`);
 }
-export const colW = (key: Col['key']): number => COLS.find((c) => c.key === key)!.w;
+export const colW = (cols: Col[], key: Col['key']): number => cols.find((c) => c.key === key)!.w;
 
-export const CELL_PAD = 1.6;
-export const ROW_PAD = 1.3;
-export const PHOTO_H = 31; // 사진 칸 폭(60 - 여백 2.4) ÷ 식약처 사진 비율(≈1.83)
+export const CELL_PAD = 1.4;
 export const TH_H = 8.4;
-export const GROUP_H = 7.2;
+export const GROUP_H = 6.4;
+export const ROW_MAX = 23; // 약이 적을 때 줄 높이 상한(사진 약 36×19mm)
+export const ROW_MIN = 9.5; // 이보다 낮게는 줄이지 않는다(사진 약 16×8mm)
+export const MAX_PER_PAGE = 20;
+export const PHOTO_RATIO = 1.83; // 식약처 낱알 사진 가로:세로
+export const rowPad = (rowH: number) => Math.min(1.2, rowH * 0.08);
 
 // ── 줄바꿈 ──────────────────────────────────────────
 
@@ -180,6 +212,10 @@ export interface PageLayout {
   index: number; // 0부터
   first: boolean;
   tableTop: number; // 표 머리줄 y
+  rowH: number; // 이 쪽 약 줄 높이(적응형)
+  photo: { w: number; h: number }; // 사진 칸
+  cols: Col[];
+  fonts: CellFonts;
   rows: RowLayout[];
   noFrom: number; // 이 쪽 약 번호 범위
   noTo: number;
@@ -188,59 +224,118 @@ export interface DocLayout {
   pages: PageLayout[];
 }
 
-/** 약 1행의 줄 나눔과 높이 */
-export function layoutMedRow(med: PrintMed, measure: Measure): Omit<MedRowLayout, 'y'> {
-  const nameW = colW('name') - CELL_PAD * 2;
-  const name = wrapText(med.name, nameW, FONTS.name, measure, 3);
-  const sub = wrapText(med.sub, nameW, FONTS.subline, measure, 3);
-  const cls = med.cls ? wrapText(med.cls, nameW, FONTS.cls, measure, 2) : [];
-  const memo = med.memo ? wrapText(`※ ${med.memo}`, nameW, FONTS.memo, measure, 2) : [];
-  const look = wrapText(med.appearance || '—', colW('look') - CELL_PAD * 2, FONTS.cell, measure, 4);
-  const freq = wrapText(med.freq, colW('freq') - CELL_PAD * 2, FONTS.cell, measure, 3);
-  const stack =
-    name.length * FONTS.name.size * LH +
-    sub.length * FONTS.subline.size * LH +
-    cls.length * FONTS.cls.size * LH +
-    memo.length * FONTS.memo.size * LH;
-  const textH = Math.max(stack, look.length * FONTS.cell.size * LH, freq.length * FONTS.cell.size * LH);
-  const h = Math.max(PHOTO_H, textH) + ROW_PAD * 2;
-  return { kind: 'med', h, med, name, sub, cls, memo, look, freq };
+type PartKey = 'name' | 'sub' | 'cls' | 'memo';
+interface Part {
+  key: PartKey;
+  text: string;
+  font: FontSpec;
+  max: number;
 }
 
-/** 전체 문서 배치 */
-export function layoutDocument(model: PrintModel, measure: Measure): DocLayout {
-  const pages: PageLayout[] = [];
-  const newPage = (): PageLayout => {
-    const first = pages.length === 0;
-    const tableTop = (first ? HEAD1.bottom : HEAD2.bottom) + 4;
-    const pg: PageLayout = { index: pages.length, first, tableTop, rows: [], noFrom: 0, noTo: 0 };
-    pages.push(pg);
-    return pg;
-  };
-  let page = newPage();
-  let y = page.tableTop + TH_H;
+/**
+ * 이름 칸 글줄을 줄 높이(avail)에 맞춘다. 먼저 모두 1줄(이름·성분·분류·메모), 넘치면 성분 → 분류 → 메모 순으로 뺀다.
+ * 이름이 두 줄이면 성분을 빼서라도 이름을 다 싣고, 남으면 성분 → 메모 순으로 줄을 늘린다(최대 max). 잘린 줄은 …
+ */
+function fitParts(parts: Part[], width: number, avail: number, measure: Measure): Record<PartKey, string[]> {
+  const live = parts.filter((p) => p.text);
+  const full = new Map(live.map((p) => [p.key, wrapText(p.text, width, p.font, measure, p.max)]));
+  const n = new Map(live.map((p) => [p.key, Math.min(1, full.get(p.key)!.length)]));
+  const lh = (p: Part) => p.font.size * LH;
+  const total = () => live.reduce((s, p) => s + n.get(p.key)! * lh(p), 0);
+  for (const drop of ['sub', 'cls', 'memo'] as PartKey[]) {
+    if (total() <= avail) break;
+    if (n.has(drop)) n.set(drop, 0);
+  }
+  const nameP = live.find((q) => q.key === 'name');
+  if (nameP && n.get('name') === 1 && full.get('name')!.length > 1 && total() + lh(nameP) > avail && n.get('sub')) {
+    n.set('sub', 0);
+  }
+  for (const grow of ['name', 'sub', 'memo', 'sub'] as PartKey[]) {
+    const p = live.find((q) => q.key === grow);
+    if (!p || !n.get(grow) || n.get(grow)! >= full.get(grow)!.length) continue;
+    if (total() + lh(p) <= avail) n.set(grow, n.get(grow)! + 1);
+  }
+  const out = { name: [], sub: [], cls: [], memo: [] } as Record<PartKey, string[]>;
+  for (const p of live) {
+    const k = n.get(p.key)!;
+    if (k) out[p.key] = wrapText(p.text, width, p.font, measure, k);
+  }
+  return out;
+}
 
-  for (const group of model.groups) {
-    let headerOnThisPage = false;
-    group.meds.forEach((med, i) => {
-      const row = layoutMedRow(med, measure);
-      const needHeader = !headerOnThisPage;
-      const need = row.h + (needHeader ? GROUP_H : 0);
-      if (y + need > BODY_BOTTOM && page.rows.length > 0) {
-        page = newPage();
-        y = page.tableTop + TH_H;
-        headerOnThisPage = false;
-      }
-      if (!headerOnThisPage) {
-        page.rows.push({ kind: 'group', y, h: GROUP_H, group, cont: i > 0 });
+/** 쪽 기하(줄 높이 → 사진 칸·열·글꼴) */
+export function pageGeom(rowH: number): Pick<PageLayout, 'rowH' | 'photo' | 'cols' | 'fonts'> {
+  const ph = rowH - rowPad(rowH) * 2;
+  const pw = Math.min(PHOTO_COL_MAX - 2.4, ph * PHOTO_RATIO);
+  return {
+    rowH,
+    photo: { w: pw, h: Math.min(ph, pw / PHOTO_RATIO) },
+    cols: columns(pw + 2.4),
+    fonts: cellFonts(rowH),
+  };
+}
+
+/** 약 1행의 줄 나눔(높이는 쪽의 rowH 로 고정) */
+export function layoutMedRow(med: PrintMed, geom: Pick<PageLayout, 'rowH' | 'cols' | 'fonts'>, measure: Measure): Omit<MedRowLayout, 'y'> {
+  const { cols, fonts: f, rowH } = geom;
+  const avail = rowH - rowPad(rowH) * 2;
+  const nameW = colW(cols, 'name') - CELL_PAD * 2;
+  const fit = fitParts(
+    [
+      { key: 'name', text: med.name, font: f.name, max: 2 },
+      { key: 'sub', text: med.sub, font: f.sub, max: 2 },
+      { key: 'cls', text: med.cls, font: f.cls, max: 1 },
+      { key: 'memo', text: med.memo ? `※ ${med.memo}` : '', font: f.memo, max: 2 },
+    ],
+    nameW,
+    avail,
+    measure,
+  );
+  const cellLines = Math.max(1, Math.floor(avail / (f.cell.size * LH)));
+  const look = wrapText(med.appearance || '—', colW(cols, 'look') - CELL_PAD * 2, f.cell, measure, Math.min(3, cellLines));
+  const freq = wrapText(med.freq, colW(cols, 'freq') - CELL_PAD * 2, f.cell, measure, Math.min(2, cellLines));
+  return { kind: 'med', h: rowH, med, ...fit, look, freq };
+}
+
+/** 표 몸통 높이(mm) — 표 머리줄 아래부터 바닥글 위까지 */
+const bodyH = (first: boolean) => BODY_BOTTOM - ((first ? HEAD1.bottom : HEAD2.bottom) + 4 + TH_H);
+
+/** 전체 문서 배치 — 한 쪽 최대 20종, 줄 높이 적응형 */
+export function layoutDocument(model: PrintModel, measure: Measure): DocLayout {
+  const meds = model.groups.flatMap((g, gi) => g.meds.map((med) => ({ med, gi })));
+  const pages: PageLayout[] = [];
+  let s = 0;
+  while (s < meds.length || pages.length === 0) {
+    const first = pages.length === 0;
+    const avail = bodyH(first);
+    // 담을 약 수 m: 최대 20종부터, 줄 높이가 ROW_MIN 이상 나올 때까지 줄인다.
+    let m = Math.min(MAX_PER_PAGE, meds.length - s);
+    let rowH = ROW_MAX;
+    for (; m > 0; m -= 1) {
+      const groups = new Set(meds.slice(s, s + m).map((x) => x.gi)).size;
+      rowH = Math.min(ROW_MAX, (avail - groups * GROUP_H) / m);
+      if (rowH >= ROW_MIN || m === 1) break;
+    }
+    const geom = pageGeom(rowH);
+    const tableTop = (first ? HEAD1.bottom : HEAD2.bottom) + 4;
+    const page: PageLayout = { index: pages.length, first, tableTop, ...geom, rows: [], noFrom: 0, noTo: 0 };
+    let y = tableTop + TH_H;
+    let lastGi = -1;
+    for (const { med, gi } of meds.slice(s, s + m)) {
+      if (gi !== lastGi) {
+        const group = model.groups[gi];
+        page.rows.push({ kind: 'group', y, h: GROUP_H, group, cont: med.no !== group.meds[0].no });
         y += GROUP_H;
-        headerOnThisPage = true;
+        lastGi = gi;
       }
-      page.rows.push({ ...row, y });
-      y += row.h;
+      page.rows.push({ ...layoutMedRow(med, geom, measure), y });
+      y += rowH;
       if (!page.noFrom) page.noFrom = med.no;
       page.noTo = med.no;
-    });
+    }
+    pages.push(page);
+    s += Math.max(m, 1);
+    if (!meds.length) break;
   }
   return { pages };
 }

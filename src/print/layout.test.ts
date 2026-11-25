@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { MedItem } from '../domain/models';
 import { buildPrintModel } from './model';
-import { BODY_BOTTOM, PHOTO_H, colW, layoutDocument, wrapText, type FontSpec, type Measure } from './layout';
+import { BODY_BOTTOM, MAX_PER_PAGE, ROW_MAX, ROW_MIN, layoutDocument, wrapText, type FontSpec, type Measure } from './layout';
 
 // 캔버스 없이: 글자 폭 = 글자 수 × 크기 × 0.6 (한글 전각 근사)
 const measure: Measure = (t, f) => [...t].length * f.size * 0.6;
@@ -55,48 +55,72 @@ describe('wrapText', () => {
   });
 });
 
-describe('layoutDocument (쪽 나눔)', () => {
+describe('layoutDocument (쪽 나눔 · 적응형 줄 높이)', () => {
   const at = new Date(2026, 10, 11, 14, 32);
+  const doc = (n: number) => layoutDocument(buildPrintModel(makeMeds(n), {}, { createdAt: at }), measure);
+  const medRows = (p: ReturnType<typeof doc>['pages'][number]) => p.rows.filter((r) => r.kind === 'med');
 
-  it('6종은 1쪽(사진이 커서 한 쪽에 6종 안팎)', () => {
-    const doc = layoutDocument(buildPrintModel(makeMeds(6), {}, { createdAt: at }), measure);
-    expect(doc.pages).toHaveLength(1);
-    expect(doc.pages[0]).toMatchObject({ first: true, noFrom: 1, noTo: 6 });
-  });
-
-  it('20종은 여러 쪽 — 모든 약이 한 번씩, 표가 바닥글을 넘지 않는다', () => {
-    const doc = layoutDocument(buildPrintModel(makeMeds(20), {}, { createdAt: at }), measure);
-    expect(doc.pages.length).toBeGreaterThan(1);
-    const nos = doc.pages.flatMap((p) => p.rows.filter((r) => r.kind === 'med').map((r) => (r.kind === 'med' ? r.med.no : 0)));
-    expect(nos).toEqual(Array.from({ length: 20 }, (_, i) => i + 1));
-    for (const p of doc.pages) {
-      const last = p.rows[p.rows.length - 1];
-      expect(last.y + last.h).toBeLessThanOrEqual(BODY_BOTTOM + 1e-6);
-      expect(p.rows[0].kind).toBe('group'); // 쪽마다 묶음 머리로 시작
+  it('20종까지 한 쪽 — 시점 묶음 머리줄과 함께', () => {
+    for (const n of [1, 7, 10, 11, 15, 20]) {
+      const d = doc(n);
+      expect(d.pages).toHaveLength(1);
+      expect(d.pages[0]).toMatchObject({ first: true, noFrom: 1, noTo: n });
+      expect(d.pages[0].rows[0].kind).toBe('group');
     }
-    doc.pages.slice(1).forEach((p, i) => expect(p).toMatchObject({ first: false, noFrom: doc.pages[i].noTo + 1 }));
-    expect(doc.pages[doc.pages.length - 1].noTo).toBe(20);
   });
 
-  it('쪽을 넘어간 묶음은 다음 쪽에 (계속) 머리를 다시 단다', () => {
-    const doc = layoutDocument(buildPrintModel(makeMeds(20), {}, { createdAt: at }), measure);
-    const p2first = doc.pages[1].rows[0];
-    const p1groups = doc.pages[0].rows.filter((r) => r.kind === 'group').map((r) => (r.kind === 'group' ? r.group.title : ''));
+  it('약이 많을수록 줄이 낮아진다(상한 ROW_MAX, 하한 ROW_MIN)', () => {
+    const hs = [5, 10, 11, 15, 20].map((n) => doc(n).pages[0].rowH);
+    for (let i = 1; i < hs.length; i += 1) expect(hs[i]).toBeLessThanOrEqual(hs[i - 1]);
+    expect(hs[0]).toBe(ROW_MAX);
+    expect(hs[hs.length - 1]).toBeGreaterThanOrEqual(ROW_MIN);
+    expect(hs[hs.length - 1]).toBeLessThan(hs[0]);
+  });
+
+  it('21종부터 다음 쪽, 모든 약이 번호 순으로 한 번씩, 표가 바닥글을 넘지 않는다', () => {
+    expect(doc(21).pages).toHaveLength(2);
+    for (const n of [21, 33, 45]) {
+      const d = doc(n);
+      const nos = d.pages.flatMap((p) => medRows(p).map((r) => (r.kind === 'med' ? r.med.no : 0)));
+      expect(nos).toEqual(Array.from({ length: n }, (_, i) => i + 1));
+      for (const p of d.pages) {
+        expect(medRows(p).length).toBeLessThanOrEqual(MAX_PER_PAGE);
+        expect(p.rows[0].kind).toBe('group'); // 쪽마다 묶음 머리로 시작
+        const last = p.rows[p.rows.length - 1];
+        expect(last.y + last.h).toBeLessThanOrEqual(BODY_BOTTOM + 1e-6);
+      }
+      d.pages.slice(1).forEach((p, i) => expect(p).toMatchObject({ first: false, noFrom: d.pages[i].noTo + 1 }));
+    }
+  });
+
+  it('쪽을 넘어간 묶음은 다음 쪽에 (계속) 머리를 단다', () => {
+    const d = doc(30);
+    const p2first = d.pages[1].rows[0];
+    const p1groups = d.pages[0].rows.filter((r) => r.kind === 'group').map((r) => (r.kind === 'group' ? r.group.title : ''));
     if (p2first.kind !== 'group') throw new Error('group expected');
-    // 2쪽 첫 묶음이 1쪽에도 있었다면 cont=true
     expect(p2first.cont).toBe(p1groups.includes(p2first.group.title));
   });
 
-  it('묶음 머리만 쪽 끝에 홀로 남지 않는다', () => {
-    for (const n of [12, 16, 20, 30, 45]) {
-      const doc = layoutDocument(buildPrintModel(makeMeds(n), {}, { createdAt: at }), measure);
-      for (const p of doc.pages) expect(p.rows[p.rows.length - 1].kind).toBe('med');
+  it('묶음이 너무 많아 줄이 ROW_MIN 아래로 내려가면 그 쪽 약을 줄인다', () => {
+    const meds = makeMeds(20).map((m, i) => ({ ...m, frequency: 'QD' as const, timings: [i % 2 ? '아침식후' : '자기전', `자유${i}`] }));
+    const d = layoutDocument(buildPrintModel(meds, {}, { createdAt: at }), measure);
+    for (const p of d.pages) expect(p.rowH).toBeGreaterThanOrEqual(ROW_MIN);
+  });
+
+  it('사진 칸은 식약처 사진 비율(≈1.83:1), 줄 높이 안에 든다', () => {
+    for (const n of [3, 12, 20]) {
+      const p = doc(n).pages[0];
+      expect(p.photo.w / p.photo.h).toBeCloseTo(1.83, 1);
+      expect(p.photo.h).toBeLessThanOrEqual(p.rowH);
     }
   });
 
-  it('사진 칸은 식약처 사진 비율(≈1.83:1)로 크게, 행은 사진보다 낮지 않다', () => {
-    const doc = layoutDocument(buildPrintModel(makeMeds(3), {}, { createdAt: at }), measure);
-    expect((colW('photo') - 2.4) / PHOTO_H).toBeCloseTo(1.83, 1);
-    for (const r of doc.pages[0].rows) if (r.kind === 'med') expect(r.h).toBeGreaterThanOrEqual(PHOTO_H);
+  it('긴 이름은 성분 줄을 빼서라도 두 줄로 다 싣는다', () => {
+    const meds = makeMeds(20);
+    meds[0] = { ...meds[0], name: '콘서타OROS서방정18밀리그램메틸페니데이트' };
+    const d = layoutDocument(buildPrintModel(meds, { ingrKo: new Map([['0', '메틸페니데이트염산염']]) }, { createdAt: at }), measure);
+    const r = d.pages[0].rows.find((x) => x.kind === 'med' && x.med.no === 1);
+    if (!r || r.kind !== 'med') throw new Error('med expected');
+    expect(r.name.join('')).toBe('콘서타OROS서방정18밀리그램메틸페니데이트');
   });
 });
