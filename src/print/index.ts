@@ -2,8 +2,8 @@ import type { MedItem } from '../domain/models';
 import { drugApi } from '../api';
 import { getMeta, proxiedImg } from '../api/dataset';
 import { buildPrintModel, printFileName, type PrintLookups } from './model';
-import { PAGE, layoutDocument } from './layout';
-import { PX_PER_MM, canvasMeasure, drawPage, type PhotoMap } from './render';
+import { PAGE, PAPER, TEAMS, layoutDocument, type Profile } from './layout';
+import { canvasMeasure, drawPage, useScale, type PhotoMap } from './render';
 import { buildJpegPdf, type JpegPage } from './pdf';
 
 // A4 지참약 식별표 만들기(쪽마다 JPEG 1장 + 같은 쪽들을 묶은 PDF 1개) + 폰 공유 창으로 보내기.
@@ -19,9 +19,9 @@ export type PrintProgress =
   | { stage: 'pages'; done: number; total: number };
 
 export interface PrintImages {
-  files: File[]; // 쪽 순서대로 JPEG(2940×4158)
-  pdf: File; // 같은 쪽들을 A4 로 묶은 PDF(출력용 — Teams 가 압축하지 않음)
-  pages: number;
+  files: File[]; // Teams 용 쪽 이미지(724×1024 — Teams 가 더 줄이지 않는 크기, 글자 크게·한 쪽 6종 안팎)
+  pdf: File; // 원본 화질(2940×4158) 쪽들을 A4 로 묶은 PDF(메일 등 파일이 그대로 가는 통로용)
+  pages: number; // PDF 쪽 수
   photosMissing: number; // 사진 URL 은 있었지만 받지 못한 장수
 }
 
@@ -100,14 +100,6 @@ export async function createPrintImages(
   const model = buildPrintModel(meds, lookups, { createdAt, dbDate: dbDateOf(getMeta()?.builtAt) });
 
   await settleFonts();
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.round(PAGE.w * PX_PER_MM);
-  canvas.height = Math.round(PAGE.h * PX_PER_MM);
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('캔버스를 쓸 수 없어요');
-  const measure = canvasMeasure(ctx);
-  const doc = layoutDocument(model, measure);
-
   // 사진: 동시에 받되 각자 시간 제한. 이미 본 사진은 서비스워커 캐시에서 즉시.
   const urls = [...new Set(meds.map((m) => m.imageUrl).filter((u): u is string => !!u))];
   const photos: PhotoMap = new Map();
@@ -121,21 +113,36 @@ export async function createPrintImages(
     }),
   );
 
-  const total = doc.pages.length;
-  const files: File[] = [];
-  const pdfPages: JpegPage[] = [];
-  for (const page of doc.pages) {
-    onProgress?.({ stage: 'pages', done: page.index, total });
-    drawPage(ctx, measure, doc, page, model, photos);
-    const jpeg = await canvasToJpeg(canvas, 0.92);
-    files.push(new File([jpeg.buffer as ArrayBuffer], printFileName(createdAt, page.index + 1, total), { type: 'image/jpeg' }));
-    pdfPages.push({ jpeg, widthPx: canvas.width, heightPx: canvas.height });
-  }
-  canvas.width = canvas.height = 0; // iOS 캔버스 메모리 즉시 반환
+  // 같은 모델을 두 프로필로 그린다: 원본 화질(PDF) → Teams 용(724×1024 이미지)
+  let drawn = 0;
+  const render = async (profile: Profile, quality: number): Promise<JpegPage[]> => {
+    useScale(profile.pxPerMm);
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(PAGE.w * profile.pxPerMm);
+    canvas.height = Math.round(PAGE.h * profile.pxPerMm);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('캔버스를 쓸 수 없어요');
+    const measure = canvasMeasure(ctx);
+    const doc = layoutDocument(model, measure, profile);
+    const out: JpegPage[] = [];
+    for (const page of doc.pages) {
+      onProgress?.({ stage: 'pages', done: drawn, total: drawn + doc.pages.length - page.index });
+      drawPage(ctx, measure, doc, page, model, photos);
+      out.push({ jpeg: await canvasToJpeg(canvas, quality), widthPx: canvas.width, heightPx: canvas.height });
+      drawn += 1;
+    }
+    canvas.width = canvas.height = 0; // iOS 캔버스 메모리 즉시 반환
+    return out;
+  };
+  const paper = await render(PAPER, 0.92);
+  const teams = await render(TEAMS, 0.95);
 
-  const pdfBytes = buildJpegPdf(pdfPages, { title: '지참약 식별표', createdAt });
-  const pdf = new File([pdfBytes.buffer as ArrayBuffer], printFileName(createdAt, 1, total, 'pdf'), { type: 'application/pdf' });
-  return { files, pdf, pages: total, photosMissing: [...photos.values()].filter((v) => !v).length };
+  const pdfBytes = buildJpegPdf(paper, { title: '지참약 식별표', createdAt });
+  const pdf = new File([pdfBytes.buffer as ArrayBuffer], printFileName(createdAt, 1, paper.length, 'pdf'), { type: 'application/pdf' });
+  const files = teams.map(
+    (pg, i) => new File([pg.jpeg.buffer as ArrayBuffer], printFileName(createdAt, i + 1, teams.length), { type: 'image/jpeg' }),
+  );
+  return { files, pdf, pages: paper.length, photosMissing: [...photos.values()].filter((v) => !v).length };
 }
 
 export type ShareOutcome = 'shared' | 'cancelled' | 'downloaded' | 'retry';

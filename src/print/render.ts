@@ -1,22 +1,20 @@
 import {
   CELL_PAD,
   CW,
-  FONTS,
   FOOTER_TOP,
-  GROUP_H,
   HEAD1,
   HEAD2,
   INFO_SEP,
   LH,
   MARGIN,
   PAGE,
-  TH_H,
   colW,
   colX,
   ellipsize,
   type Col,
   type DocLayout,
   type FontSpec,
+  type HeadFonts,
   type GroupRowLayout,
   type Measure,
   type MedRowLayout,
@@ -28,10 +26,13 @@ import { cleanMark, glyphColors, glyphLabelSize, shapeGeom, shapePathD } from '.
 // 캔버스에 A4 한 쪽씩 그린다(브라우저 전용). 좌표는 전부 mm 로 받고 S(px/mm)를 곱한다.
 // 글꼴은 앱과 같은 Pretendard → 기기 기본 한글 글꼴 순. 흑백 레이저 출력 기준(색에 의존하지 않음).
 
-// 14px/mm → 2940×4158px ≈ 356dpi(약 12.2MP). 식약처 사진(가로 780~1300px)을 원본에 가깝게 싣고,
-// iOS 캔버스 면적 한도(16.7MP) 안에 든다.
-export const PX_PER_MM = 14;
-const S = PX_PER_MM;
+// 해상도(px/mm)는 출력 프로필이 정한다 — 종이(PDF) 14px/mm → 2940×4158(iOS 캔버스 면적 한도 16.7MP 안),
+// Teams 이미지 1024/297px/mm → 724×1024. 한 쪽을 그리는 동안 S 는 그 문서의 값으로 고정된다(useScale).
+let S = 14;
+/** 측정·그리기 전에 그 문서의 px/mm 로 맞춘다(동기 렌더라 모듈 값으로 충분) */
+export function useScale(pxPerMm: number): void {
+  S = pxPerMm;
+}
 const FAMILY =
   "'Pretendard Variable', Pretendard, -apple-system, system-ui, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Noto Sans CJK KR', 'Malgun Gothic', sans-serif";
 
@@ -61,6 +62,8 @@ export function canvasMeasure(ctx: CanvasRenderingContext2D): Measure {
 interface Ctx {
   c: CanvasRenderingContext2D;
   m: Measure;
+  d: DocLayout;
+  f: HeadFonts;
 }
 
 /** 한 줄 글자: (x, 줄 윗변 top) 기준, 줄 높이 lh 의 가운데에 앉힌다. */
@@ -106,7 +109,7 @@ function rect(
   if (o.stroke) {
     c.setLineDash((o.dash ?? []).map((d) => d * S));
     c.strokeStyle = o.stroke;
-    c.lineWidth = (o.lw ?? 0.25) * S;
+    c.lineWidth = Math.max((o.lw ?? 0.25) * S, 1);
     c.stroke();
     c.setLineDash([]);
   }
@@ -117,7 +120,7 @@ function hline({ c }: Ctx, x1: number, x2: number, y: number, lw: number, color 
   c.moveTo(x1 * S, y * S);
   c.lineTo(x2 * S, y * S);
   c.strokeStyle = color;
-  c.lineWidth = lw * S;
+  c.lineWidth = Math.max(lw * S, 1);
   c.stroke();
 }
 
@@ -125,11 +128,11 @@ function hline({ c }: Ctx, x1: number, x2: number, y: number, lw: number, color 
 
 function barcodeBox(ctx: Ctx, x: number, y: number, w: number, h: number, big: boolean) {
   rect(ctx, x, y, w, h, { stroke: '#777', lw: 0.3, r: 1.6, dash: [1.4, 1] });
-  const t = big ? { size: FONTS.metaVal.size * 1.05, weight: 700 as const } : FONTS.sign;
+  const t = big ? { size: ctx.f.metaVal.size * 1.05, weight: 700 as const } : ctx.f.sign;
   const lh = t.size * LH;
   if (big) {
     text(ctx, '환자 바코드 부착', x + w / 2, y + h / 2 - lh, t, { color: '#9a9a9a', align: 'center' });
-    text(ctx, '이름·병상번호는 파일에 넣지 않아요', x + w / 2, y + h / 2 + 0.4, FONTS.hint, { color: '#b0b0b0', align: 'center' });
+    text(ctx, '이름·병상번호는 파일에 넣지 않아요', x + w / 2, y + h / 2 + 0.4, ctx.f.hint, { color: '#b0b0b0', align: 'center' });
   } else {
     text(ctx, '환자 바코드 부착', x + w / 2, y + (h - lh) / 2, t, { color: '#9a9a9a', align: 'center' });
   }
@@ -138,25 +141,32 @@ function barcodeBox(ctx: Ctx, x: number, y: number, w: number, h: number, big: b
 function drawFirstHeader(ctx: Ctx, model: PrintModel) {
   const x = MARGIN.l;
   const y = MARGIN.t;
-  text(ctx, '지참약 식별표', x, y, FONTS.title, { lh: FONTS.title.size * 1.15 });
+  text(ctx, '지참약 식별표', x, y, ctx.f.title, { lh: ctx.f.title.size * 1.15 });
   const top = y + 11;
-  text(ctx, '작성', x, top, FONTS.metaKey, { color: '#666' });
-  text(ctx, formatPrintDate(model.createdAt), x + 11, top, FONTS.metaVal);
-  text(ctx, '약', x + 64, top, FONTS.metaKey, { color: '#666' });
-  text(ctx, `${model.medCount}종`, x + 71, top, FONTS.metaVal);
+  const gap = 2.4;
+  let cx = x;
+  for (const [k, v] of [
+    ['작성', formatPrintDate(model.createdAt)],
+    ['약', `${model.medCount}종`],
+  ]) {
+    text(ctx, k, cx, top, ctx.f.metaKey, { color: '#666' });
+    cx += ctx.m(k, ctx.f.metaKey) + gap;
+    text(ctx, v, cx, top, ctx.f.metaVal);
+    cx += ctx.m(v, ctx.f.metaVal) + gap * 3;
+  }
   barcodeBox(ctx, MARGIN.l + CW - HEAD1.barcode.w, y, HEAD1.barcode.w, HEAD1.barcode.h, true);
 }
 
 function drawContHeader(ctx: Ctx, model: PrintModel, page: PageLayout, total: number) {
   const x = MARGIN.l;
   const y = MARGIN.t;
-  text(ctx, '지참약 식별표 (계속)', x, y + 1, FONTS.contTitle, { lh: FONTS.contTitle.size * 1.2 });
+  text(ctx, '지참약 식별표 (계속)', x, y + 1, ctx.f.contTitle, { lh: ctx.f.contTitle.size * 1.2 });
   text(
     ctx,
     `작성 ${formatPrintDate(model.createdAt)} · ${page.noFrom}–${page.noTo}번 / 총 ${model.medCount}종 · ${page.index + 1}/${total}쪽`,
     x,
     y + 8.4,
-    FONTS.sub,
+    ctx.f.sub,
     { color: INK2 },
   );
   barcodeBox(ctx, MARGIN.l + CW - HEAD2.barcode.w, y, HEAD2.barcode.w, HEAD2.barcode.h, false);
@@ -165,15 +175,16 @@ function drawContHeader(ctx: Ctx, model: PrintModel, page: PageLayout, total: nu
 // ── 표 ────────────────────────────────────────────
 
 function drawTableHead(ctx: Ctx, y: number, cols: Col[]) {
+  const TH_H = ctx.d.thH;
   rect(ctx, MARGIN.l, y, CW, TH_H, { fill: '#efefef' });
   hline(ctx, MARGIN.l, MARGIN.l + CW, y, 0.42);
   hline(ctx, MARGIN.l, MARGIN.l + CW, y + TH_H, 0.28);
   for (const col of cols) {
     const x = colX(cols, col.key);
-    const lh = FONTS.th.size * 1.18;
+    const lh = ctx.f.th.size * 1.18;
     const top = y + (TH_H - col.label.length * lh) / 2;
     col.label.forEach((l, i) =>
-      text(ctx, l, col.align === 'center' ? x + col.w / 2 : x + CELL_PAD, top + i * lh, FONTS.th, {
+      text(ctx, l, col.align === 'center' ? x + col.w / 2 : x + CELL_PAD, top + i * lh, ctx.f.th, {
         color: '#333',
         align: col.align ?? 'left',
         lh,
@@ -193,11 +204,11 @@ function drawGroupRow(ctx: Ctx, r: GroupRowLayout) {
     hline(ctx, x, x + CW, r.y + r.h, 0.28);
   }
   const title = r.cont ? `${r.group.title} (계속)` : r.group.title;
-  text(ctx, title, x + CELL_PAD, r.y, FONTS.group, { lh: GROUP_H });
-  const tw = ctx.m(title, FONTS.group);
+  text(ctx, title, x + CELL_PAD, r.y, ctx.f.group, { lh: r.h });
+  const tw = ctx.m(title, ctx.f.group);
   const noteX = x + CELL_PAD + tw + 2.6;
-  const note = ellipsize(r.group.note, MARGIN.l + CW - CELL_PAD - noteX, FONTS.groupNote, ctx.m);
-  text(ctx, note, noteX, r.y, FONTS.groupNote, { lh: GROUP_H, color: '#333' });
+  const note = ellipsize(r.group.note, MARGIN.l + CW - CELL_PAD - noteX, ctx.f.groupNote, ctx.m);
+  text(ctx, note, noteX, r.y, ctx.f.groupNote, { lh: r.h, color: '#333' });
 }
 
 function drawPhoto(ctx: Ctx, page: PageLayout, r: MedRowLayout, photos: PhotoMap) {
@@ -228,13 +239,13 @@ function drawPhoto(ctx: Ctx, page: PageLayout, r: MedRowLayout, photos: PhotoMap
     const size = PHOTO_H - 1;
     drawGlyph(ctx, r.med.glyph, x + 0.8, y + 0.5, size);
     const cx = x + 0.8 + size + (w - 0.8 - size) / 2;
-    const lh = FONTS.hint.size * 1.25;
+    const lh = ctx.f.hint.size * 1.25;
     const top = y + (PHOTO_H - lh * 2) / 2;
-    text(ctx, '사진 없음', cx, top, FONTS.hint, { color: '#8a8a8a', align: 'center', lh });
-    text(ctx, '(그림)', cx, top + lh, FONTS.hint, { color: '#8a8a8a', align: 'center', lh });
+    text(ctx, '사진 없음', cx, top, ctx.f.hint, { color: '#8a8a8a', align: 'center', lh });
+    text(ctx, '(그림)', cx, top + lh, ctx.f.hint, { color: '#8a8a8a', align: 'center', lh });
   } else {
     const label = url ? '사진 못 받음' : '사진 미등록';
-    text(ctx, label, x + w / 2, y, FONTS.hint, { color: '#a0a0a0', align: 'center', lh: PHOTO_H });
+    text(ctx, label, x + w / 2, y, ctx.f.hint, { color: '#a0a0a0', align: 'center', lh: PHOTO_H });
   }
 }
 
@@ -280,12 +291,15 @@ function drawMedRow(ctx: Ctx, page: PageLayout, r: MedRowLayout, photos: PhotoMa
   // 이름 칸: 이름 / 성분·영문 / 분류(무슨 약인지) / 메모 — 줄이 모자라면 이름 아래 한 줄(성분 · 분류 · 메모)
   const nx = colX(cols, 'name') + CELL_PAD;
   const infoLH = r.info.length ? f.sub.size * LH : 0;
+  const merged = ctx.d.merged; // Teams: 겉모습을 이름 칸 아래 줄로
+  const lookH = merged ? r.look.length * f.cell.size * LH : 0;
   const stackH =
     r.name.length * f.name.size * LH +
     r.sub.length * f.sub.size * LH +
     r.cls.length * f.cls.size * LH +
     r.memo.length * f.memo.size * LH +
-    infoLH;
+    infoLH +
+    lookH;
   let y = mid(stackH);
   y += lines(ctx, r.name, nx, y, f.name);
   y += lines(ctx, r.sub, nx, y, f.sub, { color: INK2 });
@@ -303,8 +317,17 @@ function drawMedRow(ctx: Ctx, page: PageLayout, r: MedRowLayout, photos: PhotoMa
       x += ctx.m(seg.text, seg.font);
     });
   }
+  if (merged) lines(ctx, r.look, nx, y + infoLH, f.cell);
 
   const cellLH = f.cell.size * LH;
+  if (merged) {
+    // 1회 용량(크게) 아래 용법
+    const cx = colX(cols, 'dose') + colW(cols, 'dose') / 2;
+    const top = mid(f.dose.size * LH + r.freq.length * cellLH);
+    text(ctx, r.med.dose, cx, top, f.dose, { align: 'center' });
+    lines(ctx, r.freq, cx, top + f.dose.size * LH, f.cell, { align: 'center' });
+    return;
+  }
   lines(ctx, r.look, colX(cols, 'look') + CELL_PAD, mid(r.look.length * cellLH), f.cell);
   text(ctx, r.med.dose, colX(cols, 'dose') + colW(cols, 'dose') / 2, mid(f.dose.size * LH), f.dose, { align: 'center' });
   lines(ctx, r.freq, colX(cols, 'freq') + CELL_PAD, mid(r.freq.length * cellLH), f.cell);
@@ -313,16 +336,16 @@ function drawMedRow(ctx: Ctx, page: PageLayout, r: MedRowLayout, photos: PhotoMa
 function drawFooter(ctx: Ctx, model: PrintModel, pageIndex: number, total: number) {
   hline(ctx, MARGIN.l, MARGIN.l + CW, FOOTER_TOP, 0.28);
   const right = `ward-pillcheck · ${pageIndex + 1}/${total}쪽`;
-  const rw = ctx.m(right, FONTS.foot);
+  const rw = ctx.m(right, ctx.f.foot);
   const db = model.dbDate ? ` (${model.dbDate} 기준)` : '';
   const left = ellipsize(
     `출처: 식약처 의약품 낱알식별·제품 허가정보${db} · 식별 보조용 — 최종 확인은 의료진 · 흑백 출력 시 색은 글자로 확인`,
     CW - rw - 4,
-    FONTS.foot,
+    ctx.f.foot,
     ctx.m,
   );
-  text(ctx, left, MARGIN.l, FOOTER_TOP + 1, FONTS.foot, { color: '#555' });
-  text(ctx, right, MARGIN.l + CW, FOOTER_TOP + 1, FONTS.foot, { color: '#555', align: 'right' });
+  text(ctx, left, MARGIN.l, FOOTER_TOP + 1, ctx.f.foot, { color: '#555' });
+  text(ctx, right, MARGIN.l + CW, FOOTER_TOP + 1, ctx.f.foot, { color: '#555', align: 'right' });
 }
 
 /** 한 쪽을 캔버스에 그린다(캔버스 크기는 A4 × PX_PER_MM 이어야 함). */
@@ -334,7 +357,8 @@ export function drawPage(
   model: PrintModel,
   photos: PhotoMap,
 ) {
-  const ctx: Ctx = { c, m };
+  useScale(doc.profile.pxPerMm);
+  const ctx: Ctx = { c, m, d: doc, f: doc.f };
   c.save();
   c.fillStyle = '#fff';
   c.fillRect(0, 0, PAGE.w * S, PAGE.h * S);

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { MedItem } from '../domain/models';
 import { buildPrintModel } from './model';
-import { BODY_BOTTOM, MAX_PER_PAGE, ROW_MAX, ROW_MIN, inlineInfo, layoutDocument, wrapText, type FontSpec, type Measure } from './layout';
+import { BODY_BOTTOM, MAX_PER_PAGE, ROW_MAX, ROW_MIN, TEAMS, inlineInfo, layoutDocument, wrapText, type FontSpec, type Measure } from './layout';
 import type { PrintMed } from './model';
 
 // 캔버스 없이: 글자 폭 = 글자 수 × 크기 × 0.6 (한글 전각 근사)
@@ -155,5 +155,36 @@ describe('성분·분류·메모 한 줄 이어쓰기(줄이 모자랄 때)', ()
   it('성분 자리가 너무 좁으면 성분은 빼고 분류·메모만', () => {
     const segs = inlineInfo(pm({ sub: '성분', cls: '기타의 중추신경용약', memo: '혈압 100 미만이면 보류' }), 3, 56, measure);
     expect(segs.map((x) => x.text)).toEqual(['기타의 중추신경용약', '※ 혈압 100 미만이면 보류']);
+  });
+});
+
+describe('Teams 프로필(724×1024 — 긴 변 1024px 제한)', () => {
+  const at = new Date(2026, 10, 11, 14, 32);
+  const doc = (n: number) => layoutDocument(buildPrintModel(makeMeds(n), {}, { createdAt: at }), measure, TEAMS);
+
+  it('한 쪽 최대 6종, 모든 약이 번호 순으로 한 번씩, 바닥글을 넘지 않는다', () => {
+    for (const n of [1, 6, 7, 11, 20]) {
+      const d = doc(n);
+      const nos = d.pages.flatMap((p) => p.rows.filter((r) => r.kind === 'med').map((r) => (r.kind === 'med' ? r.med.no : 0)));
+      expect(nos).toEqual(Array.from({ length: n }, (_, i) => i + 1));
+      for (const p of d.pages) {
+        expect(p.rows.filter((r) => r.kind === 'med').length).toBeLessThanOrEqual(TEAMS.maxPerPage);
+        const last = p.rows[p.rows.length - 1];
+        expect(last.y + last.h).toBeLessThanOrEqual(BODY_BOTTOM + 1e-6);
+        expect(p.rowH).toBeGreaterThanOrEqual(TEAMS.rowMin);
+      }
+    }
+  });
+
+  it('겉모습은 이름 칸, 용법은 1회 칸으로 합쳐 4열 — 글자는 종이보다 크다', () => {
+    const t = doc(6);
+    const paper = layoutDocument(buildPrintModel(makeMeds(6), {}, { createdAt: at }), measure);
+    expect(t.merged).toBe(true);
+    expect(t.pages[0].cols.map((c) => c.key)).toEqual(['no', 'photo', 'name', 'dose']);
+    expect(t.pages[0].fonts.name.size).toBeGreaterThan(paper.pages[0].fonts.name.size * 1.4);
+    const r = t.pages[0].rows.find((x) => x.kind === 'med');
+    if (!r || r.kind !== 'med') throw new Error('med expected');
+    expect(r.look.join(' ')).toContain('T0'); // 각인
+    expect(r.freq.length).toBeGreaterThan(0);
   });
 });
