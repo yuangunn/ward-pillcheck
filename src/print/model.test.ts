@@ -91,5 +91,6 @@ describe('표기', () => {
     expect(formatPrintDate(at)).toBe('2026-11-11 (수) 14:32');
     expect(printFileName(at)).toBe('지참약식별표_20261111_1432.jpg');
     expect(printFileName(at, 2, 3)).toBe('지참약식별표_20261111_1432_2of3.jpg');
+    expect(printFileName(at, 1, 3, 'pdf')).toBe('지참약식별표_20261111_1432.pdf'); // PDF 는 한 파일
   });
 });
