@@ -4,6 +4,7 @@ import {
   formatAppearance,
   formatTabletCount,
   buildListText,
+  shortUnits,
   blindLabel,
   cleanMarking,
   stripIngredient,
@@ -173,6 +174,19 @@ describe('tidyText', () => {
   });
 });
 
+describe('shortUnits (인계 텍스트 함량 단위 줄임)', () => {
+  it('숫자 뒤 밀리그람·밀리그램·마이크로그램·그램·밀리리터만 바꾼다', () => {
+    expect(shortUnits('트리티코정50밀리그람')).toBe('트리티코정50mg');
+    expect(shortUnits('스틸녹스CR정6.25밀리그램')).toBe('스틸녹스CR정6.25mg');
+    expect(shortUnits('아모잘탄정5/50밀리그램')).toBe('아모잘탄정5/50mg');
+    expect(shortUnits('씬지로이드정0.1밀리그램')).toBe('씬지로이드정0.1mg');
+    expect(shortUnits('신지로이드정25마이크로그램')).toBe('신지로이드정25mcg');
+    expect(shortUnits('세파클러캡슐 1 그램')).toBe('세파클러캡슐 1g');
+    expect(shortUnits('시럽5밀리리터')).toBe('시럽5mL');
+    expect(shortUnits('그램팜정')).toBe('그램팜정'); // 숫자 뒤가 아니면 그대로
+  });
+});
+
 describe('buildListText (블라인드 + 시점 범주화)', () => {
   it('약이 없으면 블라인드 헤더만', () => {
     expect(buildListText('환자2', [])).toBe('[환*2]');
@@ -188,10 +202,10 @@ describe('buildListText (블라인드 + 시점 범주화)', () => {
       marking: '마크',
     };
     // 기본(성분 제외·겉모습 포함)
-    expect(buildListText('환자1', [med])).toBe('[환*1]\n<8am>\n트라젠타정 1T (분홍/원형/마크)');
+    expect(buildListText('환자1', [med])).toBe('[환*1]\n<8am>\n트라젠타정 1T\n(분홍/원형/마크)');
     // 성분명 ON
     expect(buildListText('환자1', [med], { ingredient: true })).toBe(
-      '[환*1]\n<8am>\n트라젠타정(리나글립틴) 1T (분홍/원형/마크)',
+      '[환*1]\n<8am>\n트라젠타정(리나글립틴) 1T\n(분홍/원형/마크)',
     );
     // 겉모습 OFF
     expect(buildListText('환자1', [med], { appearance: false })).toBe('[환*1]\n<8am>\n트라젠타정 1T');
@@ -244,10 +258,10 @@ describe('buildListText (블라인드 + 시점 범주화)', () => {
     expect(buildListText('환자2', [], { mask: false })).toBe('[환자2]');
   });
 
-  it('메모(특이사항)는 약(겉모습) 뒤에 ※로 붙는다', () => {
+  it('메모(특이사항)는 겉모습 줄 뒤에 ※로 붙는다', () => {
     const med: MedItem = { ...base, name: '암로디핀정', timings: ['아침식후'], memo: 'SBP 130 이상시 복용' };
     // 겉모습 뒤에 메모
-    expect(buildListText('환자1', [med])).toBe('[환*1]\n<8am>\n암로디핀정 1T (흰/원형/Bayer) ※SBP 130 이상시 복용');
+    expect(buildListText('환자1', [med])).toBe('[환*1]\n<8am>\n암로디핀정 1T\n(흰/원형/Bayer) ※SBP 130 이상시 복용');
     // 겉모습 OFF 면 용량 뒤 바로 메모
     expect(buildListText('환자1', [med], { appearance: false })).toBe('[환*1]\n<8am>\n암로디핀정 1T ※SBP 130 이상시 복용');
     // 공백뿐인 메모는 무시
@@ -315,7 +329,7 @@ describe('buildListText (블라인드 + 시점 범주화)', () => {
       shape: '장방형',
       marking: 'Neurontin®----------300mgVLE',
     };
-    expect(buildListText('환자1', [med])).toBe('[환*1]\n<8am>\n뉴론틴캡슐 1T (노랑/장방형/Neurontin® 300mgVLE)');
+    expect(buildListText('환자1', [med])).toBe('[환*1]\n<8am>\n뉴론틴캡슐 1T\n(노랑/장방형/Neurontin® 300mgVLE)');
   });
 
   it('명세 예시와 일치: 시점 패턴별 그룹·시간순 정렬', () => {
@@ -338,17 +352,22 @@ describe('buildListText (블라인드 + 시점 범주화)', () => {
       [
         '[환*1]',
         '<8am>',
-        '아스피린프로텍트정100밀리그람 1T (하양/원형/Bayer)',
-        '트라젠타정 1T (분홍/원형/마크)',
+        '아스피린프로텍트정100mg 1T',
+        '(하양/원형/Bayer)',
+        '트라젠타정 1T',
+        '(분홍/원형/마크)',
         '',
         '<8am 6pm>',
-        '캐롤에프정 1T (분홍/타원형/ID C·F)',
+        '캐롤에프정 1T',
+        '(분홍/타원형/ID C·F)',
         '',
         '<8am 1pm 6pm>',
-        '모티리톤정 1T (분홍/타원형/MTL)',
+        '모티리톤정 1T',
+        '(분홍/타원형/MTL)',
         '',
         '<9pm>',
-        '스틸녹스CR정6.25밀리그램 1T (분홍/원형/ZMR)',
+        '스틸녹스CR정6.25mg 1T',
+        '(분홍/원형/ZMR)',
       ].join('\n'),
     );
   });

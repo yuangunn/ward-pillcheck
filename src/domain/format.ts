@@ -118,17 +118,30 @@ export interface ShareOpts {
   mask?: boolean; // 환자 라벨 가운데 가리기. 미지정/true=가림(기본), false=원문 노출
 }
 
-/** 공유용 약 한 줄: 이름(+옵션에 따라 영문 품목명)/용량(+옵션에 따라 겉모습) + 메모.
+/** 공유용 약 줄: 이름(+옵션에 따라 영문 품목명, 함량 단위는 mg 등으로 줄임) 용량 / 다음 줄에 겉모습(옵션) + 메모.
  *  용법(표준 시점 / 비표준 QW·QOD·PRN)은 그룹 헤더가 전담하므로 줄에는 넣지 않는다. */
+/**
+ * 품목명 속 함량 단위를 줄여 쓴다(인계 텍스트용): 50밀리그람 → 50mg, 0.25마이크로그램 → 0.25mcg,
+ * 1그램 → 1g, 5밀리리터 → 5mL. 숫자 바로 뒤의 단위만 바꾼다(이름 속 다른 글자는 그대로).
+ */
+export function shortUnits(name: string): string {
+  return name
+    .replace(/(\d)\s*밀리그[램람]/g, '$1mg')
+    .replace(/(\d)\s*마이크로그[램람]/g, '$1mcg')
+    .replace(/(\d)\s*밀리리터/g, '$1mL')
+    .replace(/(\d)\s*그[램람]/g, '$1g');
+}
+
 function shareMedLine(med: MedItem, opts: ShareOpts): string {
   const unit = med.doseUnit || 'T';
-  const name = opts.ingredient ? med.name : stripIngredient(med.name);
+  const name = shortUnits(opts.ingredient ? med.name : stripIngredient(med.name));
   // 영문 품목명은 itemSeq 로 매핑된 값이 있을 때만 대괄호로 병기(직접입력·영문명 미등록 약은 생략).
   const english = opts.english ? formatEnglishName(opts.englishBySeq?.get(med.itemSeq)) : '';
   const named = english ? `${name} [${english}]` : name;
   const head = `${named} ${formatTabletCount(med.tabletCount)}${unit}`;
+  // 겉모습은 다음 줄로 — 한 줄이 길어 메신저에서 줄바꿈이 제멋대로 되는 것을 막고, 이름·용량이 먼저 보이게.
   const appearance = opts.appearance === false ? '' : formatAppearance(med);
-  const body = appearance ? `${head} ${appearance}` : head;
+  const body = appearance ? `${head}\n${appearance}` : head;
   const memo = med.memo?.trim() ? ` ※${med.memo.trim()}` : '';
   return `${body}${memo}`;
 }
