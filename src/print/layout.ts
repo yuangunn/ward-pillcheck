@@ -196,8 +196,16 @@ export interface MedRowLayout {
   sub: string[];
   cls: string[];
   memo: string[];
+  /** 줄이 모자랄 때 성분·분류·메모를 한 줄로 이어 쓴 조각들(비어 있으면 sub·cls·memo 를 각 줄로) */
+  info: Seg[];
   look: string[];
   freq: string[];
+}
+/** 한 줄 안 글꼴이 다른 조각 */
+export interface Seg {
+  text: string;
+  font: FontSpec;
+  dim?: boolean; // 회색(성분)
 }
 export interface GroupRowLayout {
   kind: 'group';
@@ -263,6 +271,42 @@ function fitParts(parts: Part[], width: number, avail: number, measure: Measure)
   return out;
 }
 
+export const INFO_SEP = ' · ';
+
+/**
+ * 성분·분류·메모를 한 줄(width)로 잇는다. 넘치면 성분부터 …로 줄이고(너무 좁으면 성분은 뺌),
+ * 그래도 넘치면 메모 → 분류 순으로 줄인다. 분류·메모는 굵게.
+ */
+export function inlineInfo(med: PrintMed, size: number, width: number, measure: Measure): Seg[] {
+  const reg: FontSpec = { size, weight: 400 };
+  const bold: FontSpec = { size, weight: 700 };
+  const segs: Seg[] = [
+    { text: med.sub, font: reg, dim: true },
+    { text: med.cls, font: bold },
+    { text: med.memo ? `※ ${med.memo}` : '', font: bold },
+  ].filter((x) => x.text);
+  const sepW = measure(INFO_SEP, reg);
+  const widthOf = (xs: Seg[]) => xs.reduce((w, x) => w + measure(x.text, x.font), 0) + sepW * Math.max(0, xs.length - 1);
+  if (widthOf(segs) <= width) return segs;
+  const rest = (skip: Seg) => widthOf(segs.filter((x) => x !== skip)) + sepW;
+  const sub = segs.find((x) => x.dim);
+  if (sub) {
+    const room = width - rest(sub);
+    if (room >= 10) {
+      sub.text = ellipsize(sub.text, room, sub.font, measure);
+      return segs;
+    }
+    segs.splice(segs.indexOf(sub), 1);
+    if (widthOf(segs) <= width) return segs;
+  }
+  for (const x of [...segs].reverse()) {
+    const room = width - (widthOf(segs) - measure(x.text, x.font));
+    x.text = ellipsize(x.text, Math.max(room, 0), x.font, measure);
+    if (widthOf(segs) <= width) break;
+  }
+  return segs.filter((x) => x.text && x.text !== '…');
+}
+
 /** 쪽 기하(줄 높이 → 사진 칸·열·글꼴) */
 export function pageGeom(rowH: number): Pick<PageLayout, 'rowH' | 'photo' | 'cols' | 'fonts'> {
   const ph = rowH - rowPad(rowH) * 2;
@@ -294,7 +338,26 @@ export function layoutMedRow(med: PrintMed, geom: Pick<PageLayout, 'rowH' | 'col
   const cellLines = Math.max(1, Math.floor(avail / (f.cell.size * LH)));
   const look = wrapText(med.appearance || '—', colW(cols, 'look') - CELL_PAD * 2, f.cell, measure, Math.min(3, cellLines));
   const freq = wrapText(med.freq, colW(cols, 'freq') - CELL_PAD * 2, f.cell, measure, Math.min(2, cellLines));
-  return { kind: 'med', h: rowH, med, ...fit, look, freq };
+  // 각 줄로 다 못 싣고 성분·분류·메모 중 하나라도 빠지면 → 이름 아래 한 줄로 이어 쓴다(이름 칸은 가로로 넓다).
+  const dropped = (med.sub && !fit.sub.length) || (med.cls && !fit.cls.length) || (med.memo && !fit.memo.length);
+  if (dropped) {
+    const infoLH = f.sub.size * LH;
+    const nameLH = f.name.size * LH;
+    const nameLines = Math.max(1, Math.min(2, Math.floor((avail - infoLH) / nameLH)));
+    return {
+      kind: 'med',
+      h: rowH,
+      med,
+      name: wrapText(med.name, nameW, f.name, measure, nameLines),
+      sub: [],
+      cls: [],
+      memo: [],
+      info: inlineInfo(med, f.sub.size, nameW, measure),
+      look,
+      freq,
+    };
+  }
+  return { kind: 'med', h: rowH, med, ...fit, info: [], look, freq };
 }
 
 /** 표 몸통 높이(mm) — 표 머리줄 아래부터 바닥글 위까지 */
