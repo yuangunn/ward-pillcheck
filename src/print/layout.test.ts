@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import type { MedItem } from '../domain/models';
 import { buildPrintModel } from './model';
-import { BODY_BOTTOM, MAX_PER_PAGE, ROW_MAX, ROW_MIN, layoutDocument, wrapText, type FontSpec, type Measure } from './layout';
+import { BODY_BOTTOM, MAX_PER_PAGE, ROW_MAX, ROW_MIN, inlineInfo, layoutDocument, wrapText, type FontSpec, type Measure } from './layout';
+import type { PrintMed } from './model';
 
 // 캔버스 없이: 글자 폭 = 글자 수 × 크기 × 0.6 (한글 전각 근사)
 const measure: Measure = (t, f) => [...t].length * f.size * 0.6;
@@ -122,5 +123,37 @@ describe('layoutDocument (쪽 나눔 · 적응형 줄 높이)', () => {
     const r = d.pages[0].rows.find((x) => x.kind === 'med' && x.med.no === 1);
     if (!r || r.kind !== 'med') throw new Error('med expected');
     expect(r.name.join('')).toBe('콘서타OROS서방정18밀리그램메틸페니데이트');
+  });
+});
+
+describe('성분·분류·메모 한 줄 이어쓰기(줄이 모자랄 때)', () => {
+  const at = new Date(2026, 10, 11, 14, 32);
+  const pm = (over: Partial<PrintMed>): PrintMed => ({
+    no: 1, name: '약', sub: '', cls: '', memo: '', appearance: '', dose: '1T', freq: 'QD', ...over,
+  });
+
+  it('20종 쪽에서는 성분·분류·메모가 빠지지 않고 이름 아래 한 줄로 이어진다', () => {
+    const meds = makeMeds(20);
+    const d = layoutDocument(
+      buildPrintModel(meds, { ingrKo: new Map([['0', '성분가']]), cls: new Map([['0', '혈압강하제']]) }, { createdAt: at }),
+      measure,
+    );
+    const r = d.pages[0].rows.find((x) => x.kind === 'med' && x.med.no === 1);
+    if (!r || r.kind !== 'med') throw new Error('med expected');
+    expect(r.info.map((x) => x.text)).toEqual(['성분가', '혈압강하제', '※ 혈압 낮으면 보류']);
+    expect([r.sub, r.cls, r.memo]).toEqual([[], [], []]);
+  });
+
+  it('넘치면 성분부터 …로 줄이고 분류·메모는 남긴다', () => {
+    const segs = inlineInfo(pm({ sub: '아주긴성분이름'.repeat(6), cls: '혈압강하제', memo: '보류' }), 3, 60, measure);
+    expect(segs.map((x) => x.text).slice(1)).toEqual(['혈압강하제', '※ 보류']);
+    expect(segs[0].text.endsWith('…')).toBe(true);
+    const w = segs.reduce((s, x) => s + measure(x.text, x.font), 0) + measure(' · ', segs[0].font) * (segs.length - 1);
+    expect(w).toBeLessThanOrEqual(60 + 1e-6);
+  });
+
+  it('성분 자리가 너무 좁으면 성분은 빼고 분류·메모만', () => {
+    const segs = inlineInfo(pm({ sub: '성분', cls: '기타의 중추신경용약', memo: '혈압 100 미만이면 보류' }), 3, 56, measure);
+    expect(segs.map((x) => x.text)).toEqual(['기타의 중추신경용약', '※ 혈압 100 미만이면 보류']);
   });
 });

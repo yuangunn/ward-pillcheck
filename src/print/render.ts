@@ -6,6 +6,7 @@ import {
   GROUP_H,
   HEAD1,
   HEAD2,
+  INFO_SEP,
   LH,
   MARGIN,
   PAGE,
@@ -276,15 +277,32 @@ function drawMedRow(ctx: Ctx, page: PageLayout, r: MedRowLayout, photos: PhotoMa
   text(ctx, String(r.med.no), colX(cols, 'no') + colW(cols, 'no') / 2, mid(f.no.size * LH), f.no, { color: '#555', align: 'center' });
   drawPhoto(ctx, page, r, photos);
 
-  // 이름 칸: 이름 / 성분·영문 / 분류(무슨 약인지) / 메모
+  // 이름 칸: 이름 / 성분·영문 / 분류(무슨 약인지) / 메모 — 줄이 모자라면 이름 아래 한 줄(성분 · 분류 · 메모)
   const nx = colX(cols, 'name') + CELL_PAD;
+  const infoLH = r.info.length ? f.sub.size * LH : 0;
   const stackH =
-    r.name.length * f.name.size * LH + r.sub.length * f.sub.size * LH + r.cls.length * f.cls.size * LH + r.memo.length * f.memo.size * LH;
+    r.name.length * f.name.size * LH +
+    r.sub.length * f.sub.size * LH +
+    r.cls.length * f.cls.size * LH +
+    r.memo.length * f.memo.size * LH +
+    infoLH;
   let y = mid(stackH);
   y += lines(ctx, r.name, nx, y, f.name);
   y += lines(ctx, r.sub, nx, y, f.sub, { color: INK2 });
   y += lines(ctx, r.cls, nx, y, f.cls);
-  lines(ctx, r.memo, nx, y, f.memo);
+  y += lines(ctx, r.memo, nx, y, f.memo);
+  if (r.info.length) {
+    let x = nx;
+    const sepFont: FontSpec = { size: f.sub.size, weight: 400 };
+    r.info.forEach((seg, i) => {
+      if (i) {
+        text(ctx, INFO_SEP, x, y, sepFont, { color: INK2, lh: infoLH });
+        x += ctx.m(INFO_SEP, sepFont);
+      }
+      text(ctx, seg.text, x, y, seg.font, { color: seg.dim ? INK2 : INK, lh: infoLH });
+      x += ctx.m(seg.text, seg.font);
+    });
+  }
 
   const cellLH = f.cell.size * LH;
   lines(ctx, r.look, colX(cols, 'look') + CELL_PAD, mid(r.look.length * cellLH), f.cell);
