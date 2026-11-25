@@ -963,7 +963,7 @@ function ShareToggle({ label, hint, on, onToggle }: { label: string; hint: strin
   );
 }
 
-/** A4 출력용 이미지(쪽마다 JPEG) — 폰 공유 창(Teams 앱)으로 보내 원내 PC에서 출력. 환자 이름·병상번호는 넣지 않는다. */
+/** A4 출력용 식별표 — 출력용 PDF(압축 안 됨) 또는 미리보기용 쪽 이미지를 폰 공유 창(Teams 앱)으로. 환자 이름·병상번호는 넣지 않는다. */
 function PrintImageSection({ open, meds }: { open: boolean; meds: MedItem[] }) {
   const [out, setOut] = useState<PrintImages | null>(null);
   const [busy, setBusy] = useState<PrintProgress | null>(null);
@@ -987,15 +987,16 @@ function PrintImageSection({ open, meds }: { open: boolean; meds: MedItem[] }) {
       setOut(made);
       if (made.photosMissing) setMsg(`사진 ${made.photosMissing}장은 받지 못해 대신 모양·색 그림으로 표시했어요.`);
     } catch {
-      if (id === runId.current) setMsg('이미지를 만들지 못했어요. 다시 시도해 주세요.');
+      if (id === runId.current) setMsg('식별표를 만들지 못했어요. 다시 시도해 주세요.');
     } finally {
       if (id === runId.current) setBusy(null);
     }
   };
   // 공유는 반드시 탭 직후에 호출(긴 작업 뒤엔 브라우저가 공유 창을 막음) — 그래서 만들기/보내기를 두 번의 탭으로 나눈다.
-  const send = async () => {
+  // 출력용은 PDF: Teams 는 이미지로 받으면 크게 압축해(670KB → 60~100KB) 글자가 뭉개지지만 PDF 는 파일로 그대로 간다.
+  const send = async (kind: 'pdf' | 'images') => {
     if (!out) return;
-    const r = await shareFiles(out.files);
+    const r = await shareFiles(kind === 'pdf' ? [out.pdf] : out.files);
     if (r === 'downloaded') setMsg('이 브라우저는 바로 공유가 안 돼서 파일로 저장했어요. Teams에서 첨부해 주세요.');
     else if (r === 'retry') setMsg('공유 창을 열지 못했어요. 한 번 더 눌러 주세요.');
     else setMsg('');
@@ -1006,24 +1007,33 @@ function PrintImageSection({ open, meds }: { open: boolean; meds: MedItem[] }) {
       ? `사진 받는 중… ${busy.done}/${busy.total}`
       : busy.stage === 'pages'
         ? `쪽 그리는 중… ${busy.done + 1}/${busy.total}`
-        : '점검·정리 중…';
+        : '정리 중…';
   const small = { margin: '8px 2px 0', fontSize: 12, color: 'var(--text-weaker)', fontWeight: 600, lineHeight: 1.45 } as const;
   return (
     <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
-      <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.3 }}>A4 출력용 이미지</div>
+      <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.3 }}>A4 출력용 식별표</div>
       <p style={{ margin: '4px 0 12px', fontSize: 13, color: 'var(--text-weak)', fontWeight: 600, lineHeight: 1.45, letterSpacing: -0.3 }}>
         원내 PC에서 출력해 지참약과 함께 넣어요. 이름·병상번호는 넣지 않아요 — 출력 후 환자 바코드를 붙여 주세요.
       </p>
       {out ? (
-        <Btn variant="primary" full icon="share" onClick={send}>
-          이미지 보내기 ({out.pages}장)
-        </Btn>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <Btn variant="primary" full icon="share" onClick={() => send('pdf')}>
+            PDF로 보내기 · 출력용 ({out.pages}쪽)
+          </Btn>
+          <Btn variant="secondary" full icon="share" onClick={() => send('images')}>
+            이미지로 보내기 · 미리보기용 ({out.pages}장)
+          </Btn>
+        </div>
       ) : (
         <Btn variant="secondary" full icon="print" onClick={make} disabled={!!busy || !meds.length}>
-          {busy ? busyText : 'A4 출력용 이미지 만들기'}
+          {busy ? busyText : 'A4 출력용 식별표 만들기'}
         </Btn>
       )}
-      {out && <p style={small}>폰 공유 창이 열려요 — 원내 Teams 대화방을 골라 주세요. (외부 앱으로 보내지 않도록 주의){out.pages > 1 ? ' 여러 장이면 꼬리말 쪽 번호 순서로 출력해 주세요.' : ''}</p>}
+      {out && (
+        <p style={small}>
+          폰 공유 창이 열려요 — 원내 Teams 대화방을 골라 주세요. (외부 앱으로 보내지 않도록 주의) 출력은 PDF로 — 이미지는 Teams가 압축해 글자가 흐려져요.
+        </p>
+      )}
       {msg && (
         <p role="status" style={{ ...small, color: 'var(--warn-ink)' }}>
           {msg}
@@ -1114,7 +1124,7 @@ export function CopySheet({ open, onClose, label, meds }: { open: boolean; onClo
   return (
     <>
     <BottomSheet open={open} onClose={onClose} title="인계용 텍스트" maxH="78%">
-      <p style={{ margin: '0 0 14px', fontSize: 14, color: 'var(--text-weak)', fontWeight: 600, letterSpacing: -0.3 }}>원내 Teams 로 인계를 보내요. 아래에서 A4 출력용 이미지도 보낼 수 있어요.</p>
+      <p style={{ margin: '0 0 14px', fontSize: 14, color: 'var(--text-weak)', fontWeight: 600, letterSpacing: -0.3 }}>원내 Teams 로 인계를 보내요. 아래에서 A4 출력용 식별표(PDF)도 보낼 수 있어요.</p>
       <pre style={{ margin: 0, padding: 16, borderRadius: 'var(--r-card)', background: 'var(--fill)', color: 'var(--text)', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 280, overflowY: 'auto' }}>
         {teamsText}
       </pre>
