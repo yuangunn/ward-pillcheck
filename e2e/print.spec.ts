@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 
-// A4 출력용 PDF: 만들기 → 폰 공유 창(Web Share) / 공유 불가 브라우저는 파일 저장.
+// A4 출력용 이미지(쪽마다 JPEG): 만들기 → 폰 공유 창(Web Share) / 공유 불가 브라우저는 파일 저장.
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
@@ -20,7 +20,7 @@ async function addBayerAndOpenShare(page: Page) {
   return page.getByRole('dialog', { name: '인계용 텍스트' });
 }
 
-test('A4 PDF: 만들기 → 공유 창에 PDF 파일 1개(파일명에 환자 라벨 없음)', async ({ page }) => {
+test('A4 이미지: 만들기 → 공유 창에 A4 JPEG 1장(파일명에 환자 라벨 없음)', async ({ page }) => {
   await page.addInitScript(() => {
     const w = window as unknown as { __shared: unknown };
     w.__shared = null;
@@ -32,22 +32,15 @@ test('A4 PDF: 만들기 → 공유 창에 PDF 파일 1개(파일명에 환자 �
       configurable: true,
       value: async (d: ShareData) => {
         const f = d.files![0];
-        const buf = new Uint8Array(await f.arrayBuffer());
-        const s = Array.from(buf, (c) => String.fromCharCode(c)).join('');
-        w.__shared = {
-          count: d.files!.length,
-          name: f.name,
-          type: f.type,
-          head: s.slice(0, 8),
-          pages: (s.match(/\/Type \/Page /g) || []).length,
-          size: f.size,
-        };
+        const head = Array.from(new Uint8Array(await f.slice(0, 3).arrayBuffer()));
+        const bmp = await createImageBitmap(f);
+        w.__shared = { count: d.files!.length, name: f.name, type: f.type, head, w: bmp.width, h: bmp.height, size: f.size };
       },
     });
   });
   const sheet = await addBayerAndOpenShare(page);
-  await sheet.getByRole('button', { name: 'A4 출력용 PDF 만들기' }).click();
-  const send = sheet.getByRole('button', { name: /PDF 보내기 \(1쪽\)/ });
+  await sheet.getByRole('button', { name: 'A4 출력용 이미지 만들기' }).click();
+  const send = sheet.getByRole('button', { name: /이미지 보내기 \(1장\)/ });
   await expect(send).toBeVisible({ timeout: 20_000 });
   await send.click();
   await expect.poll(() => page.evaluate(() => (window as unknown as { __shared: unknown }).__shared)).not.toBeNull();
@@ -55,20 +48,21 @@ test('A4 PDF: 만들기 → 공유 창에 PDF 파일 1개(파일명에 환자 �
     count: number;
     name: string;
     type: string;
-    head: string;
-    pages: number;
+    head: number[];
+    w: number;
+    h: number;
     size: number;
   };
   expect(shared.count).toBe(1);
-  expect(shared.type).toBe('application/pdf');
-  expect(shared.head).toBe('%PDF-1.4');
-  expect(shared.pages).toBe(1);
-  expect(shared.name).toMatch(/^지참약확인표_\d{8}_\d{4}\.pdf$/);
+  expect(shared.type).toBe('image/jpeg');
+  expect(shared.head).toEqual([0xff, 0xd8, 0xff]); // JPEG SOI
+  expect([shared.w, shared.h]).toEqual([2100, 2970]); // A4 × 10px/mm
+  expect(shared.name).toMatch(/^지참약확인표_\d{8}_\d{4}\.jpg$/);
   expect(shared.name).not.toContain('환자');
   expect(shared.size).toBeGreaterThan(20_000); // 실제로 그려진 A4 JPEG
 });
 
-test('A4 PDF: 공유를 못 하는 브라우저는 파일로 저장하고 안내', async ({ page }) => {
+test('A4 이미지: 공유를 못 하는 브라우저는 파일로 저장하고 안내', async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'share', { configurable: true, value: undefined });
     Object.defineProperty(navigator, 'canShare', { configurable: true, value: undefined });
@@ -81,14 +75,14 @@ test('A4 PDF: 공유를 못 하는 브라우저는 파일로 저장하고 안내
     };
   });
   const sheet = await addBayerAndOpenShare(page);
-  await sheet.getByRole('button', { name: 'A4 출력용 PDF 만들기' }).click();
-  const send = sheet.getByRole('button', { name: /PDF 보내기/ });
+  await sheet.getByRole('button', { name: 'A4 출력용 이미지 만들기' }).click();
+  const send = sheet.getByRole('button', { name: /이미지 보내기/ });
   await expect(send).toBeVisible({ timeout: 20_000 });
   const [download] = await Promise.all([page.waitForEvent('download'), send.click()]);
   const name = await page.evaluate(() => (window as unknown as { __dlName: string }).__dlName);
-  expect(name).toMatch(/^지참약확인표_\d{8}_\d{4}\.pdf$/);
+  expect(name).toMatch(/^지참약확인표_\d{8}_\d{4}\.jpg$/);
   const { readFile } = await import('node:fs/promises');
   const bytes = await readFile((await download.path())!);
-  expect(bytes.subarray(0, 8).toString('latin1')).toBe('%PDF-1.4');
+  expect([...bytes.subarray(0, 3)]).toEqual([0xff, 0xd8, 0xff]);
   await expect(sheet.getByRole('status')).toContainText('파일로 저장했어요');
 });

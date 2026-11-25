@@ -11,7 +11,7 @@ import { splitCrushCaution } from '../domain/formulation';
 import type { SafetyResult } from '../api/safety';
 
 // A4 출력용 지참약 확인표의 내용 모델(순수 함수).
-// ⚠ 환자 이름·병상번호(라벨)는 입력으로 받지 않는다 — PDF 는 폰 공유 창(외부 앱 포함)으로
+// ⚠ 환자 이름·병상번호(라벨)는 입력으로 받지 않는다 — 출력 이미지는 폰 공유 창(외부 앱 포함)으로
 //    나가므로 환자 식별정보를 담지 않고, 종이에 환자 바코드를 직접 붙여 식별한다.
 
 export interface PrintMed {
@@ -76,9 +76,13 @@ export function formatClock(d: Date): string {
   return `${p2(d.getHours())}:${p2(d.getMinutes())}`;
 }
 
-/** PDF 파일명 — 환자 정보 없이 작성 시각만. 예) 지참약확인표_20261111_1432.pdf */
-export function printFileName(d: Date): string {
-  return `지참약확인표_${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}_${p2(d.getHours())}${p2(d.getMinutes())}.pdf`;
+/**
+ * 쪽 이미지 파일명 — 환자 정보 없이 작성 시각만. 여러 쪽이면 쪽 번호를 붙인다(이름순 = 쪽순).
+ * 예) 지참약확인표_20261111_1432.jpg · 지참약확인표_20261111_1432_2of3.jpg
+ */
+export function printFileName(d: Date, page = 1, total = 1): string {
+  const base = `지참약확인표_${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}_${p2(d.getHours())}${p2(d.getMinutes())}`;
+  return total > 1 ? `${base}_${page}of${total}.jpg` : `${base}.jpg`;
 }
 
 const FAMILY_NOTE: Record<string, string> = {
