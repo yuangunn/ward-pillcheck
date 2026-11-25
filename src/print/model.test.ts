@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { MedItem } from '../domain/models';
-import { buildPrintModel, formatPrintDate, printFileName } from './model';
+import { buildPrintModel, formatDrugClass, formatPrintDate, printFileName } from './model';
 
 const med = (over: Partial<MedItem>): MedItem => ({
   id: over.id ?? Math.random().toString(36).slice(2),
@@ -54,6 +54,7 @@ describe('buildPrintModel', () => {
       {
         ingrKo: new Map([['1', '아토르바스타틴칼슘삼수화물']]),
         eng: new Map([['1', 'Lipitor  Tab. 10mg']]),
+        cls: new Map([['1', '동맥경화용제']]),
       },
       { createdAt: at },
     );
@@ -61,6 +62,7 @@ describe('buildPrintModel', () => {
     expect(lip).toMatchObject({
       name: '리피토정10밀리그램', // 성분 줄이 있으면 괄호 성분은 뺀다
       sub: '아토르바스타틴칼슘삼수화물 · Lipitor Tab. 10mg',
+      cls: '동맥경화용제',
       appearance: '하양 / 원형 / ATV 10',
       memo: '금식 시 보류',
       dose: '1T',
@@ -68,7 +70,7 @@ describe('buildPrintModel', () => {
     expect(lip).not.toHaveProperty('warn');
     expect(lip.glyph).toEqual({ color: '하양', shape: '원형', marking: 'ATV----10' }); // 사진 대체 그림 재료
     const [lan] = m.groups[1].meds;
-    expect(lan).toMatchObject({ name: '란투스주솔로스타', sub: '', appearance: '', dose: '10U' });
+    expect(lan).toMatchObject({ name: '란투스주솔로스타', sub: '', cls: '', appearance: '', dose: '10U' });
     expect(lan.glyph).toBeUndefined(); // 색·모양 없는 주사제는 그림 없이 글자만
   });
 
@@ -79,6 +81,12 @@ describe('buildPrintModel', () => {
 });
 
 describe('표기', () => {
+  it('식약처 분류명은 점을 가운뎃점으로', () => {
+    expect(formatDrugClass('해열.진통.소염제')).toBe('해열·진통·소염제');
+    expect(formatDrugClass(' 혈압강하제 ')).toBe('혈압강하제');
+    expect(formatDrugClass(undefined)).toBe('');
+  });
+
   it('작성일시·파일명(환자 정보 없음)', () => {
     expect(formatPrintDate(at)).toBe('2026-11-11 (수) 14:32');
     expect(printFileName(at)).toBe('지참약식별표_20261111_1432.jpg');

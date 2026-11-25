@@ -29,6 +29,7 @@ export const FONTS = {
   no: { size: pt(9), weight: 700 },
   name: { size: pt(11.5), weight: 700 },
   subline: { size: pt(8.6), weight: 400 },
+  cls: { size: pt(8.8), weight: 700 },
   memo: { size: pt(8.8), weight: 700 },
   cell: { size: pt(9.6), weight: 400 },
   dose: { size: pt(12), weight: 900 },
@@ -61,7 +62,7 @@ export interface Col {
 export const COLS: Col[] = [
   { key: 'no', w: 6, label: ['#'], align: 'center' },
   { key: 'photo', w: 60, label: ['식약처 사진'] },
-  { key: 'name', w: 60, label: ['약 이름 · 성분'] },
+  { key: 'name', w: 60, label: ['약 이름 · 성분 · 분류'] },
   { key: 'look', w: 34, label: ['겉모습', '(색/모양/각인)'] },
   { key: 'dose', w: 12, label: ['1회'], align: 'center' },
   { key: 'freq', w: 16, label: ['용법'] },
@@ -161,6 +162,7 @@ export interface MedRowLayout {
   med: PrintMed;
   name: string[];
   sub: string[];
+  cls: string[];
   memo: string[];
   look: string[];
   freq: string[];
@@ -191,14 +193,18 @@ export function layoutMedRow(med: PrintMed, measure: Measure): Omit<MedRowLayout
   const nameW = colW('name') - CELL_PAD * 2;
   const name = wrapText(med.name, nameW, FONTS.name, measure, 3);
   const sub = wrapText(med.sub, nameW, FONTS.subline, measure, 3);
+  const cls = med.cls ? wrapText(med.cls, nameW, FONTS.cls, measure, 2) : [];
   const memo = med.memo ? wrapText(`※ ${med.memo}`, nameW, FONTS.memo, measure, 2) : [];
   const look = wrapText(med.appearance || '—', colW('look') - CELL_PAD * 2, FONTS.cell, measure, 4);
   const freq = wrapText(med.freq, colW('freq') - CELL_PAD * 2, FONTS.cell, measure, 3);
   const stack =
-    name.length * FONTS.name.size * LH + sub.length * FONTS.subline.size * LH + memo.length * FONTS.memo.size * LH;
+    name.length * FONTS.name.size * LH +
+    sub.length * FONTS.subline.size * LH +
+    cls.length * FONTS.cls.size * LH +
+    memo.length * FONTS.memo.size * LH;
   const textH = Math.max(stack, look.length * FONTS.cell.size * LH, freq.length * FONTS.cell.size * LH);
   const h = Math.max(PHOTO_H, textH) + ROW_PAD * 2;
-  return { kind: 'med', h, med, name, sub, memo, look, freq };
+  return { kind: 'med', h, med, name, sub, cls, memo, look, freq };
 }
 
 /** 전체 문서 배치 */

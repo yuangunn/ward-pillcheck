@@ -6,7 +6,7 @@ import { PAGE, layoutDocument } from './layout';
 import { PX_PER_MM, canvasMeasure, drawPage, type PhotoMap } from './render';
 
 // A4 지참약 식별표 이미지(쪽마다 JPEG 1장) 만들기 + 폰 공유 창으로 보내기.
-// 흐름: 성분·영문 조회 → 배치 → 식약처 사진 받기 → 쪽마다 캔버스 → JPEG.
+// 흐름: 성분·영문·분류 조회 → 배치 → 식약처 사진 받기 → 쪽마다 캔버스 → JPEG.
 // 쪽 순서는 꼬리말 쪽 번호(1/3쪽)와 파일명(_1of3)으로 알 수 있다.
 // 환자 이름·병상번호는 넣지 않는다(종이에 환자 바코드를 직접 붙임).
 
@@ -87,11 +87,12 @@ export async function createPrintImages(
   onProgress?.({ stage: 'prepare' });
   const createdAt = new Date();
   const seqs = [...new Set(meds.map((m) => m.itemSeq).filter(Boolean))];
-  const [ingrKo, eng] = await Promise.all([
+  const [ingrKo, eng, cls] = await Promise.all([
     safeMap(drugApi.getIngredientsKo?.(seqs)),
     safeMap(drugApi.getEngNames?.(seqs)),
+    safeMap(drugApi.getClassNames?.(seqs)),
   ]);
-  const lookups: PrintLookups = { ingrKo, eng };
+  const lookups: PrintLookups = { ingrKo, eng, cls };
   const model = buildPrintModel(meds, lookups, { createdAt, dbDate: dbDateOf(getMeta()?.builtAt) });
 
   await settleFonts();

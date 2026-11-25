@@ -17,6 +17,7 @@ export interface PrintMed {
   no: number; // 1부터, 표 전체 일련번호
   name: string; // 품목명(성분 괄호는 성분 줄로 옮김)
   sub: string; // 한글 성분 · 영문 품목명
+  cls: string; // 식약처 분류(약효) 예) 해열·진통·소염제 — 무슨 약인지 한눈에('' = 없음)
   memo: string; // 메모(특이사항)
   appearance: string; // '하양 / 원형 / Bayer' (없으면 '')
   dose: string; // 1회 용량 예) 1T, 10U
@@ -43,6 +44,12 @@ export interface PrintModel {
 export interface PrintLookups {
   ingrKo?: Map<string, string>; // itemSeq → 한글 주성분
   eng?: Map<string, string>; // itemSeq → 영문 품목명
+  cls?: Map<string, string>; // itemSeq → 식약처 분류명(예: 해열.진통.소염제)
+}
+
+/** 식약처 분류명 표기 정리: '해열.진통.소염제' → '해열·진통·소염제' */
+export function formatDrugClass(s?: string): string {
+  return (s ?? '').trim().replace(/\s*\.\s*/g, '·');
 }
 
 const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토'];
@@ -79,6 +86,7 @@ function toPrintMed(med: MedItem, no: number, lk: PrintLookups): PrintMed {
     no,
     name,
     sub: [ingrKo, eng].filter(Boolean).join(' · '),
+    cls: formatDrugClass(lk.cls?.get(med.itemSeq)),
     memo: med.memo?.trim() ?? '',
     appearance: [med.color, med.shape, cleanMarking(med.marking)]
       .map((v) => (v ?? '').trim())

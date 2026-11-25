@@ -458,6 +458,17 @@ export async function getEngNameMap(seqs: string[]): Promise<Map<string, string>
   return map;
 }
 
+/** itemSeq → 식약처 분류명(cls, 약효분류 예: 해열.진통.소염제) 매핑(A4 출력물용). 번들 데이터, 오프라인. 로드 보장 후. */
+export async function getClassMap(seqs: string[]): Promise<Map<string, string>> {
+  await ensureDataset();
+  const want = new Set(seqs);
+  const map = new Map<string, string>();
+  for (const r of records ?? []) {
+    if (want.has(r.seq) && r.cls) map.set(r.seq, r.cls);
+  }
+  return map;
+}
+
 /** itemSeq → 제형(form) 매핑(분할·분쇄 주의 점검용). 번들 데이터, 오프라인. 로드 보장 후. */
 export async function getFormMap(seqs: string[]): Promise<Map<string, string>> {
   await ensureDataset();
