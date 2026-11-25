@@ -129,6 +129,7 @@ describe('buildPrintSafety', () => {
 describe('표기', () => {
   it('작성일시·파일명(환자 정보 없음)', () => {
     expect(formatPrintDate(at)).toBe('2026-11-11 (수) 14:32');
-    expect(printFileName(at)).toBe('지참약확인표_20261111_1432.pdf');
+    expect(printFileName(at)).toBe('지참약확인표_20261111_1432.jpg');
+    expect(printFileName(at, 2, 3)).toBe('지참약확인표_20261111_1432_2of3.jpg');
   });
 });

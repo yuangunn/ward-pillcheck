@@ -23,7 +23,7 @@ import type { InteractionResult } from '../api/dur';
 import { runSafetyCheck } from '../api/safety';
 import type { IngredientOverlap } from '../domain/ingredient';
 import type { SplitCrushFlag } from '../domain/formulation';
-import { createPrintPdf, sharePdf, type PrintPdf, type PrintProgress } from '../print';
+import { createPrintImages, shareFiles, type PrintImages, type PrintProgress } from '../print';
 import { getTeamsTarget, setTeamsTarget, teamsDeepLink, isAllowedTeamsTarget, TEAMS_TARGET_GUIDE } from '../state/teamsTarget';
 import { getShareOptions, setShareOptions, type ShareOptions } from '../state/shareOptions';
 
@@ -963,39 +963,39 @@ function ShareToggle({ label, hint, on, onToggle }: { label: string; hint: strin
   );
 }
 
-/** A4 출력용 PDF — 폰 공유 창(Teams 앱)으로 보내 원내 PC에서 출력. 환자 이름·병상번호는 넣지 않는다. */
-function PrintPdfSection({ open, meds }: { open: boolean; meds: MedItem[] }) {
-  const [pdf, setPdf] = useState<PrintPdf | null>(null);
+/** A4 출력용 이미지(쪽마다 JPEG) — 폰 공유 창(Teams 앱)으로 보내 원내 PC에서 출력. 환자 이름·병상번호는 넣지 않는다. */
+function PrintImageSection({ open, meds }: { open: boolean; meds: MedItem[] }) {
+  const [out, setOut] = useState<PrintImages | null>(null);
   const [busy, setBusy] = useState<PrintProgress | null>(null);
   const [msg, setMsg] = useState('');
   const runId = useRef(0);
-  // 시트를 닫거나 리스트가 바뀌면 만들어 둔 PDF 는 버린다(옛 내용이 나가지 않게).
+  // 시트를 닫거나 리스트가 바뀌면 만들어 둔 이미지는 버린다(옛 내용이 나가지 않게).
   useEffect(() => {
     runId.current += 1;
-    setPdf(null);
+    setOut(null);
     setBusy(null);
     setMsg('');
   }, [open, meds]);
   const make = async () => {
     const id = (runId.current += 1);
     setMsg('');
-    setPdf(null);
+    setOut(null);
     setBusy({ stage: 'prepare' });
     try {
-      const out = await createPrintPdf(meds, (p) => id === runId.current && setBusy(p));
+      const made = await createPrintImages(meds, (p) => id === runId.current && setBusy(p));
       if (id !== runId.current) return;
-      setPdf(out);
-      if (out.photosMissing) setMsg(`사진 ${out.photosMissing}장은 받지 못해 대신 모양·색 그림으로 표시했어요.`);
+      setOut(made);
+      if (made.photosMissing) setMsg(`사진 ${made.photosMissing}장은 받지 못해 대신 모양·색 그림으로 표시했어요.`);
     } catch {
-      if (id === runId.current) setMsg('PDF를 만들지 못했어요. 다시 시도해 주세요.');
+      if (id === runId.current) setMsg('이미지를 만들지 못했어요. 다시 시도해 주세요.');
     } finally {
       if (id === runId.current) setBusy(null);
     }
   };
   // 공유는 반드시 탭 직후에 호출(긴 작업 뒤엔 브라우저가 공유 창을 막음) — 그래서 만들기/보내기를 두 번의 탭으로 나눈다.
   const send = async () => {
-    if (!pdf) return;
-    const r = await sharePdf(pdf.file);
+    if (!out) return;
+    const r = await shareFiles(out.files);
     if (r === 'downloaded') setMsg('이 브라우저는 바로 공유가 안 돼서 파일로 저장했어요. Teams에서 첨부해 주세요.');
     else if (r === 'retry') setMsg('공유 창을 열지 못했어요. 한 번 더 눌러 주세요.');
     else setMsg('');
@@ -1010,20 +1010,20 @@ function PrintPdfSection({ open, meds }: { open: boolean; meds: MedItem[] }) {
   const small = { margin: '8px 2px 0', fontSize: 12, color: 'var(--text-weaker)', fontWeight: 600, lineHeight: 1.45 } as const;
   return (
     <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
-      <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.3 }}>A4 출력용 PDF</div>
+      <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-strong)', letterSpacing: -0.3 }}>A4 출력용 이미지</div>
       <p style={{ margin: '4px 0 12px', fontSize: 13, color: 'var(--text-weak)', fontWeight: 600, lineHeight: 1.45, letterSpacing: -0.3 }}>
         원내 PC에서 출력해 지참약과 함께 넣어요. 이름·병상번호는 넣지 않아요 — 출력 후 환자 바코드를 붙여 주세요.
       </p>
-      {pdf ? (
+      {out ? (
         <Btn variant="primary" full icon="share" onClick={send}>
-          PDF 보내기 ({pdf.pages}쪽)
+          이미지 보내기 ({out.pages}장)
         </Btn>
       ) : (
         <Btn variant="secondary" full icon="print" onClick={make} disabled={!!busy || !meds.length}>
-          {busy ? busyText : 'A4 출력용 PDF 만들기'}
+          {busy ? busyText : 'A4 출력용 이미지 만들기'}
         </Btn>
       )}
-      {pdf && <p style={small}>폰 공유 창이 열려요 — 원내 Teams 대화방을 골라 주세요. (외부 앱으로 보내지 않도록 주의)</p>}
+      {out && <p style={small}>폰 공유 창이 열려요 — 원내 Teams 대화방을 골라 주세요. (외부 앱으로 보내지 않도록 주의){out.pages > 1 ? ' 여러 장이면 꼬리말 쪽 번호 순서로 출력해 주세요.' : ''}</p>}
       {msg && (
         <p role="status" style={{ ...small, color: 'var(--warn-ink)' }}>
           {msg}
@@ -1057,7 +1057,7 @@ export function CopySheet({ open, onClose, label, meds }: { open: boolean; onClo
       alive = false;
     };
   }, [open, seqKey]);
-  // 인계 텍스트는 원내 Teams 딥링크로만(병상번호 포함). A4 PDF 는 환자 식별정보 없이 폰 공유 창으로(PrintPdfSection).
+  // 인계 텍스트는 원내 Teams 딥링크로만(병상번호 포함). A4 출력 이미지는 환자 식별정보 없이 폰 공유 창으로(PrintImageSection).
   const baseOpts = { ingredient: opts.ingredient, appearance: opts.appearance, english: opts.english, englishBySeq };
   const teamsText = useMemo(
     () => buildListText(label, meds, { ...baseOpts, mask: false }),
@@ -1114,7 +1114,7 @@ export function CopySheet({ open, onClose, label, meds }: { open: boolean; onClo
   return (
     <>
     <BottomSheet open={open} onClose={onClose} title="인계용 텍스트" maxH="78%">
-      <p style={{ margin: '0 0 14px', fontSize: 14, color: 'var(--text-weak)', fontWeight: 600, letterSpacing: -0.3 }}>원내 Teams 로 인계를 보내요. 아래에서 A4 출력용 PDF도 보낼 수 있어요.</p>
+      <p style={{ margin: '0 0 14px', fontSize: 14, color: 'var(--text-weak)', fontWeight: 600, letterSpacing: -0.3 }}>원내 Teams 로 인계를 보내요. 아래에서 A4 출력용 이미지도 보낼 수 있어요.</p>
       <pre style={{ margin: 0, padding: 16, borderRadius: 'var(--r-card)', background: 'var(--fill)', color: 'var(--text)', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 280, overflowY: 'auto' }}>
         {teamsText}
       </pre>
@@ -1147,7 +1147,7 @@ export function CopySheet({ open, onClose, label, meds }: { open: boolean; onClo
           ? `대상: ${teamsTarget} — 원내 전송이라 그대로 보내요(보내기만 탭).`
           : '“Teams로 보내기”를 누르면 보낼 대상을 물어봐요. (설정 ⚙️에서도 지정 가능)'}
       </p>
-      <PrintPdfSection open={open} meds={meds} />
+      <PrintImageSection open={open} meds={meds} />
     </BottomSheet>
     {teamsPrompt && (
       <TeamsTargetPrompt

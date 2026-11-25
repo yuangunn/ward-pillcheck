@@ -5,10 +5,10 @@ import { runSafetyCheck } from '../api/safety';
 import { buildPrintModel, printFileName, type PrintLookups } from './model';
 import { PAGE, layoutDocument } from './layout';
 import { PX_PER_MM, canvasMeasure, drawPage, type PhotoMap } from './render';
-import { buildJpegPdf } from './pdf';
 
-// A4 지참약 확인표 PDF 만들기 + 폰 공유 창으로 보내기.
-// 흐름: 성분·영문·제형 조회 + 금기·중복 점검 → 배치 → 식약처 사진 받기 → 쪽마다 캔버스 → JPEG → PDF.
+// A4 지참약 확인표 이미지(쪽마다 JPEG 1장) 만들기 + 폰 공유 창으로 보내기.
+// 흐름: 성분·영문·제형 조회 + 금기·중복 점검 → 배치 → 식약처 사진 받기 → 쪽마다 캔버스 → JPEG.
+// 쪽 순서는 꼬리말 쪽 번호(1/3쪽)와 파일명(_1of3)으로 알 수 있다.
 // 환자 이름·병상번호는 넣지 않는다(종이에 환자 바코드를 직접 붙임).
 
 export type PrintProgress =
@@ -16,8 +16,8 @@ export type PrintProgress =
   | { stage: 'photos'; done: number; total: number }
   | { stage: 'pages'; done: number; total: number };
 
-export interface PrintPdf {
-  file: File;
+export interface PrintImages {
+  files: File[]; // 쪽 순서대로 JPEG
   pages: number;
   photosMissing: number; // 사진 URL 은 있었지만 받지 못한 장수
 }
@@ -80,10 +80,10 @@ function canvasToJpeg(canvas: HTMLCanvasElement, quality: number): Promise<Uint8
   });
 }
 
-export async function createPrintPdf(
+export async function createPrintImages(
   meds: MedItem[],
   onProgress?: (p: PrintProgress) => void,
-): Promise<PrintPdf> {
+): Promise<PrintImages> {
   if (!meds.length) throw new Error('약이 없어요');
   onProgress?.({ stage: 'prepare' });
   const createdAt = new Date();
@@ -119,28 +119,28 @@ export async function createPrintPdf(
     }),
   );
 
-  const pages = [];
+  const total = doc.pages.length;
+  const files: File[] = [];
   for (const page of doc.pages) {
-    onProgress?.({ stage: 'pages', done: page.index, total: doc.pages.length });
+    onProgress?.({ stage: 'pages', done: page.index, total });
     drawPage(ctx, measure, doc, page, model, photos);
-    pages.push({ jpeg: await canvasToJpeg(canvas, 0.9), widthPx: canvas.width, heightPx: canvas.height });
+    const jpeg = await canvasToJpeg(canvas, 0.9);
+    files.push(new File([jpeg.buffer as ArrayBuffer], printFileName(createdAt, page.index + 1, total), { type: 'image/jpeg' }));
   }
   canvas.width = canvas.height = 0; // iOS 캔버스 메모리 즉시 반환
 
-  const bytes = buildJpegPdf(pages, { title: '지참약 확인표', createdAt });
-  const file = new File([bytes.buffer as ArrayBuffer], printFileName(createdAt), { type: 'application/pdf' });
-  return { file, pages: pages.length, photosMissing: [...photos.values()].filter((v) => !v).length };
+  return { files, pages: total, photosMissing: [...photos.values()].filter((v) => !v).length };
 }
 
 export type ShareOutcome = 'shared' | 'cancelled' | 'downloaded' | 'retry';
 
 /**
- * 폰 공유 창으로 PDF 보내기(Teams 앱 선택). 파일 공유를 못 하는 브라우저면 파일로 저장한다.
- * ⚠ 반드시 버튼 탭 직후(사용자 동작 안)에 호출 — PDF 생성 같은 긴 작업 뒤엔 브라우저가 공유를 막는다.
+ * 폰 공유 창으로 쪽 이미지들 보내기(Teams 앱 선택). 파일 공유를 못 하는 브라우저면 파일로 저장한다.
+ * ⚠ 반드시 버튼 탭 직후(사용자 동작 안)에 호출 — 이미지 생성 같은 긴 작업 뒤엔 브라우저가 공유를 막는다.
  */
-export async function sharePdf(file: File): Promise<ShareOutcome> {
+export async function shareFiles(files: File[]): Promise<ShareOutcome> {
   const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
-  const data: ShareData = { files: [file], title: '지참약 확인표' };
+  const data: ShareData = { files, title: '지참약 확인표' };
   if (typeof nav.share === 'function' && nav.canShare?.(data)) {
     try {
       await nav.share(data);
@@ -152,7 +152,8 @@ export async function sharePdf(file: File): Promise<ShareOutcome> {
       // 그 외 실패는 저장으로 폴백
     }
   }
-  downloadFile(file);
+  // 여러 장을 한꺼번에 받으면 브라우저가 두 번째부터 막기도 해서 조금씩 띄워 저장
+  files.forEach((f, i) => setTimeout(() => downloadFile(f), i * 400));
   return 'downloaded';
 }
 
