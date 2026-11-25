@@ -40,7 +40,7 @@ test('A4 이미지: 만들기 → 공유 창에 A4 JPEG 1장(파일명에 환자
   });
   const sheet = await addBayerAndOpenShare(page);
   await sheet.getByRole('button', { name: 'A4 출력용 식별표 만들기' }).click();
-  const send = sheet.getByRole('button', { name: /이미지로 보내기.*\(1장\)/ });
+  const send = sheet.getByRole('button', { name: /식별표 이미지 보내기.*\(1장\)/ });
   await expect(send).toBeVisible({ timeout: 20_000 });
   await send.click();
   await expect.poll(() => page.evaluate(() => (window as unknown as { __shared: unknown }).__shared)).not.toBeNull();
@@ -56,7 +56,7 @@ test('A4 이미지: 만들기 → 공유 창에 A4 JPEG 1장(파일명에 환자
   expect(shared.count).toBe(1);
   expect(shared.type).toBe('image/jpeg');
   expect(shared.head).toEqual([0xff, 0xd8, 0xff]); // JPEG SOI
-  expect([shared.w, shared.h]).toEqual([2940, 4158]); // A4 × 14px/mm
+  expect([shared.w, shared.h]).toEqual([724, 1024]); // Teams 가 더 줄이지 않는 크기(긴 변 1024px)
   expect(shared.name).toMatch(/^지참약식별표_\d{8}_\d{4}\.jpg$/);
   expect(shared.name).not.toContain('환자');
   expect(shared.size).toBeGreaterThan(20_000); // 실제로 그려진 A4 JPEG
@@ -76,7 +76,7 @@ test('A4 이미지: 공유를 못 하는 브라우저는 파일로 저장하고 
   });
   const sheet = await addBayerAndOpenShare(page);
   await sheet.getByRole('button', { name: 'A4 출력용 식별표 만들기' }).click();
-  const send = sheet.getByRole('button', { name: /이미지로 보내기/ });
+  const send = sheet.getByRole('button', { name: /식별표 이미지 보내기/ });
   await expect(send).toBeVisible({ timeout: 20_000 });
   const [download] = await Promise.all([page.waitForEvent('download'), send.click()]);
   const name = await page.evaluate(() => (window as unknown as { __dlName: string }).__dlName);

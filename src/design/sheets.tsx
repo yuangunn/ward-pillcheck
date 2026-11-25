@@ -993,7 +993,8 @@ function PrintImageSection({ open, meds }: { open: boolean; meds: MedItem[] }) {
     }
   };
   // 공유는 반드시 탭 직후에 호출(긴 작업 뒤엔 브라우저가 공유 창을 막음) — 그래서 만들기/보내기를 두 번의 탭으로 나눈다.
-  // 출력용은 PDF: Teams 는 이미지로 받으면 크게 압축해(670KB → 60~100KB) 글자가 뭉개지지만 PDF 는 파일로 그대로 간다.
+  // Teams 는 파일 첨부(PDF·zip)가 막혀 있고 이미지는 긴 변 1024px 로 줄인다 → Teams 용 이미지(724×1024)가 기본,
+  // PDF(원본 화질)는 파일이 그대로 가는 통로(메일 등)용.
   const send = async (kind: 'pdf' | 'images') => {
     if (!out) return;
     const r = await shareFiles(kind === 'pdf' ? [out.pdf] : out.files);
@@ -1017,11 +1018,11 @@ function PrintImageSection({ open, meds }: { open: boolean; meds: MedItem[] }) {
       </p>
       {out ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <Btn variant="primary" full icon="share" onClick={() => send('pdf')}>
-            PDF로 보내기 · 출력용 ({out.pages}쪽)
+          <Btn variant="primary" full icon="share" onClick={() => send('images')}>
+            식별표 이미지 보내기 · Teams용 ({out.files.length}장)
           </Btn>
-          <Btn variant="secondary" full icon="share" onClick={() => send('images')}>
-            이미지로 보내기 · 미리보기용 ({out.pages}장)
+          <Btn variant="secondary" full icon="share" onClick={() => send('pdf')}>
+            PDF로 보내기 · 원본 화질 ({out.pages}쪽)
           </Btn>
         </div>
       ) : (
@@ -1031,7 +1032,7 @@ function PrintImageSection({ open, meds }: { open: boolean; meds: MedItem[] }) {
       )}
       {out && (
         <p style={small}>
-          폰 공유 창이 열려요 — 원내 Teams 대화방을 골라 주세요. (외부 앱으로 보내지 않도록 주의) 출력은 PDF로 — 이미지는 Teams가 압축해 글자가 흐려져요.
+          폰 공유 창이 열려요 — 원내 Teams 대화방을 골라 주세요. (외부 앱으로 보내지 않도록 주의) Teams는 이미지를 1024px로 줄이기 때문에, 그 크기에서 읽히도록 글자를 키우고 한 장에 6종 안팎으로 나눴어요. 파일을 그대로 보낼 수 있는 곳(메일 등)이면 PDF가 더 선명해요.
         </p>
       )}
       {msg && (
@@ -1124,7 +1125,7 @@ export function CopySheet({ open, onClose, label, meds }: { open: boolean; onClo
   return (
     <>
     <BottomSheet open={open} onClose={onClose} title="인계용 텍스트" maxH="78%">
-      <p style={{ margin: '0 0 14px', fontSize: 14, color: 'var(--text-weak)', fontWeight: 600, letterSpacing: -0.3 }}>원내 Teams 로 인계를 보내요. 아래에서 A4 출력용 식별표(PDF)도 보낼 수 있어요.</p>
+      <p style={{ margin: '0 0 14px', fontSize: 14, color: 'var(--text-weak)', fontWeight: 600, letterSpacing: -0.3 }}>원내 Teams 로 인계를 보내요. 아래에서 A4 출력용 식별표(이미지·PDF)도 보낼 수 있어요.</p>
       <pre style={{ margin: 0, padding: 16, borderRadius: 'var(--r-card)', background: 'var(--fill)', color: 'var(--text)', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 280, overflowY: 'auto' }}>
         {teamsText}
       </pre>
