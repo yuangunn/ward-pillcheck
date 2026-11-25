@@ -313,6 +313,14 @@ export function createMockClient(): DrugApi {
       }
       return map;
     },
+    async getClassNames(seqs: string[]): Promise<Map<string, string>> {
+      const want = new Set(seqs);
+      const map = new Map<string, string>();
+      for (const p of SAMPLE) {
+        if (want.has(p.itemSeq) && p.className) map.set(p.itemSeq, p.className);
+      }
+      return map;
+    },
     async getForms(seqs: string[]): Promise<Map<string, string>> {
       const want = new Set(seqs);
       const map = new Map<string, string>();

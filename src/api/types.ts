@@ -91,6 +91,11 @@ export interface DrugApi {
    */
   getEngNames?(seqs: string[]): Promise<Map<string, string>>;
   /**
+   * itemSeq → 식약처 분류명(약효분류, 예: 해열.진통.소염제) 매핑(A4 식별표용). 완전 오프라인.
+   * 분류 데이터가 없는 구현(워커 등)은 미구현(선택)이며, 그 경우 분류는 표시하지 않는다.
+   */
+  getClassNames?(seqs: string[]): Promise<Map<string, string>>;
+  /**
    * itemSeq → 제형명 매핑(분할·분쇄 주의 점검용). 완전 오프라인.
    * 제형 데이터가 없는 구현(워커 등)은 미구현(선택)이며, 그 경우 분할·분쇄 주의는 점검하지 않는다.
    */

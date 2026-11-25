@@ -1,5 +1,5 @@
 import { type DrugApi, type DrugDetail, type PillResult, type PillSearchQuery } from './types';
-import { searchDataset, getIngredientMap, getIngredientKoMap, getEngNameMap, getFormMap } from './dataset';
+import { searchDataset, getIngredientMap, getIngredientKoMap, getEngNameMap, getClassMap, getFormMap } from './dataset';
 import { getBundledDetail } from './details';
 import { createWorkerClient } from './workerClient';
 
@@ -31,6 +31,9 @@ export function createBundledClient(apiBase: string): DrugApi {
     },
     getEngNames(seqs: string[]): Promise<Map<string, string>> {
       return getEngNameMap(seqs); // 번들 데이터(품목영문명), 오프라인
+    },
+    getClassNames(seqs: string[]): Promise<Map<string, string>> {
+      return getClassMap(seqs); // 번들 데이터(식약처 분류명), 오프라인
     },
     getForms(seqs: string[]): Promise<Map<string, string>> {
       return getFormMap(seqs); // 번들 데이터, 오프라인

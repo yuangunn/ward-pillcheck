@@ -275,12 +275,17 @@ function drawMedRow(ctx: Ctx, r: MedRowLayout, photos: PhotoMap) {
   text(ctx, String(r.med.no), colX('no') + colW('no') / 2, mid(FONTS.no.size * LH), FONTS.no, { color: '#555', align: 'center' });
   drawPhoto(ctx, r, photos);
 
-  // 이름 칸: 이름 / 성분·영문 / 메모
+  // 이름 칸: 이름 / 성분·영문 / 분류(무슨 약인지) / 메모
   const nx = colX('name') + CELL_PAD;
-  const stackH = r.name.length * FONTS.name.size * LH + r.sub.length * FONTS.subline.size * LH + r.memo.length * FONTS.memo.size * LH;
+  const stackH =
+    r.name.length * FONTS.name.size * LH +
+    r.sub.length * FONTS.subline.size * LH +
+    r.cls.length * FONTS.cls.size * LH +
+    r.memo.length * FONTS.memo.size * LH;
   let y = mid(stackH);
   y += lines(ctx, r.name, nx, y, FONTS.name);
   y += lines(ctx, r.sub, nx, y, FONTS.subline, { color: INK2 });
+  y += lines(ctx, r.cls, nx, y, FONTS.cls);
   lines(ctx, r.memo, nx, y, FONTS.memo);
 
   const cellLH = FONTS.cell.size * LH;
